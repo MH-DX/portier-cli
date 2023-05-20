@@ -1,0 +1,7 @@
+portier-cli
+vendor/
+coverage.out
+/dist
+.envrc
+manpages/
+dist/
