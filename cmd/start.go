@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/marinator86/portier-cli/internal/daemon"
-	"github.com/marinator86/portier-cli/pkg/utils"
+	"github.com/marinator86/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
