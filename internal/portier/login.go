@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marinator86/portier-cli/pkg/utils"
+	"github.com/marinator86/portier-cli/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 
