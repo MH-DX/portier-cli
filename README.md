@@ -108,3 +108,8 @@ test                           display test coverage
 
 # Contribute
 If you find issues in that setup or have some nice features / improvements, I would welcome an issue or a PR :)
+
+# Environment Variables
+| Name             | Value            |
+|------------------|------------------|
+|PORTIER_HOME      | ~/.portier       |
