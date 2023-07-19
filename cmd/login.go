@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/marinator86/portier-cli/internal/portier"
+	portier "github.com/marinator86/portier-cli/internal/portier/api"
 	"github.com/spf13/cobra"
 )
 
