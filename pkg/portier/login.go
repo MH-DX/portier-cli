@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/marinator86/portier-cli/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -48,32 +49,6 @@ type AuthRequest struct {
 type AuthResponse struct {
 	AccessToken  string
 	RefreshToken string
-}
-
-func Home() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	home = home + "/.portier"
-
-	if customHome := os.Getenv("PORTIER_HOME"); customHome != "" {
-		home = customHome
-	}
-
-	if _, err := os.Stat(home); err != nil {
-		if os.IsNotExist(err) {
-			err := os.Mkdir(home, 0700)
-			if err != nil {
-				return "", err
-			}
-		} else {
-			return "", err
-		}
-	}
-
-	return home, nil
 }
 
 func NewVerifier() (Verifier, error) {
@@ -237,7 +212,7 @@ func StoreAccessToken(authResponse AuthResponse, home string) error {
 // This is the recommended way to authenticate users.
 // See https://tools.ietf.org/html/rfc7636
 func Login() error {
-	var home, err = Home()
+	var home, err = utils.Home()
 	if err != nil {
 		return err
 	}

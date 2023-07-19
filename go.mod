@@ -7,6 +7,7 @@ require (
 	github.com/go-critic/go-critic v0.8.0
 	github.com/golangci/golangci-lint v1.52.2
 	github.com/gotesttools/gotestfmt/v2 v2.4.1
+	github.com/kardianos/service v1.2.2
 	github.com/muesli/mango-cobra v1.2.0
 	github.com/muesli/roff v0.1.0
 	github.com/spf13/cobra v1.7.0
