@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/marinator86/portier-cli/internal/portier/relay"
 )
 
 var upgrader = websocket.Upgrader{
@@ -75,15 +75,32 @@ func TestReconnect(testing *testing.T) {
 	msg := []byte("Hello, world!")
 
 	uplink := NewWebsocketUplink(options)
+	eventChannel := uplink.Events()
 	channel, err := uplink.Connect()
 	if err != nil {
 		testing.Errorf("error connecting to websocket: %v", err)
 	}
+	// expect connected event
+	event := <-eventChannel
+	if event.State != relay.UplinkStateConnected {
+		testing.Errorf("expected %v, got %v", relay.UplinkStateConnected, event.State)
+	}
 
 	// WHEN
-	uplink.Send([]byte("close"))       // send message to the uplink to close the connection
-	time.Sleep(100 * time.Millisecond) // wait for the uplink to close
-	uplink.Send(msg)                   // send message to the uplink
+	uplink.Send([]byte("close")) // send message to the uplink to close the connection
+
+	// THEN
+	event = <-eventChannel
+	if event.State != relay.UplinkStateDisconnected {
+		testing.Errorf("expected %v, got %v", relay.UplinkStateDisconnected, event.State)
+	}
+	event = <-eventChannel
+	if event.State != relay.UplinkStateConnected {
+		testing.Errorf("expected %v, got %v", relay.UplinkStateConnected, event.State)
+	}
+
+	// WHEN
+	uplink.Send(msg) // send message to the uplink
 
 	// THEN
 	response := <-channel
