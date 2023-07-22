@@ -148,6 +148,13 @@ const (
 	UplinkStateConnected UplinkState = "connected"
 )
 
+type UplinkEvent struct {
+	// State is the state of the uplink
+	State UplinkState
+	// Event
+	Event string
+}
+
 // Uplink is the uplink interface to the portier server. It is used to send messages to the portier server and to receive messages from the portier server.
 // Moreover, it has to handle connection loss and reconnect to the portier server.
 type Uplink interface {
@@ -163,6 +170,9 @@ type Uplink interface {
 
 	// Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel
 	Close() error
+
+	// Returns a recv channel to listen for events
+	Events() <-chan UplinkEvent
 }
 
 // Relay is the portier relay to bridging TCP / UDP traffic via websocket to the portier server

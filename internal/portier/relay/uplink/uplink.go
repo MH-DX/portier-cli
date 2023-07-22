@@ -33,9 +33,6 @@ type WebsocketUplink struct {
 	// Options defines the options for the uplink
 	Options Options
 
-	// state is the state of the uplink
-	state relay.UplinkState
-
 	// retries is the number of retries to reconnect to the portier server
 	retries int64
 
@@ -47,6 +44,9 @@ type WebsocketUplink struct {
 
 	// mutex is the mutex to lock the connection
 	mutex sync.Mutex
+
+	// events is the channel to receive events from the uplink
+	events chan relay.UplinkEvent
 }
 
 func defaultOptions() Options {
@@ -73,8 +73,8 @@ func NewWebsocketUplink(options Options) *WebsocketUplink {
 
 	return &WebsocketUplink{
 		Options: options,
-		state:   relay.UplinkStateDisconnected,
 		recv:    make(chan []byte, 1),
+		events:  make(chan relay.UplinkEvent, 100),
 	}
 }
 
@@ -85,7 +85,6 @@ func (u *WebsocketUplink) Connect() (<-chan []byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	u.state = relay.UplinkStateConnected
 	return u.recv, nil
 }
 
@@ -97,6 +96,10 @@ func (u *WebsocketUplink) Send(message []byte) error {
 	if err != nil {
 		if websocket.IsUnexpectedCloseError(err) {
 			log.Printf("websocket disconnected: %v", err)
+			u.events <- relay.UplinkEvent{
+				State: relay.UplinkStateDisconnected,
+				Event: "websocket disconnected",
+			}
 			time.Sleep(u.calculateBackoff())
 			u.connectWebsocket()
 		}
@@ -107,8 +110,11 @@ func (u *WebsocketUplink) Send(message []byte) error {
 // Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel
 func (u *WebsocketUplink) Close() error {
 	u.connection.Close()
-	u.state = relay.UplinkStateDisconnected
 	return nil
+}
+
+func (u *WebsocketUplink) Events() <-chan relay.UplinkEvent {
+	return u.events
 }
 
 func (u *WebsocketUplink) connectWebsocket() error {
@@ -119,16 +125,18 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// Establish a websocket connection to the portier server
 	connection, resp, err := dialer.Dial(u.Options.PortierURL, header)
 	if err != nil {
-		if resp != nil {
-			return fmt.Errorf("websocket connection failed: %v", resp.Status)
-		}
 		if u.retries < u.Options.ReconnectRetries || u.Options.ReconnectRetries == 0 {
 			u.retries++
 		} else {
+			fmt.Println(resp)
 			return fmt.Errorf("maximum number of retries reached after: %v", err)
 		}
 		time.Sleep(u.calculateBackoff())
 		return u.connectWebsocket()
+	}
+	u.events <- relay.UplinkEvent{
+		State: relay.UplinkStateConnected,
+		Event: "websocket connected",
 	}
 
 	u.retries = 0
@@ -140,6 +148,10 @@ func (u *WebsocketUplink) connectWebsocket() error {
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err) {
 					log.Printf("websocket disconnected: %v", err)
+					u.events <- relay.UplinkEvent{
+						State: relay.UplinkStateDisconnected,
+						Event: "websocket disconnected",
+					}
 					time.Sleep(u.calculateBackoff())
 					u.connectWebsocket()
 				}
