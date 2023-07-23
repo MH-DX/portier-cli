@@ -90,14 +90,18 @@ type MessageHeader struct {
 
 	// The type of this message
 	Type MessageType
-}
-
-// ConnectionMessage is a message about a connection
-type ConnectionMessageHeader struct {
-	MessageHeader
 
 	// CID is a uuid for the connection
 	CID string
+}
+
+// Message is a message that is sent to the portier server
+type Message struct {
+	// Header is the plaintext, but authenticated header of the message
+	Header MessageHeader
+
+	// Message is the serialized and encrypted message, i.e. a DataMessage
+	Message []byte
 }
 
 // ConnectionOpenMessage is a message that is sent when a connection is opened
@@ -133,15 +137,6 @@ type DataMessage struct {
 type DataAckMessage struct {
 	// Seq is the sequence number of the data
 	Seq uint64
-}
-
-// Message is a message that is sent to the portier server
-type Message struct {
-	// Header is the plaintext, but authenticated header of the message
-	Header MessageHeader
-
-	// Message is the serialized and encrypted message, i.e. a DataMessage
-	Message []byte
 }
 
 // Router is the router interface which holds a map of connectionId to service and routes messages to the correct service.
