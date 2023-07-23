@@ -62,11 +62,29 @@ type ServiceDocument struct {
 	Services []Service
 }
 
-// MessageType is the type of the message, i.e.
-// CO (ConnectionOpenMessage), CA (ConnectionAcceptMessage), CF (ConnectionFailedMessage), D (DataMessage), DA (DataAckMessage)
 type MessageType string
 
-type Message struct {
+const (
+	// ConnectionOpenMessage is a message that is sent when a connection is opened
+	CO MessageType = "CO"
+
+	// ConnectionAcceptMessage is a message that is sent when a connection is accepted
+	CA MessageType = "CA"
+
+	// ConnectionFailedMessage is a message that is sent when a connection open attempt failed
+	CF MessageType = "CF"
+
+	// DataMessage is a message that contains data
+	D MessageType = "D"
+
+	// DataAckMessage is a message that is sent when data with a sequence number is received
+	DA MessageType = "DA"
+)
+
+type MessageHeader struct {
+	// From is the spider device Id of the sender of the message
+	From string
+
 	// To is the spider device Id of the recipient of the message
 	To string
 
@@ -75,21 +93,15 @@ type Message struct {
 }
 
 // ConnectionMessage is a message about a connection
-type ConnectionMessage struct {
-	Message
+type ConnectionMessageHeader struct {
+	MessageHeader
 
 	// CID is a uuid for the connection
 	CID string
-
-	// Sig is the signature of the complete message, for connection open messages it is the signature of the public device key
-	// for connection accept messages it is the signature of the public connection key
-	Sig string
 }
 
 // ConnectionOpenMessage is a message that is sent when a connection is opened
 type ConnectionOpenMessage struct {
-	ConnectionMessage
-
 	// BridgeOptions defines the options for the bridge, which are shared
 	BridgeOptions BridgeOptions
 
@@ -98,24 +110,18 @@ type ConnectionOpenMessage struct {
 }
 
 type ConnectionAcceptMessage struct {
-	ConnectionMessage
-
 	// PCKey is the ephemeral public connection key, used to encrypt&sign the data for this connection
 	PCKey string
 }
 
 // ConnectionFailedMessage is a message that is sent when a connection open attempt failed
 type ConnectionFailedMessage struct {
-	ConnectionMessage
-
 	// Reason is the reason why the connection failed
 	Reason string
 }
 
 // DataMessage is a message that contains data
 type DataMessage struct {
-	ConnectionMessage
-
 	// Seq is the sequence number of the data
 	Seq uint64
 
@@ -125,16 +131,32 @@ type DataMessage struct {
 
 // DataAckMessage is a message that is sent when data with a sequence number is received
 type DataAckMessage struct {
-	ConnectionMessage
-
 	// Seq is the sequence number of the data
 	Seq uint64
+}
+
+// Message is a message that is sent to the portier server
+type Message struct {
+	// Header is the plaintext, but authenticated header of the message
+	Header MessageHeader
+
+	// Message is the serialized and encrypted message, i.e. a DataMessage
+	Message []byte
 }
 
 // Router is the router interface which holds a map of connectionId to service and routes messages to the correct service.
 type Router interface {
 	// Called by the Uplink. Route routes a Message (and subtypes)
 	Route(Message) error
+}
+
+// EncoderDecoder is the interface for encoding and decoding messages (using msgpack)
+type EncoderDecoder interface {
+	// Encode encodes a message
+	Encode(Message) ([]byte, error)
+
+	// Decode decodes a message
+	Decode([]byte) (Message, error)
 }
 
 // State is the state of the relay
