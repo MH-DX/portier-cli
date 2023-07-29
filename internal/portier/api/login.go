@@ -74,8 +74,8 @@ func NewAuthRequest(verifier Verifier) (AuthRequest, error) {
 	// create a new auth request
 	// url encode the verifier
 	var authRequest = AuthRequest{
-		AuthURL:             "https://dev-eky3r60icvtk7a30.eu.auth0.com/authorize",
-		ClientID:            "jj2dZqnIaL682XQiVIalh05diy8cha99",
+		AuthURL:             "https://portier-spider.eu.auth0.com/authorize",
+		ClientID:            "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb",
 		RedirectURI:         "http://localhost:5555/callback",
 		Scope:               url.QueryEscape("openid email offline_access"),
 		State:               url.QueryEscape("portier-cli"),
@@ -122,7 +122,7 @@ func WaitForAuthCode(authRequest AuthRequest) (string, error) {
 
 func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, error) {
 	// define the endpoint
-	tokenURL := "https://dev-eky3r60icvtk7a30.eu.auth0.com/oauth/token"
+	tokenURL := "https://portier-spider.eu.auth0.com/oauth/token"
 
 	// define the data
 	data := url.Values{}
