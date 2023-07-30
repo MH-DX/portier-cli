@@ -28,3 +28,14 @@ func (e *EncoderDecoder) Decode(msg []byte) (relay.Message, error) {
 	}
 	return message, nil
 }
+
+// DecodeConnectionOpenMessage decodes a connection open message
+func (e *EncoderDecoder) DecodeConnectionOpenMessage(msg []byte) (relay.ConnectionOpenMessage, error) {
+	// use msgpack to decode the message
+	var message relay.ConnectionOpenMessage
+	err := msgpack.Unmarshal(msg, &message)
+	if err != nil {
+		return relay.ConnectionOpenMessage{}, err
+	}
+	return message, nil
+}
