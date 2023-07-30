@@ -1,6 +1,9 @@
 package relay
 
-import "time"
+import (
+	"net/url"
+	"time"
+)
 
 // ServiceOptions defines the local options for the service
 type ServiceOptions struct {
@@ -21,7 +24,7 @@ type BridgeOptions struct {
 	Timestamp time.Time
 
 	// The remote URL
-	URLRemote string
+	URLRemote url.URL
 
 	// RateLimit is the rate limit in bytes per second that is applied to the connection
 	RateLimitBytesPerSecond int
@@ -64,9 +67,14 @@ type ServiceDocument struct {
 
 type MessageType string
 
+type ConnectionId string
+
 const (
 	// ConnectionOpenMessage is a message that is sent when a connection is opened
 	CO MessageType = "CO"
+
+	// ConnectionCloseMessage is a message that is sent when a connection is closed
+	CC MessageType = "CC"
 
 	// ConnectionAcceptMessage is a message that is sent when a connection is accepted
 	CA MessageType = "CA"
@@ -92,7 +100,7 @@ type MessageHeader struct {
 	Type MessageType
 
 	// CID is a uuid for the connection
-	CID string
+	CID ConnectionId
 }
 
 // Message is a message that is sent to the portier server
@@ -139,10 +147,17 @@ type DataAckMessage struct {
 	Seq uint64
 }
 
-// Router is the router interface which holds a map of connectionId to service and routes messages to the correct service.
 type Router interface {
-	// Called by the Uplink. Route routes a Message (and subtypes)
-	Route(Message) error
+	// HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
+	// or routes the message to the existing service, or shuts down the service if the message is a shutdown message.
+	// Returns an error if the message could not be routed.
+	HandleMessage(msg Message) error
+
+	// AddConnection adds a connection to the router
+	AddConnection(ConnectionId, ConnectionAdapter)
+
+	// RemoveConnection removes a connection from the router
+	RemoveConnection(ConnectionId)
 }
 
 // EncoderDecoder is the interface for encoding and decoding messages (using msgpack)
@@ -152,6 +167,9 @@ type EncoderDecoder interface {
 
 	// Decode decodes a message
 	Decode([]byte) (Message, error)
+
+	// DecodeConnectionOpenMessage decodes a connection open message
+	DecodeConnectionOpenMessage([]byte) (ConnectionOpenMessage, error)
 }
 
 // State is the state of the relay
@@ -205,4 +223,17 @@ type Relay struct {
 
 	// Uplink is the uplink that is used to send traffic to the portier server
 	Uplink Uplink
+}
+
+type ConnectionAdapter interface {
+	// Start starts the connection
+	Start() error
+
+	// Send sends a message to the connection
+	Send(payload []byte) error
+}
+
+type ConnectionProvider interface {
+	// CreateConnection creates a new connection
+	CreateInboundConnection(header MessageHeader, options BridgeOptions, pcKey string, router Router) error
 }
