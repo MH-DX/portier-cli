@@ -3,13 +3,9 @@ package relay
 import (
 	"net/url"
 	"time"
-)
 
-// ServiceOptions defines the local options for the service
-type ServiceOptions struct {
-	// The max queue size of messages to fetch from the connection
-	MaxQueueSize int
-}
+	"github.com/google/uuid"
+)
 
 // Cipher is the cipher type and can be AES-256-GCM
 type Cipher string
@@ -39,6 +35,21 @@ type BridgeOptions struct {
 	Curve Curve
 }
 
+// ServiceOptions defines the local options for the service
+type ServiceOptions struct {
+	// The max queue size of messages to fetch from the connection
+	MaxQueueSize int
+
+	// The remote URL the bridge has to connect to
+	URLRemote url.URL
+
+	// RateLimit is the rate limit in bytes per second that is applied to the connection
+	RateLimitBytesPerSecond int
+
+	// AckWindowSize is the size of the ack window, i.e. the number of messages that are sent before an ack is expected
+	AckWindowSize int
+}
+
 // Service is a service that is exposed by the portier server as a TCP or UDP service. Each Service
 // has an internal queue that is used to queue messages that are sent to the service. The queue has a max size,
 // in case the queue is full, messages are not received from the underlying connection anymore (backpressure).
@@ -55,14 +66,6 @@ type Service struct {
 
 	// ServiceOptions defines the options for the service
 	Options ServiceOptions
-
-	// BridgeOptions defines the options for the bridge, which are shared
-	BridgeOptions BridgeOptions
-}
-
-type ServiceDocument struct {
-	// The services
-	Services []Service
 }
 
 type MessageType string
@@ -91,10 +94,10 @@ const (
 
 type MessageHeader struct {
 	// From is the spider device Id of the sender of the message
-	From string
+	From uuid.UUID
 
 	// To is the spider device Id of the recipient of the message
-	To string
+	To uuid.UUID
 
 	// The type of this message
 	Type MessageType
@@ -216,7 +219,7 @@ type Relay struct {
 	ServerURL string
 
 	//The service document
-	Services ServiceDocument
+	Services []Service
 
 	//Router is the router that is used to route traffic to the correct service
 	Router Router
@@ -229,11 +232,28 @@ type ConnectionAdapter interface {
 	// Start starts the connection
 	Start() error
 
+	// Stop stops the connection
+	Stop() error
+
 	// Send sends a message to the connection
 	Send(payload []byte) error
 }
 
-type ConnectionProvider interface {
+type ConnectionAdapterOptions struct {
+	// ConnectionId is the connection id
+	ConnectionId ConnectionId
+
+	// PeerDeviceId is the id of the peer device that this connection is bridged to/from
+	PeerDeviceId uuid.UUID
+
+	// PeerDevicePublicKey is the public key of the peer device that this connection is bridged to/from
+	PeerDevicePublicKey string
+
+	// BridgeOptions are the bridge options
+	BridgeOptions BridgeOptions
+}
+
+type Connector interface {
 	// CreateConnection creates a new connection
-	CreateInboundConnection(header MessageHeader, options BridgeOptions, pcKey string, router Router) error
+	CreateInboundConnection(header MessageHeader, options BridgeOptions, pcKey string) error
 }
