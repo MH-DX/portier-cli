@@ -13,8 +13,8 @@ type router struct {
 	// encoderDecoder is the encoder/decoder
 	encoderDecoder relay.EncoderDecoder
 
-	// connectionProvider creates new connections on ConnectionOpenMessage
-	connectionProvider relay.ConnectionProvider
+	// connector establishes inbound connections
+	connector relay.Connector
 }
 
 // NewRouter creates a new router
@@ -41,11 +41,8 @@ func (r *router) HandleMessage(msg relay.Message) error {
 		if err != nil {
 			return err
 		}
-		err = r.connectionProvider.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey, r)
-		if err != nil {
-			return err
-		}
-		return nil
+
+		return r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
 	}
 
 	// if connection does not exist, and message is not a ConnectionOpenMessage, return an error
