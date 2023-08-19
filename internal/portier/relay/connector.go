@@ -1,5 +1,7 @@
 package relay
 
+import "github.com/marinator86/portier-cli/internal/portier/relay/messages"
+
 type connector struct {
 	uplink Uplink
 
@@ -18,7 +20,7 @@ func NewConnector(uplink Uplink, encoderDecoder EncoderDecoder, router Router) C
 }
 
 // CreateInboundConnection creates an inbound connection
-func (c *connector) CreateInboundConnection(header MessageHeader, bridgeOptions BridgeOptions, pcKey string) error {
+func (c *connector) CreateInboundConnection(header messages.MessageHeader, bridgeOptions messages.BridgeOptions, pcKey string) error {
 	// create a new inbound connection adapter
 	connectionAdapter := NewInboundConnectionAdapter(ConnectionAdapterOptions{
 		ConnectionId:        header.CID,

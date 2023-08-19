@@ -1,17 +1,58 @@
 package relay
 
 import (
+	"fmt"
 	"net"
+
+	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
+	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
+
+type ConnectionAdapter interface {
+	// Start starts the connection
+	Start() error
+
+	// Stop stops the connection
+	Stop() error
+
+	// Send sends a message to the connection
+	Send(msg messages.Message) error
+}
+
+type ConnectionAdapterState interface {
+	Start() error
+
+	Stop() error
+
+	HandleMessage(msg messages.Message) (ConnectionAdapterState, error)
+}
+
+type ConnectionAdapterOptions struct {
+	// ConnectionId is the connection id
+	ConnectionId messages.ConnectionId
+
+	// LocalDeviceId is the id of the local device
+	LocalDeviceId uuid.UUID
+
+	// PeerDeviceId is the id of the peer device that this connection is bridged to/from
+	PeerDeviceId uuid.UUID
+
+	// PeerDevicePublicKey is the public key of the peer device that this connection is bridged to/from
+	PeerDevicePublicKey string
+
+	// BridgeOptions are the bridge options
+	BridgeOptions messages.BridgeOptions
+}
 
 type connectionAdapter struct {
 	options ConnectionAdapterOptions
 
-	// connection is the connection
-	connection net.Conn
-
-	// encoderDecoder is the encoder/decoder
+	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder EncoderDecoder
+
+	// encryption is the encryptor/decryptor for this connection
+	encryption encryption.Encryption
 
 	// router is the router
 	router Router
@@ -19,28 +60,15 @@ type connectionAdapter struct {
 	// uplink is the uplink
 	uplink Uplink
 
-	// state is the state of the connection adapter
+	// state is the current state of the connection adapter
 	state ConnectionAdapterState
 
 	// Mode is either inbound or outbound
 	mode ConnectionMode
+
+	// messageQueue is the queue of messages that are sent to the connection
+	messageQueue chan messages.Message
 }
-
-type ConnectionAdapterState string
-
-const (
-	// Connecting is the state when the connection adapter has been started but the connection is not yet established
-	Connecting ConnectionAdapterState = "connecting"
-
-	// Connected is the state when the connection adapter has been started and the connection is established
-	Connected ConnectionAdapterState = "connected"
-
-	// Failed is the state when the connection adapter has been started but the connection could not be established
-	Failed ConnectionAdapterState = "failed"
-
-	// Closed is the state when the connection adapter has been stopped
-	Closed ConnectionAdapterState = "closed"
-)
 
 type ConnectionMode string
 
@@ -56,12 +84,13 @@ const (
 func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, encoderDecoder EncoderDecoder, router Router, uplink Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
-		connection:     connection,
 		encoderDecoder: encoderDecoder,
 		router:         router,
 		uplink:         uplink,
-		state:          Connecting,
+		encryption:     nil,
+		state:          NewConnectingOutboundState(options, encoderDecoder, uplink, connection, 1000),
 		mode:           Outbound,
+		messageQueue:   make(chan messages.Message, 1000),
 	}
 }
 
@@ -69,12 +98,13 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecoder EncoderDecoder, router Router, uplink Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
-		connection:     nil,
 		encoderDecoder: encoderDecoder,
 		router:         router,
 		uplink:         uplink,
-		state:          Connecting,
+		encryption:     nil,
+		state:          NewConnectingInboundState(options, encoderDecoder, uplink, 1000),
 		mode:           Inbound,
+		messageQueue:   make(chan messages.Message, 1000),
 	}
 }
 
@@ -82,17 +112,57 @@ func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecode
 func (c *connectionAdapter) Start() error {
 	// start the connection adapter
 	c.router.AddConnection(c.options.ConnectionId, c)
+	c.state.Start()
+
+	go func() {
+		// as long as the message queue is not closed, send messages from the queue
+		for msg := range c.messageQueue {
+			err := c.doSend(msg)
+			if err != nil {
+				fmt.Printf("error sending message: %v\n", err)
+				return
+			}
+		}
+	}()
+
 	return nil
 }
 
 // Stop stops the connection adapter
 func (c *connectionAdapter) Stop() error {
 	// stop the connection adapter
+	close(c.messageQueue)
+	c.state.Stop()
 	c.router.RemoveConnection(c.options.ConnectionId)
 	return nil
 }
 
-// Send sends a message
-func (c *connectionAdapter) Send(msg []byte) error {
+// Send sends a message to the queue
+func (c *connectionAdapter) Send(msg messages.Message) error {
+	// if the message queue is not closed, send the message to the message queue
+	c.messageQueue <- msg
+	return nil
+}
+
+// doSend sends a message to the current adapter state
+func (c *connectionAdapter) doSend(msg messages.Message) error {
+	newState, err := c.state.HandleMessage(msg)
+	if err != nil {
+		fmt.Printf("error handling message: %v\n", err)
+		return err
+	}
+	if newState != nil {
+		c.state = newState
+		err = newState.Start()
+		if err != nil {
+			fmt.Printf("error starting new state: %v\n", err)
+			return err
+		}
+		err = c.Send(msg)
+		if err != nil {
+			fmt.Printf("error handling message: %v\n", err)
+			return err
+		}
+	}
 	return nil
 }
