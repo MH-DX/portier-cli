@@ -10,6 +10,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
+	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
+	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
 
 // dialer is the websocket dialer
@@ -47,6 +49,9 @@ type WebsocketUplink struct {
 
 	// events is the channel to receive events from the uplink
 	events chan relay.UplinkEvent
+
+	// encoderdecoder is the encoder / decoder for the uplink
+	encoderDecoder *encoder.EncoderDecoder
 }
 
 func defaultOptions() Options {
@@ -57,7 +62,7 @@ func defaultOptions() Options {
 }
 
 // NewWebsocketUplink creates a new websocket uplink
-func NewWebsocketUplink(options Options) *WebsocketUplink {
+func NewWebsocketUplink(options Options, encoderDecoder *encoder.EncoderDecoder) *WebsocketUplink {
 	if options.APIToken == "" {
 		log.Fatal("API token is required")
 	}
@@ -70,11 +75,15 @@ func NewWebsocketUplink(options Options) *WebsocketUplink {
 	if options.ReconnectRetries == 0 {
 		options.ReconnectRetries = defaultOptions().ReconnectRetries
 	}
+	if encoderDecoder == nil {
+		encoderDecoder = new(encoder.EncoderDecoder)
+	}
 
 	return &WebsocketUplink{
-		Options: options,
-		recv:    make(chan []byte, 1),
-		events:  make(chan relay.UplinkEvent, 100),
+		Options:        options,
+		recv:           make(chan []byte, 1),
+		events:         make(chan relay.UplinkEvent, 100),
+		encoderDecoder: encoderDecoder,
 	}
 }
 
@@ -89,10 +98,14 @@ func (u *WebsocketUplink) Connect() (<-chan []byte, error) {
 }
 
 // Send enqueues a message to the portier server.
-func (u *WebsocketUplink) Send(message []byte) error {
+func (u *WebsocketUplink) Send(message messages.Message) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
-	err := u.connection.WriteMessage(websocket.TextMessage, message)
+	payload, err := u.encoderDecoder.Encode(message)
+	if err != nil {
+		return err
+	}
+	err = u.connection.WriteMessage(websocket.BinaryMessage, payload)
 	if err != nil {
 		if websocket.IsUnexpectedCloseError(err) {
 			log.Printf("websocket disconnected: %v", err)

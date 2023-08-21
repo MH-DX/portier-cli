@@ -5,8 +5,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
+	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
+	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
 
 var upgrader = websocket.Upgrader{
@@ -26,7 +29,10 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-		if string(message) == "close" {
+		// decode message
+		encoder := encoder.EncoderDecoder{}
+		msg, _ := encoder.Decode(message)
+		if msg.Header.Type == "close" {
 			return
 		}
 		err = c.WriteMessage(mt, message)
@@ -45,9 +51,15 @@ func TestConnectAndEcho(testing *testing.T) {
 	options := defaultOptions()
 	options.PortierURL = url
 	options.APIToken = "80451937-0625-4ffe-b97c-b2ec9e75a0a5"
-	msg := []byte("Hello, world!")
+	msg := messages.Message{
+		Header: messages.MessageHeader{
+			From: uuid.New(),
+			To:   uuid.New(),
+		},
+		Message: []byte("Hello, world!"),
+	}
 
-	uplink := NewWebsocketUplink(options)
+	uplink := NewWebsocketUplink(options, nil)
 	channel, err := uplink.Connect()
 	if err != nil {
 		testing.Errorf("error connecting to websocket: %v", err)
@@ -58,7 +70,10 @@ func TestConnectAndEcho(testing *testing.T) {
 
 	// THEN
 	response := <-channel
-	if string(response) != string(msg) {
+	// encode response to message
+	encoder := encoder.EncoderDecoder{}
+	responseMessage, _ := encoder.Decode(response)
+	if responseMessage.Header != msg.Header {
 		testing.Errorf("expected %v, got %v", msg, response)
 	}
 }
@@ -72,9 +87,25 @@ func TestReconnect(testing *testing.T) {
 	options := defaultOptions()
 	options.PortierURL = url
 	options.APIToken = "80451937-0625-4ffe-b97c-b2ec9e75a0a5"
-	msg := []byte("Hello, world!")
+	closeMsg := messages.Message{
+		Header: messages.MessageHeader{
+			From: uuid.New(),
+			To:   uuid.New(),
+			Type: "close",
+		},
+		Message: []byte("Hello, world!"),
+	}
 
-	uplink := NewWebsocketUplink(options)
+	okayMsg := messages.Message{
+		Header: messages.MessageHeader{
+			From: uuid.New(),
+			To:   uuid.New(),
+			Type: messages.D,
+		},
+		Message: []byte("Hello, world!"),
+	}
+
+	uplink := NewWebsocketUplink(options, nil)
 	eventChannel := uplink.Events()
 	channel, err := uplink.Connect()
 	if err != nil {
@@ -87,7 +118,7 @@ func TestReconnect(testing *testing.T) {
 	}
 
 	// WHEN
-	uplink.Send([]byte("close")) // send message to the uplink to close the connection
+	uplink.Send(closeMsg) // send message to the uplink to close the connection
 
 	// THEN
 	event = <-eventChannel
@@ -100,11 +131,14 @@ func TestReconnect(testing *testing.T) {
 	}
 
 	// WHEN
-	uplink.Send(msg) // send message to the uplink
+	uplink.Send(okayMsg) // send message to the uplink
 
 	// THEN
 	response := <-channel
-	if string(response) != string(msg) {
-		testing.Errorf("expected %v, got %v", msg, response)
+	// encode response to message
+	encoder := encoder.EncoderDecoder{}
+	responseMessage, _ := encoder.Decode(response)
+	if responseMessage.Header != okayMsg.Header {
+		testing.Errorf("expected %v, got %v", okayMsg, response)
 	}
 }

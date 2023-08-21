@@ -108,7 +108,7 @@ type Uplink interface {
 	// Send enqueues a message to the portier server.
 	// The Uplink has only a small buffer to realize backpressure in case the uplink cannot keep up with the messages, i.e. it will block.
 	// This blocking must be effectively throttling the Service.
-	Send([]byte) error
+	Send(messages.Message) error
 
 	// Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel
 	Close() error

@@ -50,7 +50,7 @@ func (c *connectingInboundState) Start() error {
 			Reason: "error dialing service: " + err.Error(),
 		})
 
-		payload, err := c.encoderDecoder.Encode(messages.Message{
+		msg := messages.Message{
 			Header: messages.MessageHeader{
 				From: c.options.LocalDeviceId,
 				To:   c.options.PeerDeviceId,
@@ -58,13 +58,9 @@ func (c *connectingInboundState) Start() error {
 				CID:  c.options.ConnectionId,
 			},
 			Message: connectionFailedMessagePayload,
-		})
-		if err != nil {
-			// return combined error
-			return fmt.Errorf("%s\nerror sending connection failed message: %s", mainError, err)
 		}
 		// send the message to the uplink once, since we do not expect a response
-		err = c.uplink.Send(payload)
+		err = c.uplink.Send(msg)
 		if err != nil {
 			return fmt.Errorf("%s\nerror sending connection failed message: %s", mainError, err)
 		}
@@ -78,7 +74,7 @@ func (c *connectingInboundState) Start() error {
 		PCKey: localPubKey,
 	})
 
-	payload, err := c.encoderDecoder.Encode(messages.Message{
+	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
 			To:   c.options.PeerDeviceId,
@@ -86,7 +82,7 @@ func (c *connectingInboundState) Start() error {
 			CID:  c.options.ConnectionId,
 		},
 		Message: connectionAcceptMessagePayload,
-	})
+	}
 	if err != nil {
 		return err
 	}
@@ -95,7 +91,7 @@ func (c *connectingInboundState) Start() error {
 	c.ticker = time.NewTicker(c.responseInterval)
 	go func() {
 		for range c.ticker.C {
-			err := c.uplink.Send(payload)
+			err := c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending connection accept message: %s\n", err)
 			}
@@ -114,7 +110,7 @@ func (c *connectingInboundState) Start() error {
 func (c *connectingInboundState) Stop() error {
 	c.ticker.Stop()
 	// send connection close message
-	payload, err := c.encoderDecoder.Encode(messages.Message{
+	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
 			To:   c.options.PeerDeviceId,
@@ -122,11 +118,8 @@ func (c *connectingInboundState) Stop() error {
 			CID:  c.options.ConnectionId,
 		},
 		Message: []byte{},
-	})
-	if err != nil {
-		return err
 	}
-	c.uplink.Send(payload)
+	c.uplink.Send(msg)
 	return c.conn.Close()
 }
 
@@ -198,7 +191,7 @@ func (c *connectingOutboundState) Start() error {
 	if err != nil {
 		return err
 	}
-	payload, err := c.encoderDecoder.Encode(messages.Message{
+	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
 			To:   c.options.PeerDeviceId,
@@ -206,16 +199,13 @@ func (c *connectingOutboundState) Start() error {
 			CID:  c.options.ConnectionId,
 		},
 		Message: connectionOpenMessagePayload,
-	})
-	if err != nil {
-		return err
 	}
 
 	// send the message to the uplink using the ticker
 	c.ticker = time.NewTicker(c.responseInterval)
 	go func() {
 		for range c.ticker.C {
-			err := c.uplink.Send(payload)
+			err := c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending connection open message: %s\n", err)
 			}
@@ -228,7 +218,7 @@ func (c *connectingOutboundState) Start() error {
 func (c *connectingOutboundState) Stop() error {
 	c.ticker.Stop()
 	// send connection close message
-	payload, err := c.encoderDecoder.Encode(messages.Message{
+	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
 			To:   c.options.PeerDeviceId,
@@ -236,11 +226,8 @@ func (c *connectingOutboundState) Stop() error {
 			CID:  c.options.ConnectionId,
 		},
 		Message: []byte{},
-	})
-	if err != nil {
-		return err
 	}
-	_ = c.uplink.Send(payload)
+	_ = c.uplink.Send(msg)
 	return c.conn.Close()
 }
 
@@ -339,17 +326,12 @@ func (c *connectedState) Start() error {
 				return
 			}
 			// wrap the data in a message
-			payload, err := c.encoderDecoder.Encode(messages.Message{
+			msg := messages.Message{
 				Header:  header,
 				Message: encrypted,
-			})
-			if err != nil {
-				fmt.Printf("error encoding message: %s\n", err)
-				e <- err
-				return
 			}
 			// send the data to the uplink
-			err = c.uplink.Send(payload)
+			err = c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending message to uplink: %s\n", err)
 				e <- err
@@ -365,7 +347,7 @@ func (c *connectedState) Start() error {
 
 func (c *connectedState) Stop() error {
 	// send connection close message
-	payload, err := c.encoderDecoder.Encode(messages.Message{
+	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
 			To:   c.options.PeerDeviceId,
@@ -373,11 +355,8 @@ func (c *connectedState) Stop() error {
 			CID:  c.options.ConnectionId,
 		},
 		Message: []byte{},
-	})
-	if err != nil {
-		return err
 	}
-	_ = c.uplink.Send(payload)
+	_ = c.uplink.Send(msg)
 	return c.conn.Close()
 }
 
