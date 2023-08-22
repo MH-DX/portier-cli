@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -20,8 +21,8 @@ func TestConnection(testing *testing.T) {
 
 	// Signals
 	connectionChannel := make(chan bool)
-	acceptedChannel := make(chan bool, 100)
-	closedChannel := make(chan bool, 100)
+	acceptedChannel := make(chan bool)
+	closedChannel := make(chan bool)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -48,7 +49,7 @@ func TestConnection(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, &encoderDecoder, &uplink, 1000)
+	underTest := NewConnectingInboundState(options, &encoderDecoder, &uplink, 1000*time.Millisecond)
 
 	go func() {
 		conn, err := listener.Accept()
@@ -65,6 +66,7 @@ func TestConnection(testing *testing.T) {
 	// THEN
 	<-connectionChannel // tcp connection established
 	<-acceptedChannel   // connection accepted message sent
+	<-acceptedChannel   // resend connection accepted message sent
 	underTest.Stop()
 	<-closedChannel // connection closed message sent
 	uplink.AssertExpectations(testing)
