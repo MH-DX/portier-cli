@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -69,6 +70,53 @@ func TestConnection(testing *testing.T) {
 	<-acceptedChannel   // resend connection accepted message sent
 	underTest.Stop()
 	<-closedChannel // connection closed message sent
+	uplink.AssertExpectations(testing)
+}
+
+func TestConnectionWithError(testing *testing.T) {
+	// GIVEN
+	port := 51222
+
+	// Signals
+	failedChannel := make(chan bool, 1)
+
+	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
+	options := ConnectionAdapterOptions{
+		ConnectionId:        "test-connection-id",
+		LocalDeviceId:       uuid.New(),
+		PeerDeviceId:        uuid.New(),
+		PeerDevicePublicKey: "test-peer-device-public-key",
+		BridgeOptions: messages.BridgeOptions{
+			URLRemote: *urlRemote,
+		},
+	}
+	encoderDecoder := encoder.EncoderDecoder{}
+
+	// mock uplink
+	uplink := MockUplink{}
+
+	uplink.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
+		if msg.Header.Type == messages.CF {
+			// convert msg.Message to string
+			msgText := string(msg.Message)
+			assert.Contains(testing, msgText, fmt.Sprint(port))
+			assert.Contains(testing, msgText, "connection refused")
+			failedChannel <- true
+		}
+		return true
+	})).Return(nil)
+
+	underTest := NewConnectingInboundState(options, &encoderDecoder, &uplink, 1000*time.Millisecond)
+
+	// WHEN
+	err := underTest.Start()
+
+	// THEN
+	assert.NotNil(testing, err)
+	// assert error contains port and connection refused
+	assert.Contains(testing, err.Error(), fmt.Sprint(port))
+	assert.Contains(testing, err.Error(), "connection refused")
+	<-failedChannel // connection failed message sent
 	uplink.AssertExpectations(testing)
 }
 
