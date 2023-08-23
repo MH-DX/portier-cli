@@ -21,9 +21,9 @@ func TestConnection(testing *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 
 	// Signals
-	connectionChannel := make(chan bool)
-	acceptedChannel := make(chan bool)
-	closedChannel := make(chan bool)
+	connectionChannel := make(chan bool, 1)
+	acceptedChannel := make(chan bool, 1)
+	closedChannel := make(chan bool, 1)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
