@@ -1,12 +1,14 @@
-package relay
+package adapter
 
 import (
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
 type connectingInboundState struct {
@@ -14,10 +16,10 @@ type connectingInboundState struct {
 	options ConnectionAdapterOptions
 
 	// encoderDecoder is the encoder/decoder for msgpack
-	encoderDecoder EncoderDecoder
+	encoderDecoder encoder.EncoderDecoder
 
 	// uplink is the uplink
-	uplink Uplink
+	uplink uplink.Uplink
 
 	// responseInterval is the interval in which the connection accept/failed message is sent
 	responseInterval time.Duration
@@ -145,7 +147,7 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CO, msg.Header.Type)
 }
 
-func NewConnectingInboundState(options ConnectionAdapterOptions, encoderDecoder EncoderDecoder, uplink Uplink, responseInterval time.Duration) ConnectionAdapterState {
+func NewConnectingInboundState(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, responseInterval time.Duration) ConnectionAdapterState {
 	return &connectingInboundState{
 		options:          options,
 		encoderDecoder:   encoderDecoder,
@@ -161,10 +163,10 @@ type connectingOutboundState struct {
 	options ConnectionAdapterOptions
 
 	// encoderDecoder is the encoder/decoder for msgpack
-	encoderDecoder EncoderDecoder
+	encoderDecoder encoder.EncoderDecoder
 
 	// uplink is the uplink
-	uplink Uplink
+	uplink uplink.Uplink
 
 	// responseInterval is the interval in which the connection accept/failed message is sent
 	responseInterval time.Duration
@@ -269,7 +271,7 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.CA, messages.CF, msg.Header.Type)
 }
 
-func NewConnectingOutboundState(options ConnectionAdapterOptions, encoderDecoder EncoderDecoder, uplink Uplink, conn net.Conn, responseInterval time.Duration) ConnectionAdapterState {
+func NewConnectingOutboundState(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, conn net.Conn, responseInterval time.Duration) ConnectionAdapterState {
 	return &connectingOutboundState{
 		options:          options,
 		encoderDecoder:   encoderDecoder,
@@ -286,10 +288,10 @@ type connectedState struct {
 	options ConnectionAdapterOptions
 
 	// encoderDecoder is the encoder/decoder for msgpack
-	encoderDecoder EncoderDecoder
+	encoderDecoder encoder.EncoderDecoder
 
 	// uplink is the uplink
-	uplink Uplink
+	uplink uplink.Uplink
 
 	// conn is the connection
 	conn net.Conn
@@ -385,7 +387,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CC, msg.Header.Type)
 }
 
-func NewConnectedState(options ConnectionAdapterOptions, conn net.Conn, encoderDecoder EncoderDecoder, uplink Uplink, encryption encryption.Encryption) ConnectionAdapterState {
+func NewConnectedState(options ConnectionAdapterOptions, conn net.Conn, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, encryption encryption.Encryption) ConnectionAdapterState {
 	return &connectedState{
 		options:        options,
 		encoderDecoder: encoderDecoder,

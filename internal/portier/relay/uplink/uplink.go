@@ -9,10 +9,47 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
+
+// State is the state of the relay
+type UplinkState string
+
+const (
+	// UplinkStateDisconnected is the state when the uplink is disconnected
+	UplinkStateDisconnected UplinkState = "disconnected"
+
+	// UplinkStateConnected is the state when the uplink is connected
+	UplinkStateConnected UplinkState = "connected"
+)
+
+type UplinkEvent struct {
+	// State is the state of the uplink
+	State UplinkState
+	// Event
+	Event string
+}
+
+// Uplink is the uplink interface to the portier server. It is used to send messages to the portier server and to receive messages from the portier server.
+// Moreover, it has to handle connection loss and reconnect to the portier server.
+type Uplink interface {
+	// Connect connects to the portier server return recv channel to receive messages from the portier server.
+	// The channels will be to be closed by the uplink when the connection to the portier server is closed.
+	// The recv channel will have no buffer and it is mandatory that the Router processes messages in a non-blocking way.
+	Connect() (chan []byte, error)
+
+	// Send enqueues a message to the portier server.
+	// The Uplink has only a small buffer to realize backpressure in case the uplink cannot keep up with the messages, i.e. it will block.
+	// This blocking must be effectively throttling the Service.
+	Send(messages.Message) error
+
+	// Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel
+	Close() error
+
+	// Returns a recv channel to listen for events
+	Events() <-chan UplinkEvent
+}
 
 // dialer is the websocket dialer
 var dialer = websocket.Dialer{}
@@ -48,10 +85,10 @@ type WebsocketUplink struct {
 	mutex sync.Mutex
 
 	// events is the channel to receive events from the uplink
-	events chan relay.UplinkEvent
+	events chan UplinkEvent
 
 	// encoderdecoder is the encoder / decoder for the uplink
-	encoderDecoder *encoder.EncoderDecoder
+	encoderDecoder encoder.EncoderDecoder
 }
 
 func defaultOptions() Options {
@@ -62,7 +99,7 @@ func defaultOptions() Options {
 }
 
 // NewWebsocketUplink creates a new websocket uplink
-func NewWebsocketUplink(options Options, encoderDecoder *encoder.EncoderDecoder) *WebsocketUplink {
+func NewWebsocketUplink(options Options, encoderDecoder encoder.EncoderDecoder) *WebsocketUplink {
 	if options.APIToken == "" {
 		log.Fatal("API token is required")
 	}
@@ -76,13 +113,13 @@ func NewWebsocketUplink(options Options, encoderDecoder *encoder.EncoderDecoder)
 		options.ReconnectRetries = defaultOptions().ReconnectRetries
 	}
 	if encoderDecoder == nil {
-		encoderDecoder = new(encoder.EncoderDecoder)
+		encoderDecoder = encoder.NewEncoderDecoder()
 	}
 
 	return &WebsocketUplink{
 		Options:        options,
 		recv:           make(chan []byte, 1),
-		events:         make(chan relay.UplinkEvent, 100),
+		events:         make(chan UplinkEvent, 100),
 		encoderDecoder: encoderDecoder,
 	}
 }
@@ -109,8 +146,8 @@ func (u *WebsocketUplink) Send(message messages.Message) error {
 	if err != nil {
 		if websocket.IsUnexpectedCloseError(err) {
 			log.Printf("websocket disconnected: %v", err)
-			u.events <- relay.UplinkEvent{
-				State: relay.UplinkStateDisconnected,
+			u.events <- UplinkEvent{
+				State: UplinkStateDisconnected,
 				Event: "websocket disconnected",
 			}
 			time.Sleep(u.calculateBackoff())
@@ -126,7 +163,7 @@ func (u *WebsocketUplink) Close() error {
 	return nil
 }
 
-func (u *WebsocketUplink) Events() <-chan relay.UplinkEvent {
+func (u *WebsocketUplink) Events() <-chan UplinkEvent {
 	return u.events
 }
 
@@ -147,8 +184,8 @@ func (u *WebsocketUplink) connectWebsocket() error {
 		time.Sleep(u.calculateBackoff())
 		return u.connectWebsocket()
 	}
-	u.events <- relay.UplinkEvent{
-		State: relay.UplinkStateConnected,
+	u.events <- UplinkEvent{
+		State: UplinkStateConnected,
 		Event: "websocket connected",
 	}
 
@@ -161,8 +198,8 @@ func (u *WebsocketUplink) connectWebsocket() error {
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err) {
 					log.Printf("websocket disconnected: %v", err)
-					u.events <- relay.UplinkEvent{
-						State: relay.UplinkStateDisconnected,
+					u.events <- UplinkEvent{
+						State: UplinkStateDisconnected,
 						Event: "websocket disconnected",
 					}
 					time.Sleep(u.calculateBackoff())

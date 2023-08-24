@@ -1,12 +1,15 @@
-package relay
+package adapter
 
 import (
 	"fmt"
 	"net"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+
+	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
 type ConnectionAdapter interface {
@@ -49,16 +52,13 @@ type connectionAdapter struct {
 	options ConnectionAdapterOptions
 
 	// encoderDecoder is the encoder/decoder for msgpack
-	encoderDecoder EncoderDecoder
+	encoderDecoder encoder.EncoderDecoder
 
 	// encryption is the encryptor/decryptor for this connection
 	encryption encryption.Encryption
 
-	// router is the router
-	router Router
-
 	// uplink is the uplink
-	uplink Uplink
+	uplink uplink.Uplink
 
 	// state is the current state of the connection adapter
 	state ConnectionAdapterState
@@ -81,11 +81,10 @@ const (
 )
 
 // NewConnectionAdapter creates a new connection adapter for an outbound connection
-func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, encoderDecoder EncoderDecoder, router Router, uplink Uplink) ConnectionAdapter {
+func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoderDecoder,
-		router:         router,
 		uplink:         uplink,
 		encryption:     nil,
 		state:          NewConnectingOutboundState(options, encoderDecoder, uplink, connection, 1000),
@@ -95,11 +94,10 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecoder EncoderDecoder, router Router, uplink Uplink) ConnectionAdapter {
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoderDecoder,
-		router:         router,
 		uplink:         uplink,
 		encryption:     nil,
 		state:          NewConnectingInboundState(options, encoderDecoder, uplink, 1000),
@@ -111,7 +109,6 @@ func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecode
 // Start starts the connection adapter
 func (c *connectionAdapter) Start() error {
 	// start the connection adapter
-	c.router.AddConnection(c.options.ConnectionId, c)
 	c.state.Start()
 
 	go func() {
@@ -133,7 +130,6 @@ func (c *connectionAdapter) Stop() error {
 	// stop the connection adapter
 	close(c.messageQueue)
 	c.state.Stop()
-	c.router.RemoveConnection(c.options.ConnectionId)
 	return nil
 }
 

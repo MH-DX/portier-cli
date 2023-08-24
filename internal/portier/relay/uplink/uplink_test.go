@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
@@ -30,7 +29,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		// decode message
-		encoder := encoder.EncoderDecoder{}
+		encoder := encoder.NewEncoderDecoder()
 		msg, _ := encoder.Decode(message)
 		if msg.Header.Type == "close" {
 			return
@@ -71,7 +70,7 @@ func TestConnectAndEcho(testing *testing.T) {
 	// THEN
 	response := <-channel
 	// encode response to message
-	encoder := encoder.EncoderDecoder{}
+	encoder := encoder.NewEncoderDecoder()
 	responseMessage, _ := encoder.Decode(response)
 	if responseMessage.Header != msg.Header {
 		testing.Errorf("expected %v, got %v", msg, response)
@@ -113,8 +112,8 @@ func TestReconnect(testing *testing.T) {
 	}
 	// expect connected event
 	event := <-eventChannel
-	if event.State != relay.UplinkStateConnected {
-		testing.Errorf("expected %v, got %v", relay.UplinkStateConnected, event.State)
+	if event.State != UplinkStateConnected {
+		testing.Errorf("expected %v, got %v", UplinkStateConnected, event.State)
 	}
 
 	// WHEN
@@ -122,12 +121,12 @@ func TestReconnect(testing *testing.T) {
 
 	// THEN
 	event = <-eventChannel
-	if event.State != relay.UplinkStateDisconnected {
-		testing.Errorf("expected %v, got %v", relay.UplinkStateDisconnected, event.State)
+	if event.State != UplinkStateDisconnected {
+		testing.Errorf("expected %v, got %v", UplinkStateDisconnected, event.State)
 	}
 	event = <-eventChannel
-	if event.State != relay.UplinkStateConnected {
-		testing.Errorf("expected %v, got %v", relay.UplinkStateConnected, event.State)
+	if event.State != UplinkStateConnected {
+		testing.Errorf("expected %v, got %v", UplinkStateConnected, event.State)
 	}
 
 	// WHEN
@@ -136,7 +135,7 @@ func TestReconnect(testing *testing.T) {
 	// THEN
 	response := <-channel
 	// encode response to message
-	encoder := encoder.EncoderDecoder{}
+	encoder := encoder.NewEncoderDecoder()
 	responseMessage, _ := encoder.Decode(response)
 	if responseMessage.Header != okayMsg.Header {
 		testing.Errorf("expected %v, got %v", okayMsg, response)
