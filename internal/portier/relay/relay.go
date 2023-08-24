@@ -54,3 +54,5 @@ type Relay struct {
 	// Uplink is the uplink that is used to send traffic to the portier server
 	Uplink uplink.Uplink
 }
+
+// TODO: relay has to un/register connections from router
