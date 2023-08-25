@@ -121,7 +121,7 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		c.conn.Close()
 		return nil, nil
 	}
-	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.CA, messages.CF, msg.Header.Type)
+	return nil, fmt.Errorf("expected message type [%s|%s|%s], but got %s", messages.CA, messages.CF, messages.CC, msg.Header.Type)
 }
 
 func NewConnectingOutboundState(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, conn net.Conn, responseInterval time.Duration) ConnectionAdapterState {

@@ -104,14 +104,21 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 			return nil, err
 		}
 
+		// TODO stop CR ticker
 		// TODO send acks
+		return nil, nil
+	} else if msg.Header.Type == messages.DA {
 
+		// TODO stop CR ticker
+		// TODO process acks
 		return nil, nil
 	} else if msg.Header.Type == messages.CC {
 		c.conn.Close()
 		return nil, nil
+	} else if msg.Header.Type == messages.CR {
+		return nil, nil
 	}
-	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CC, msg.Header.Type)
+	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, msg.Header.Type)
 }
 
 func NewConnectedState(options ConnectionAdapterOptions, conn net.Conn, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, encryption encryption.Encryption) ConnectionAdapterState {
