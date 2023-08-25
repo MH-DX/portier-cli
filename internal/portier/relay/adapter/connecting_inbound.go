@@ -129,7 +129,7 @@ func (c *connectingInboundState) Stop() error {
 
 func (c *connectingInboundState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
 	// if message is a data message, return connected state
-	if msg.Header.Type == messages.D {
+	if msg.Header.Type == messages.D || msg.Header.Type == messages.CR {
 
 		// TODO check signature
 
