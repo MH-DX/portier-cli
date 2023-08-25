@@ -21,6 +21,9 @@ const (
 	// ConnectionAcceptMessage is a message that is sent when a connection is accepted
 	CA MessageType = "CA"
 
+	// ConnectionReadyMessage is a message that is sent after CA, when both sides of the connection are ready
+	CR MessageType = "CR"
+
 	// ConnectionFailedMessage is a message that is sent when a connection open attempt failed
 	CF MessageType = "CF"
 
