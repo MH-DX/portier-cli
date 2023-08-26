@@ -30,6 +30,18 @@ type EncoderDecoder interface {
 
 	// EncodeConnectionFailedMessage encodes a connection failed message
 	EncodeConnectionFailedMessage(messages.ConnectionFailedMessage) ([]byte, error)
+
+	// Decode DataMessage decodes a data message
+	DecodeDataMessage([]byte) (messages.DataMessage, error)
+
+	// EncodeDataMessage encodes a data message
+	EncodeDataMessage(messages.DataMessage) ([]byte, error)
+
+	// Decode DataAckMessage decodes a ack message
+	DecodeDataAckMessage([]byte) (messages.DataAckMessage, error)
+
+	// EncodeDataAckMessage encodes a ack message
+	EncodeDataAckMessage(messages.DataAckMessage) ([]byte, error)
 }
 
 type encoderDecoder struct {
@@ -116,6 +128,48 @@ func (e *encoderDecoder) DecodeConnectionFailedMessage(msg []byte) (messages.Con
 
 // EncodeConnectionFailedMessage encodes a connection failed message
 func (e *encoderDecoder) EncodeConnectionFailedMessage(msg messages.ConnectionFailedMessage) ([]byte, error) {
+	// use msgpack to encode the message
+	msgpack, err := msgpack.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return msgpack, nil
+}
+
+// Decode DataMessage decodes a data message
+func (e *encoderDecoder) DecodeDataMessage(msg []byte) (messages.DataMessage, error) {
+	// use msgpack to decode the message
+	var message messages.DataMessage
+	err := msgpack.Unmarshal(msg, &message)
+	if err != nil {
+		return messages.DataMessage{}, err
+	}
+	return message, nil
+}
+
+// EncodeDataMessage encodes a data message
+func (e *encoderDecoder) EncodeDataMessage(msg messages.DataMessage) ([]byte, error) {
+	// use msgpack to encode the message
+	msgpack, err := msgpack.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return msgpack, nil
+}
+
+// Decode DataAckMessage decodes a ack message
+func (e *encoderDecoder) DecodeDataAckMessage(msg []byte) (messages.DataAckMessage, error) {
+	// use msgpack to decode the message
+	var message messages.DataAckMessage
+	err := msgpack.Unmarshal(msg, &message)
+	if err != nil {
+		return messages.DataAckMessage{}, err
+	}
+	return message, nil
+}
+
+// EncodeDataAckMessage encodes a ack message
+func (e *encoderDecoder) EncodeDataAckMessage(msg messages.DataAckMessage) ([]byte, error) {
 	// use msgpack to encode the message
 	msgpack, err := msgpack.Marshal(msg)
 	if err != nil {

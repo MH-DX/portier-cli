@@ -3,6 +3,7 @@ package adapter
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -46,6 +47,13 @@ type ConnectionAdapterOptions struct {
 
 	// BridgeOptions are the bridge options
 	BridgeOptions messages.BridgeOptions
+
+	LocalPublicKey string
+
+	LocalPrivateKey string
+
+	// responseInterval is the interval in which the connection accept/failed message is sent
+	responseInterval time.Duration
 }
 
 type connectionAdapter struct {
@@ -81,26 +89,26 @@ const (
 )
 
 // NewConnectionAdapter creates a new connection adapter for an outbound connection
-func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink) ConnectionAdapter {
+func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
-		encoderDecoder: encoderDecoder,
+		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		encryption:     nil,
-		state:          NewConnectingOutboundState(options, encoderDecoder, uplink, connection, 1000),
+		state:          NewConnectingOutboundState(options, uplink, connection),
 		mode:           Outbound,
 		messageQueue:   make(chan messages.Message, 1000),
 	}
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink) ConnectionAdapter {
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
-		encoderDecoder: encoderDecoder,
+		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		encryption:     nil,
-		state:          NewConnectingInboundState(options, encoderDecoder, uplink, 1000),
+		state:          NewConnectingInboundState(options, uplink),
 		mode:           Inbound,
 		messageQueue:   make(chan messages.Message, 1000),
 	}

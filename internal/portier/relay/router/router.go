@@ -4,14 +4,10 @@ import (
 	"fmt"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
+	"github.com/marinator86/portier-cli/internal/portier/relay/connector"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
-
-type Connector interface {
-	// CreateConnection creates a new connection
-	CreateInboundConnection(header messages.MessageHeader, options messages.BridgeOptions, pcKey string) error
-}
 
 type Router interface {
 	// HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
@@ -34,14 +30,14 @@ type router struct {
 	encoderDecoder encoder.EncoderDecoder
 
 	// connector is the connector
-	connector Connector
+	connector connector.Connector
 }
 
 // NewRouter creates a new router
-func NewRouter(encoderDecoder encoder.EncoderDecoder) Router {
+func NewRouter() Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
-		encoderDecoder: encoderDecoder,
+		encoderDecoder: encoder.NewEncoderDecoder(),
 	}
 }
 

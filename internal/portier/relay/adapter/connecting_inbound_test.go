@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"github.com/stretchr/testify/assert"
@@ -32,11 +31,11 @@ func TestConnection(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
+		responseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
 	}
-	encoderDecoder := encoder.NewEncoderDecoder()
 
 	// mock uplink
 	uplink := MockUplink{}
@@ -51,7 +50,7 @@ func TestConnection(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, encoderDecoder, &uplink, 1000*time.Millisecond)
+	underTest := NewConnectingInboundState(options, &uplink)
 
 	go func() {
 		conn, err := listener.Accept()
@@ -87,11 +86,11 @@ func TestConnectionWithError(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
+		responseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
 	}
-	encoderDecoder := encoder.NewEncoderDecoder()
 
 	// mock uplink
 	uplink := MockUplink{}
@@ -107,7 +106,7 @@ func TestConnectionWithError(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, encoderDecoder, &uplink, 1000*time.Millisecond)
+	underTest := NewConnectingInboundState(options, &uplink)
 
 	// WHEN
 	err := underTest.Start()

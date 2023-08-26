@@ -21,17 +21,11 @@ type connectingInboundState struct {
 	// uplink is the uplink
 	uplink uplink.Uplink
 
-	// responseInterval is the interval in which the connection accept/failed message is sent
-	responseInterval time.Duration
-
 	// ticker is the ticker
 	ticker *time.Ticker
 
-	// conn is the connection
-	conn net.Conn
-
-	// encryption is the encryptor/decryptor for this connection
-	encryption encryption.Encryption
+	// forwarder is the forwarder
+	forwarder Forwarder
 }
 
 func (c *connectingInboundState) Start() error {
@@ -69,11 +63,8 @@ func (c *connectingInboundState) Start() error {
 		return mainError
 	}
 
-	localPubKey := "" // TODO: create the local key pair
-	localPrivKey := ""
-
 	connectionAcceptMessagePayload, _ := c.encoderDecoder.EncodeConnectionAcceptMessage(messages.ConnectionAcceptMessage{
-		PCKey: localPubKey,
+		PCKey: c.options.LocalPublicKey,
 	})
 
 	msg := messages.Message{
@@ -92,7 +83,7 @@ func (c *connectingInboundState) Start() error {
 	c.uplink.Send(msg)
 
 	// send the message to the uplink using the ticker
-	c.ticker = time.NewTicker(c.responseInterval)
+	c.ticker = time.NewTicker(c.options.responseInterval)
 	go func() {
 		for range c.ticker.C {
 			err := c.uplink.Send(msg)
@@ -105,8 +96,15 @@ func (c *connectingInboundState) Start() error {
 	peerDevicePubKey := c.options.PeerDevicePublicKey
 	cipher := encryption.Cipher(c.options.BridgeOptions.Cipher)
 	curve := encryption.Curve(c.options.BridgeOptions.Curve)
-	c.encryption = encryption.NewEncryption(localPubKey, localPrivKey, peerDevicePubKey, cipher, curve)
-	c.conn = conn
+	encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
+
+	forwarderOptions := ForwarderOptions{
+		Throughput:    1000,
+		LocalDeviceId: c.options.LocalDeviceId,
+		PeerDeviceId:  c.options.PeerDeviceId,
+		ConnectionId:  c.options.ConnectionId,
+	}
+	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, encryption)
 
 	return nil
 }
@@ -124,7 +122,7 @@ func (c *connectingInboundState) Stop() error {
 		Message: []byte{},
 	}
 	c.uplink.Send(msg)
-	return c.conn.Close()
+	return c.forwarder.Close()
 }
 
 func (c *connectingInboundState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
@@ -134,11 +132,11 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 		// TODO check signature
 
 		c.ticker.Stop()
-		return NewConnectedState(c.options, c.conn, c.encoderDecoder, c.uplink, c.encryption), nil
+		return NewConnectedState(c.options, c.uplink, c.forwarder), nil
 	}
 	if msg.Header.Type == messages.CC {
 		c.ticker.Stop()
-		c.conn.Close()
+		c.forwarder.Close()
 		return nil, nil
 	}
 	if msg.Header.Type == messages.CO {
@@ -147,11 +145,10 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CO, msg.Header.Type)
 }
 
-func NewConnectingInboundState(options ConnectionAdapterOptions, encoderDecoder encoder.EncoderDecoder, uplink uplink.Uplink, responseInterval time.Duration) ConnectionAdapterState {
+func NewConnectingInboundState(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapterState {
 	return &connectingInboundState{
-		options:          options,
-		encoderDecoder:   encoderDecoder,
-		uplink:           uplink,
-		responseInterval: responseInterval,
+		options:        options,
+		encoderDecoder: encoder.NewEncoderDecoder(),
+		uplink:         uplink,
 	}
 }
