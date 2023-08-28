@@ -50,6 +50,9 @@ func (c *connectingOutboundState) Start() error {
 
 	// send the message to the uplink using the ticker
 	c.ticker = time.NewTicker(c.options.responseInterval)
+
+	c.uplink.Send(msg)
+
 	go func() {
 		for range c.ticker.C {
 			err := c.uplink.Send(msg)
