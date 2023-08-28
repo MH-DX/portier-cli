@@ -13,9 +13,22 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
+type AdapterEventType string
+
+const (
+	Closed AdapterEventType = "adapter-closed"
+	Error  AdapterEventType = "error"
+)
+
+type AdapterEvent struct {
+	Type    AdapterEventType
+	Message string
+	Error   error
+}
+
 type ConnectionAdapter interface {
 	// Start starts the connection
-	Start() error
+	Start() (chan AdapterEvent, error)
 
 	// Stop stops the connection
 	Stop() error
@@ -48,12 +61,20 @@ type ConnectionAdapterOptions struct {
 	// BridgeOptions are the bridge options
 	BridgeOptions messages.BridgeOptions
 
+	// LocalPublicKey is the public key of the local device
 	LocalPublicKey string
 
+	// LocalPrivateKey is the private key of the local device
 	LocalPrivateKey string
 
 	// responseInterval is the interval in which the connection accept/failed message is sent
-	responseInterval time.Duration
+	ResponseInterval time.Duration
+
+	// connectionReadTimeout is the read timeout for the connection
+	ConnectionReadTimeout time.Duration
+
+	// connectionThroughput is the throughput limit for the connection in bytes per second
+	ThroughputLimit int
 }
 
 type connectionAdapter struct {
@@ -74,8 +95,8 @@ type connectionAdapter struct {
 	// Mode is either inbound or outbound
 	mode ConnectionMode
 
-	// messageQueue is the queue of messages that are sent to the connection
-	messageQueue chan messages.Message
+	// eventChannel is the channel that is used to send events to the caller
+	eventChannel chan AdapterEvent
 }
 
 type ConnectionMode string
@@ -89,54 +110,41 @@ const (
 )
 
 // NewConnectionAdapter creates a new connection adapter for an outbound connection
-func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink) ConnectionAdapter {
+func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink, eventChannel chan AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		encryption:     nil,
-		state:          NewConnectingOutboundState(options, uplink, connection),
+		state:          NewConnectingOutboundState(options, eventChannel, uplink, connection),
 		mode:           Outbound,
-		messageQueue:   make(chan messages.Message, 1000),
+		eventChannel:   eventChannel,
 	}
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapter {
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		encryption:     nil,
-		state:          NewConnectingInboundState(options, uplink),
+		state:          NewConnectingInboundState(options, eventChannel, uplink),
 		mode:           Inbound,
-		messageQueue:   make(chan messages.Message, 1000),
+		eventChannel:   eventChannel,
 	}
 }
 
 // Start starts the connection adapter
-func (c *connectionAdapter) Start() error {
+func (c *connectionAdapter) Start() (chan AdapterEvent, error) {
 	// start the connection adapter
 	c.state.Start()
-
-	go func() {
-		// as long as the message queue is not closed, send messages from the queue
-		for msg := range c.messageQueue {
-			err := c.doSend(msg)
-			if err != nil {
-				fmt.Printf("error sending message: %v\n", err)
-				return
-			}
-		}
-	}()
-
-	return nil
+	return c.eventChannel, nil
 }
 
 // Stop stops the connection adapter
 func (c *connectionAdapter) Stop() error {
 	// stop the connection adapter
-	close(c.messageQueue)
 	c.state.Stop()
 	return nil
 }
@@ -144,15 +152,10 @@ func (c *connectionAdapter) Stop() error {
 // Send sends a message to the queue
 func (c *connectionAdapter) Send(msg messages.Message) error {
 	// if the message queue is not closed, send the message to the message queue
-	c.messageQueue <- msg
-	return nil
-}
-
-// doSend sends a message to the current adapter state
-func (c *connectionAdapter) doSend(msg messages.Message) error {
 	newState, err := c.state.HandleMessage(msg)
 	if err != nil {
 		fmt.Printf("error handling message: %v\n", err)
+		c.Stop()
 		return err
 	}
 	if newState != nil {
@@ -165,6 +168,7 @@ func (c *connectionAdapter) doSend(msg messages.Message) error {
 		err = c.Send(msg)
 		if err != nil {
 			fmt.Printf("error handling message: %v\n", err)
+			c.Stop()
 			return err
 		}
 	}

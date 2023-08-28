@@ -15,6 +15,9 @@ type connectingInboundState struct {
 	// options are the connection adapter options
 	options ConnectionAdapterOptions
 
+	// eventChannel is the event channel
+	eventChannel chan AdapterEvent
+
 	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder encoder.EncoderDecoder
 
@@ -83,7 +86,7 @@ func (c *connectingInboundState) Start() error {
 	c.uplink.Send(msg)
 
 	// send the message to the uplink using the ticker
-	c.ticker = time.NewTicker(c.options.responseInterval)
+	c.ticker = time.NewTicker(c.options.ResponseInterval)
 	go func() {
 		for range c.ticker.C {
 			err := c.uplink.Send(msg)
@@ -99,12 +102,13 @@ func (c *connectingInboundState) Start() error {
 	encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
 
 	forwarderOptions := ForwarderOptions{
-		Throughput:    1000,
+		Throughput:    c.options.ThroughputLimit,
 		LocalDeviceId: c.options.LocalDeviceId,
 		PeerDeviceId:  c.options.PeerDeviceId,
 		ConnectionId:  c.options.ConnectionId,
+		ReadTimeout:   c.options.ConnectionReadTimeout,
 	}
-	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, encryption)
+	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, encryption, c.eventChannel)
 
 	return nil
 }
@@ -132,7 +136,7 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 		// TODO check signature
 
 		c.ticker.Stop()
-		return NewConnectedState(c.options, c.uplink, c.forwarder), nil
+		return NewConnectedState(c.options, c.eventChannel, c.uplink, c.forwarder), nil
 	}
 	if msg.Header.Type == messages.CC {
 		c.ticker.Stop()
@@ -145,9 +149,10 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CO, msg.Header.Type)
 }
 
-func NewConnectingInboundState(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapterState {
+func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel chan AdapterEvent, uplink uplink.Uplink) ConnectionAdapterState {
 	return &connectingInboundState{
 		options:        options,
+		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 	}

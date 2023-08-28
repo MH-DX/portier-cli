@@ -25,21 +25,20 @@ type connectedState struct {
 	// CR ticker
 	CRticker *time.Ticker
 
-	// datachannel is the data channel
+	// datachannel is the forwarder's data channel
 	datachannel chan messages.DataMessage
 
-	// errorchannel is the error channel
-	errorchannel chan error
+	// eventChannel is the event channel
+	eventChannel chan AdapterEvent
 }
 
 func (c *connectedState) Start() error {
 	// start reading from the connection
-	dataChannel, errorChannel, err := c.forwarder.Start()
+	dataChannel, err := c.forwarder.Start()
 	if err != nil {
 		return err
 	}
 	c.datachannel = dataChannel
-	c.errorchannel = errorChannel
 
 	// start CR ticker
 	c.CRticker = time.NewTicker(1000 * time.Millisecond)
@@ -108,9 +107,10 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, msg.Header.Type)
 }
 
-func NewConnectedState(options ConnectionAdapterOptions, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
+func NewConnectedState(options ConnectionAdapterOptions, eventChannel chan AdapterEvent, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
 	return &connectedState{
 		options:        options,
+		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		forwarder:      forwarder,

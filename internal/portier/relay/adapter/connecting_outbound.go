@@ -15,6 +15,9 @@ type connectingOutboundState struct {
 	// options are the connection adapter options
 	options ConnectionAdapterOptions
 
+	// eventChannel is the event channel
+	eventChannel chan AdapterEvent
+
 	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder encoder.EncoderDecoder
 
@@ -49,7 +52,7 @@ func (c *connectingOutboundState) Start() error {
 	}
 
 	// send the message to the uplink using the ticker
-	c.ticker = time.NewTicker(c.options.responseInterval)
+	c.ticker = time.NewTicker(c.options.ResponseInterval)
 
 	c.uplink.Send(msg)
 
@@ -99,14 +102,15 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
 
 		forwarderOptions := ForwarderOptions{
-			Throughput:    1000,
+			Throughput:    c.options.ThroughputLimit,
 			LocalDeviceId: c.options.LocalDeviceId,
 			PeerDeviceId:  c.options.PeerDeviceId,
 			ConnectionId:  c.options.ConnectionId,
+			ReadTimeout:   c.options.ConnectionReadTimeout,
 		}
-		forwarder := NewForwarder(forwarderOptions, c.conn, c.uplink, encryption)
+		forwarder := NewForwarder(forwarderOptions, c.conn, c.uplink, encryption, c.eventChannel)
 
-		return NewConnectedState(c.options, c.uplink, forwarder), nil
+		return NewConnectedState(c.options, c.eventChannel, c.uplink, forwarder), nil
 	}
 	if msg.Header.Type == messages.CF {
 		c.ticker.Stop()
@@ -125,9 +129,10 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 	return nil, fmt.Errorf("expected message type [%s|%s|%s], but got %s", messages.CA, messages.CF, messages.CC, msg.Header.Type)
 }
 
-func NewConnectingOutboundState(options ConnectionAdapterOptions, uplink uplink.Uplink, conn net.Conn) ConnectionAdapterState {
+func NewConnectingOutboundState(options ConnectionAdapterOptions, eventChannel chan AdapterEvent, uplink uplink.Uplink, conn net.Conn) ConnectionAdapterState {
 	return &connectingOutboundState{
 		options:        options,
+		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		conn:           conn,

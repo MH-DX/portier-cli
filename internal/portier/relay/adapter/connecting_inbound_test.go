@@ -23,6 +23,7 @@ func TestInboundConnection(testing *testing.T) {
 	connectionChannel := make(chan bool, 1)
 	acceptedChannel := make(chan bool, 1)
 	closedChannel := make(chan bool, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -30,7 +31,7 @@ func TestInboundConnection(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -49,7 +50,7 @@ func TestInboundConnection(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
 
 	go func() {
 		conn, err := listener.Accept()
@@ -78,6 +79,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 
 	// Signals
 	failedChannel := make(chan bool, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -85,7 +87,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -105,7 +107,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
 
 	// WHEN
 	err := underTest.Start()
@@ -127,6 +129,7 @@ func TestInboundConnectionStop(testing *testing.T) {
 
 	// Signals
 	closeChannel := make(chan bool, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -134,7 +137,7 @@ func TestInboundConnectionStop(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -150,7 +153,7 @@ func TestInboundConnectionStop(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
 	err := underTest.Start()
 	assert.Nil(testing, err)
 

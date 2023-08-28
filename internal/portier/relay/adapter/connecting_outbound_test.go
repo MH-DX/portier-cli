@@ -23,6 +23,7 @@ func TestOutboundConnection(testing *testing.T) {
 	// Signals
 	openChannel := make(chan bool, 1)
 	closedChannel := make(chan bool, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -30,7 +31,7 @@ func TestOutboundConnection(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -51,7 +52,7 @@ func TestOutboundConnection(testing *testing.T) {
 
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	assert.Nil(testing, err)
-	underTest := NewConnectingOutboundState(options, &uplink, conn)
+	underTest := NewConnectingOutboundState(options, eventChannel, &uplink, conn)
 
 	// WHEN
 	underTest.Start()
@@ -70,13 +71,15 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
+	eventChannel := make(chan AdapterEvent, 10)
+
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
 		ConnectionId:        "test-connection-id",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -90,7 +93,7 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	assert.Nil(testing, err)
 
-	underTest := NewConnectingOutboundState(options, &uplink, conn)
+	underTest := NewConnectingOutboundState(options, eventChannel, &uplink, conn)
 	err = underTest.Start()
 	assert.Nil(testing, err)
 
@@ -122,6 +125,7 @@ func TestOutboundConnectionStop(testing *testing.T) {
 
 	// Signals
 	closeChannel := make(chan bool, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
@@ -129,7 +133,7 @@ func TestOutboundConnectionStop(testing *testing.T) {
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
-		responseInterval:    1000 * time.Millisecond,
+		ResponseInterval:    1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -145,7 +149,7 @@ func TestOutboundConnectionStop(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
 	err := underTest.Start()
 	assert.Nil(testing, err)
 

@@ -3,6 +3,7 @@ package adapter
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -23,13 +24,16 @@ type ForwarderOptions struct {
 
 	// ConnectionId is the connection id
 	ConnectionId messages.ConnectionId
+
+	// ReadTimeout is the read timeout
+	ReadTimeout time.Duration
 }
 
 // Forwarder controls the flow of messages from and to spider.
 // It is responsible to acknowledge messages and to process acks.
 type Forwarder interface {
 	// Start starts the forwarder, returns a channel to which messages can be sent
-	Start() (chan messages.DataMessage, chan error, error)
+	Start() (chan messages.DataMessage, error)
 
 	// Ack acknowledges a message
 	Ack(seqNo uint64) error
@@ -39,13 +43,15 @@ type Forwarder interface {
 }
 
 // NewForwarder creates a new forwarder
-func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption) Forwarder {
+func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan AdapterEvent) Forwarder {
 	return &forwarder{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		conn:           conn,
 		uplink:         uplink,
 		encryption:     encryption,
+		stopChannel:    make(chan struct{}),
+		eventChannel:   eventChannel,
 	}
 }
 
@@ -67,12 +73,14 @@ type forwarder struct {
 
 	// stopChannel is the channel to stop the forwarder
 	stopChannel chan struct{}
+
+	// eventChannel is the event channel
+	eventChannel chan AdapterEvent
 }
 
 // Start starts the forwarder, returns a channel to which messages can be sent
-func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
+func (f *forwarder) Start() (chan messages.DataMessage, error) {
 	sendChannel := make(chan messages.DataMessage, 1000)
-	errorChannel := make(chan error)
 
 	go func() {
 		defer close(sendChannel)
@@ -84,7 +92,7 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 				// decode the message
 				_, err := f.conn.Write(msg.Data)
 				if err != nil {
-					errorChannel <- err
+					f.eventChannel <- createEvent("error writing to connection. Exiting", err)
 					return
 				}
 			}
@@ -93,6 +101,7 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 
 	go func() {
 		var seq uint64 = 0
+
 		for {
 			// exit if the stop channel is closed
 			select {
@@ -105,10 +114,20 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 
 			// read from the connection
 			buf := make([]byte, 1024)
+			f.conn.SetReadDeadline(time.Now().Add(f.options.ReadTimeout))
 			n, err := f.conn.Read(buf)
 			if err != nil {
+				// if the error is a timeout, continue
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					continue
+				}
+				// if connection is closed, exit
+				if err.Error() == "EOF" {
+					f.eventChannel <- createEvent("connection closed by peer. Exiting", nil)
+					return
+				}
 				fmt.Printf("error reading from connection: %s\n", err)
-				errorChannel <- err
+				f.eventChannel <- createEvent("error reading from connection. Exiting", err)
 				return
 			}
 			// decrypt the data
@@ -126,13 +145,13 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 			dmBytes, err := f.encoderDecoder.EncodeDataMessage(dm)
 			if err != nil {
 				fmt.Printf("error encoding data message: %s\n", err)
-				errorChannel <- err
+				f.eventChannel <- createEvent("error encoding data message. Exiting", err)
 				return
 			}
 			encrypted, err := f.encryption.Encrypt(header, dmBytes)
 			if err != nil {
 				fmt.Printf("error encrypting data: %s\n", err)
-				errorChannel <- err
+				f.eventChannel <- createEvent("error encrypting data. Exiting", err)
 				return
 			}
 			// wrap the data in a message
@@ -144,13 +163,21 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 			err = f.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending message to uplink: %s\n", err)
-				errorChannel <- err
+				f.eventChannel <- createEvent("error sending message to uplink. Exiting", err)
 				return
 			}
 		}
 	}()
 
-	return sendChannel, errorChannel, nil
+	return sendChannel, nil
+}
+
+func createEvent(msg string, err error) AdapterEvent {
+	return AdapterEvent{
+		Type:    Error,
+		Message: msg,
+		Error:   err,
+	}
 }
 
 // Ack acknowledges a message

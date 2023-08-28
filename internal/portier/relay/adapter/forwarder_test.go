@@ -26,6 +26,8 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	localDeviceId := uuid.New()
 	peerDeviceId := uuid.New()
 
+	eventChannel := make(chan AdapterEvent, 10)
+
 	options := ForwarderOptions{
 		Throughput:    1000,
 		LocalDeviceId: localDeviceId,
@@ -39,9 +41,9 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	// mock encryption
 	encryption := MockEncryption{}
 
-	underTest := NewForwarder(options, conn, &uplink, &encryption)
+	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
 
-	sendChannel, _, err := underTest.Start()
+	sendChannel, err := underTest.Start()
 	assert.Nil(testing, err)
 
 	// WHEN
@@ -78,12 +80,14 @@ func TestForwardingToUplink(testing *testing.T) {
 
 	// Signals
 	msgChannel := make(chan messages.Message, 1)
+	eventChannel := make(chan AdapterEvent, 10)
 
 	options := ForwarderOptions{
 		Throughput:    1000,
 		LocalDeviceId: localDeviceId,
 		PeerDeviceId:  peerDeviceId,
 		ConnectionId:  "test-connection-id",
+		ReadTimeout:   100,
 	}
 
 	// mock uplink
@@ -116,9 +120,9 @@ func TestForwardingToUplink(testing *testing.T) {
 	encryption.On("Encrypt", mock.Anything, dmEncoded1).Return([]byte("test1"), nil)
 	encryption.On("Encrypt", mock.Anything, dmEncoded2).Return([]byte("test2"), nil)
 
-	underTest := NewForwarder(options, conn, &uplink, &encryption)
+	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
 
-	_, _, err = underTest.Start()
+	_, err = underTest.Start()
 	assert.Nil(testing, err)
 
 	// WHEN
