@@ -29,3 +29,17 @@ func (m *MockUplink) Events() <-chan uplink.UplinkEvent {
 	m.Called()
 	return nil
 }
+
+type MockEncryption struct {
+	mock.Mock
+}
+
+func (m *MockEncryption) Decrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
+	args := m.Called(header, data)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncryption) Encrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
+	args := m.Called(header, data)
+	return args.Get(0).([]byte), args.Error(1)
+}

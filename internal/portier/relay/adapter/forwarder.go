@@ -71,7 +71,7 @@ type forwarder struct {
 
 // Start starts the forwarder, returns a channel to which messages can be sent
 func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
-	sendChannel := make(chan messages.DataMessage)
+	sendChannel := make(chan messages.DataMessage, 1000)
 	errorChannel := make(chan error)
 
 	go func() {
@@ -82,12 +82,7 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 				return
 			case msg := <-sendChannel:
 				// decode the message
-				dataMessage, err := f.encoderDecoder.DecodeDataMessage(msg.Data)
-				if err != nil {
-					errorChannel <- err
-					return
-				}
-				_, err = f.conn.Write(dataMessage.Data)
+				_, err := f.conn.Write(msg.Data)
 				if err != nil {
 					errorChannel <- err
 					return
@@ -97,6 +92,7 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 	}()
 
 	go func() {
+		var seq uint64 = 0
 		for {
 			// exit if the stop channel is closed
 			select {
@@ -123,9 +119,10 @@ func (f *forwarder) Start() (chan messages.DataMessage, chan error, error) {
 				CID:  f.options.ConnectionId,
 			}
 			dm := messages.DataMessage{
-				Seq:  0,
+				Seq:  seq,
 				Data: buf[:n],
 			}
+			seq++
 			dmBytes, err := f.encoderDecoder.EncodeDataMessage(dm)
 			if err != nil {
 				fmt.Printf("error encoding data message: %s\n", err)
