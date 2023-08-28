@@ -84,6 +84,11 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 	if msg.Header.Type == messages.D {
 		c.CRticker.Stop()
 		// TODO send acks
+		dm, err := c.encoderDecoder.DecodeDataMessage(msg.Message)
+		if err != nil {
+			return nil, err
+		}
+		c.datachannel <- dm
 		return nil, nil
 	} else if msg.Header.Type == messages.DA {
 		c.CRticker.Stop()
