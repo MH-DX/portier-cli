@@ -37,7 +37,7 @@ type Uplink interface {
 	// Connect connects to the portier server return recv channel to receive messages from the portier server.
 	// The channels will be to be closed by the uplink when the connection to the portier server is closed.
 	// The recv channel will have no buffer and it is mandatory that the Router processes messages in a non-blocking way.
-	Connect() (chan []byte, error)
+	Connect() (<-chan messages.Message, error)
 
 	// Send enqueues a message to the portier server.
 	// The Uplink has only a small buffer to realize backpressure in case the uplink cannot keep up with the messages, i.e. it will block.

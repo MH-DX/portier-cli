@@ -10,7 +10,7 @@ type MockUplink struct {
 	mock.Mock
 }
 
-func (m *MockUplink) Connect() (chan []byte, error) {
+func (m *MockUplink) Connect() (<-chan messages.Message, error) {
 	m.Called()
 	return nil, nil
 }

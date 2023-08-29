@@ -37,7 +37,7 @@ func (c *connector) CreateInboundConnection(header messages.MessageHeader, bridg
 	}, c.uplink)
 
 	// start the connection adapter
-	err := connectionAdapter.Start()
+	_, err := connectionAdapter.Start()
 	if err != nil {
 		return err
 	}
