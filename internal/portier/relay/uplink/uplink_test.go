@@ -69,10 +69,7 @@ func TestConnectAndEcho(testing *testing.T) {
 
 	// THEN
 	response := <-channel
-	// encode response to message
-	encoder := encoder.NewEncoderDecoder()
-	responseMessage, _ := encoder.Decode(response)
-	if responseMessage.Header != msg.Header {
+	if response.Header != msg.Header {
 		testing.Errorf("expected %v, got %v", msg, response)
 	}
 }
@@ -134,10 +131,7 @@ func TestReconnect(testing *testing.T) {
 
 	// THEN
 	response := <-channel
-	// encode response to message
-	encoder := encoder.NewEncoderDecoder()
-	responseMessage, _ := encoder.Decode(response)
-	if responseMessage.Header != okayMsg.Header {
+	if response.Header != okayMsg.Header {
 		testing.Errorf("expected %v, got %v", okayMsg, response)
 	}
 }

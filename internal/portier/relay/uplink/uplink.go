@@ -79,7 +79,7 @@ type WebsocketUplink struct {
 	connection *websocket.Conn
 
 	// recv is the channel to receive messages from the portier server
-	recv chan []byte
+	recv chan messages.Message
 
 	// mutex is the mutex to lock the connection
 	mutex sync.Mutex
@@ -118,14 +118,14 @@ func NewWebsocketUplink(options Options, encoderDecoder encoder.EncoderDecoder) 
 
 	return &WebsocketUplink{
 		Options:        options,
-		recv:           make(chan []byte, 1),
+		recv:           make(chan messages.Message, 1000),
 		events:         make(chan UplinkEvent, 100),
 		encoderDecoder: encoderDecoder,
 	}
 }
 
-// Connect connects to the portier server return recv channel and a send channel to receive / send messages from /to the portier server.
-func (u *WebsocketUplink) Connect() (<-chan []byte, error) {
+// Connect connects to the portier server return recv channel to receive messages from the portier server.
+func (u *WebsocketUplink) Connect() (<-chan messages.Message, error) {
 	// Connect to the portier server
 	err := u.connectWebsocket()
 	if err != nil {
@@ -194,7 +194,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// receive messages from the portier server and forward them to the recv channel
 	go func() {
 		for {
-			_, message, err := connection.ReadMessage()
+			_, frame, err := connection.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err) {
 					log.Printf("websocket disconnected: %v", err)
@@ -206,6 +206,11 @@ func (u *WebsocketUplink) connectWebsocket() error {
 					u.connectWebsocket()
 				}
 				return
+			}
+			message, err := u.encoderDecoder.Decode(frame)
+			if err != nil {
+				log.Printf("error decoding message: %v", err)
+				continue
 			}
 			u.recv <- message
 		}
