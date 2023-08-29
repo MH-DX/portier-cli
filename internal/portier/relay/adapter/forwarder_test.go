@@ -83,11 +83,12 @@ func TestForwardingToUplink(testing *testing.T) {
 	eventChannel := make(chan AdapterEvent, 10)
 
 	options := ForwarderOptions{
-		Throughput:    1000,
-		LocalDeviceId: localDeviceId,
-		PeerDeviceId:  peerDeviceId,
-		ConnectionId:  "test-connection-id",
-		ReadTimeout:   100,
+		Throughput:     1000,
+		LocalDeviceId:  localDeviceId,
+		PeerDeviceId:   peerDeviceId,
+		ConnectionId:   "test-connection-id",
+		ReadTimeout:    100,
+		ReadBufferSize: 1024,
 	}
 
 	// mock uplink

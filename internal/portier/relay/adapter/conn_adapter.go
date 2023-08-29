@@ -67,14 +67,17 @@ type ConnectionAdapterOptions struct {
 	// LocalPrivateKey is the private key of the local device
 	LocalPrivateKey string
 
-	// responseInterval is the interval in which the connection accept/failed message is sent
+	// ResponseInterval is the interval in which the connection accept/failed message is sent
 	ResponseInterval time.Duration
 
-	// connectionReadTimeout is the read timeout for the connection
+	// ConnectionReadTimeout is the read timeout for the connection
 	ConnectionReadTimeout time.Duration
 
-	// connectionThroughput is the throughput limit for the connection in bytes per second
+	// ThroughputLimit is the throughput limit for the connection in bytes per second
 	ThroughputLimit int
+
+	// ReadBufferSize is the size of the read buffer in bytes
+	ReadBufferSize int
 }
 
 type connectionAdapter struct {
@@ -110,7 +113,8 @@ const (
 )
 
 // NewConnectionAdapter creates a new connection adapter for an outbound connection
-func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink, eventChannel chan AdapterEvent) ConnectionAdapter {
+func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink) ConnectionAdapter {
+	eventChannel := make(chan AdapterEvent, 10)
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -123,7 +127,8 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan AdapterEvent) ConnectionAdapter {
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapter {
+	eventChannel := make(chan AdapterEvent, 10)
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),

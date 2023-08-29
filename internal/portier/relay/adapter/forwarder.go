@@ -27,6 +27,9 @@ type ForwarderOptions struct {
 
 	// ReadTimeout is the read timeout
 	ReadTimeout time.Duration
+
+	// ReadBufferSize is the size of the read buffer in bytes
+	ReadBufferSize int
 }
 
 // Forwarder controls the flow of messages from and to spider.
@@ -113,7 +116,7 @@ func (f *forwarder) Start() (chan messages.DataMessage, error) {
 			// TODO wait for acks
 
 			// read from the connection
-			buf := make([]byte, 1024)
+			buf := make([]byte, f.options.ReadBufferSize)
 			f.conn.SetReadDeadline(time.Now().Add(f.options.ReadTimeout))
 			n, err := f.conn.Read(buf)
 			if err != nil {

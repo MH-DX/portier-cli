@@ -102,11 +102,12 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
 
 		forwarderOptions := ForwarderOptions{
-			Throughput:    c.options.ThroughputLimit,
-			LocalDeviceId: c.options.LocalDeviceId,
-			PeerDeviceId:  c.options.PeerDeviceId,
-			ConnectionId:  c.options.ConnectionId,
-			ReadTimeout:   c.options.ConnectionReadTimeout,
+			Throughput:     c.options.ThroughputLimit,
+			LocalDeviceId:  c.options.LocalDeviceId,
+			PeerDeviceId:   c.options.PeerDeviceId,
+			ConnectionId:   c.options.ConnectionId,
+			ReadTimeout:    c.options.ConnectionReadTimeout,
+			ReadBufferSize: c.options.ReadBufferSize,
 		}
 		forwarder := NewForwarder(forwarderOptions, c.conn, c.uplink, encryption, c.eventChannel)
 

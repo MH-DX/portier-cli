@@ -102,11 +102,12 @@ func (c *connectingInboundState) Start() error {
 	encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
 
 	forwarderOptions := ForwarderOptions{
-		Throughput:    c.options.ThroughputLimit,
-		LocalDeviceId: c.options.LocalDeviceId,
-		PeerDeviceId:  c.options.PeerDeviceId,
-		ConnectionId:  c.options.ConnectionId,
-		ReadTimeout:   c.options.ConnectionReadTimeout,
+		Throughput:     c.options.ThroughputLimit,
+		LocalDeviceId:  c.options.LocalDeviceId,
+		PeerDeviceId:   c.options.PeerDeviceId,
+		ConnectionId:   c.options.ConnectionId,
+		ReadTimeout:    c.options.ConnectionReadTimeout,
+		ReadBufferSize: c.options.ReadBufferSize,
 	}
 	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, encryption, c.eventChannel)
 
