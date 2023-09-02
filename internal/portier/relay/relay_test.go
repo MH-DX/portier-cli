@@ -86,7 +86,7 @@ func TestConnectAndBridging(testing *testing.T) {
 
 	uplink1 := createUplink(device1.String(), url)
 	uplink1.Connect()
-	channel2, _ := createUplink(device2.String(), url).Connect()
+	downlink2, _ := createUplink(device2.String(), url).Connect()
 
 	// WHEN
 	msg := messages.Message{
@@ -99,7 +99,7 @@ func TestConnectAndBridging(testing *testing.T) {
 	uplink1.Send(msg) // send message to the uplink
 
 	// THEN
-	response := <-channel2
+	response := <-downlink2
 	if response.Header != msg.Header {
 		testing.Errorf("expected %v, got %v", msg, response)
 	}

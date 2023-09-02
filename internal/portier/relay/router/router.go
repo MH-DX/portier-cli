@@ -10,6 +10,9 @@ import (
 )
 
 type Router interface {
+	// Start starts the router
+	Start() error
+
 	// HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
 	// or routes the message to the existing service, or shuts down the service if the message is a shutdown message.
 	// Returns an error if the message could not be routed.
@@ -31,14 +34,34 @@ type router struct {
 
 	// connector is the connector
 	connector connector.Connector
+
+	// channel to receive messages from the uplink
+	messages chan messages.Message
 }
 
 // NewRouter creates a new router
-func NewRouter() Router {
+func NewRouter(connector connector.Connector, msg chan messages.Message) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
+		connector:      connector,
+		messages:       msg,
 	}
+}
+
+// Start starts the router
+func (r *router) Start() error {
+	// start goroutine to handle messages
+	go func() {
+		for {
+			msg := <-r.messages
+			err := r.HandleMessage(msg)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
+	return nil
 }
 
 // HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
