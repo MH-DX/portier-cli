@@ -90,11 +90,27 @@ func TestConnectionOpen(testing *testing.T) {
 
 func TestConnectionNotFound(testing *testing.T) {
 	// GIVEN
+	connectionId := messages.ConnectionId("test-connection-id")
+	connectorMock := &ConnectorMock{}
+	msg := make(chan messages.Message, 10)
+	underTest := NewRouter(connectorMock, msg)
 
 	// WHEN
+	err := underTest.HandleMessage(messages.Message{
+		Header: messages.MessageHeader{
+			From: uuid.New(),
+			To:   uuid.New(),
+			Type: messages.D,
+			CID:  connectionId,
+		},
+		Message: []byte("Hello, world!"),
+	})
 
 	// THEN
-
+	assert.NotNil(testing, err)
+	assert.Contains(testing, err.Error(), "connection does not exist")
+	connectorMock.AssertExpectations(testing)
+	assert.True(testing, false, "implement sending a connection not found message")
 }
 
 // ConnectorMock is a mock for the connector
