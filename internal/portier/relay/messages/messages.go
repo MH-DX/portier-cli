@@ -27,6 +27,9 @@ const (
 	// ConnectionFailedMessage is a message that is sent when a connection open attempt failed
 	CF MessageType = "CF"
 
+	// ConnectionNotFoundMessage is a message that is sent when a connection is not found
+	NF MessageType = "NF"
+
 	// DataMessage is a message that contains data
 	D MessageType = "D"
 

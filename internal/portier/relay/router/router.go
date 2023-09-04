@@ -7,6 +7,7 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/connector"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
 type Router interface {
@@ -16,7 +17,7 @@ type Router interface {
 	// HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
 	// or routes the message to the existing service, or shuts down the service if the message is a shutdown message.
 	// Returns an error if the message could not be routed.
-	HandleMessage(msg messages.Message) error
+	HandleMessage(msg messages.Message)
 
 	// AddConnection adds a connection to the router
 	AddConnection(messages.ConnectionId, adapter.ConnectionAdapter)
@@ -35,16 +36,20 @@ type router struct {
 	// connector is the connector
 	connector connector.Connector
 
+	// uplink is the uplink
+	uplink uplink.Uplink
+
 	// channel to receive messages from the uplink
 	messages chan messages.Message
 }
 
 // NewRouter creates a new router
-func NewRouter(connector connector.Connector, msg chan messages.Message) Router {
+func NewRouter(connector connector.Connector, uplink uplink.Uplink, msg chan messages.Message) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		connector:      connector,
+		uplink:         uplink,
 		messages:       msg,
 	}
 }
@@ -53,12 +58,15 @@ func NewRouter(connector connector.Connector, msg chan messages.Message) Router 
 func (r *router) Start() error {
 	// start goroutine to handle messages
 	go func() {
-		for {
-			msg := <-r.messages
-			err := r.HandleMessage(msg)
-			if err != nil {
-				fmt.Println(err)
-			}
+		for msg := range r.messages {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("recovered from panic: %v\n", r)
+					}
+				}()
+				r.HandleMessage(msg)
+			}()
 		}
 	}()
 	return nil
@@ -67,10 +75,14 @@ func (r *router) Start() error {
 // HandleMessage handles a message, i.e. creates a new service if necessary and routes the message to the service,
 // or routes the message to the existing service, or shuts down the service if the message is a shutdown message.
 // Returns an error if the message could not be routed.
-func (r *router) HandleMessage(msg messages.Message) error {
+func (r *router) HandleMessage(msg messages.Message) {
 	// if connection exists, route to connection
 	if connection, ok := r.connections[msg.Header.CID]; ok {
-		return connection.Send(msg)
+		err := connection.Send(msg)
+		if err != nil {
+			fmt.Printf("error sending message to connection: %v\n", err)
+			// TODO: handle error
+		}
 	}
 
 	// if connection does not exist, and message is a ConnectionOpenMessage, create a new connection using the connection provider
@@ -78,14 +90,31 @@ func (r *router) HandleMessage(msg messages.Message) error {
 		// decode the message into a ConnectionOpenMessage
 		connectionOpenMessage, err := r.encoderDecoder.DecodeConnectionOpenMessage(msg.Message)
 		if err != nil {
-			return err
+			fmt.Printf("error decoding connection open message: %v\n", err)
+			// TODO: handle error
 		}
 
-		return r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
+		err = r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
+		if err != nil {
+			fmt.Printf("error creating inbound connection: %v\n", err)
+			// TODO: handle error
+		}
 	}
 
-	// if connection does not exist, and message is not a ConnectionOpenMessage, return an error
-	return fmt.Errorf("connection does not exist for connection id %s", msg.Header.CID)
+	// send connection not found message in any case
+	connectionNotFoundMessage := messages.Message{
+		Header: messages.MessageHeader{
+			From: msg.Header.To,
+			To:   msg.Header.From,
+			Type: messages.NF,
+			CID:  msg.Header.CID,
+		},
+		Message: []byte(""),
+	}
+	err := r.uplink.Send(connectionNotFoundMessage)
+	if err != nil {
+		fmt.Printf("error sending connection not found message: %v\n", err)
+	}
 }
 
 // AddConnection adds an outbound connection to the router
