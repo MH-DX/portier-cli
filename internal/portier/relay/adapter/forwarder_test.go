@@ -43,16 +43,16 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
 
-	sendChannel, err := underTest.Start()
+	err = underTest.Start()
 	assert.Nil(testing, err)
 
 	// WHEN
 	// send a message to the send channel and check if it is received by the conn
 
-	sendChannel <- messages.DataMessage{
+	underTest.SendAsync(messages.DataMessage{
 		Seq:  1,
 		Data: []byte("test"),
-	}
+	})
 
 	// THEN
 	buf := make([]byte, 1024)
@@ -62,6 +62,7 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	underTest.Close()
 	uplink.AssertExpectations(testing)
+	encryption.AssertExpectations(testing)
 }
 
 func TestForwardingToUplink(testing *testing.T) {
@@ -123,7 +124,7 @@ func TestForwardingToUplink(testing *testing.T) {
 
 	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
 
-	_, err = underTest.Start()
+	err = underTest.Start()
 	assert.Nil(testing, err)
 
 	// WHEN

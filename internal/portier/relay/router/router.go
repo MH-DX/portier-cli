@@ -40,11 +40,11 @@ type router struct {
 	uplink uplink.Uplink
 
 	// channel to receive messages from the uplink
-	messages chan messages.Message
+	messages <-chan messages.Message
 }
 
 // NewRouter creates a new router
-func NewRouter(connector connector.Connector, uplink uplink.Uplink, msg chan messages.Message) Router {
+func NewRouter(connector connector.Connector, uplink uplink.Uplink, msg <-chan messages.Message) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -78,11 +78,8 @@ func (r *router) Start() error {
 func (r *router) HandleMessage(msg messages.Message) {
 	// if connection exists, route to connection
 	if connection, ok := r.connections[msg.Header.CID]; ok {
-		err := connection.Send(msg)
-		if err != nil {
-			fmt.Printf("error sending message to connection: %v\n", err)
-			// TODO: handle error
-		}
+		connection.Send(msg)
+		return
 	}
 
 	// if connection does not exist, and message is a ConnectionOpenMessage, create a new connection using the connection provider
@@ -91,14 +88,11 @@ func (r *router) HandleMessage(msg messages.Message) {
 		connectionOpenMessage, err := r.encoderDecoder.DecodeConnectionOpenMessage(msg.Message)
 		if err != nil {
 			fmt.Printf("error decoding connection open message: %v\n", err)
-			// TODO: handle error
+			fmt.Printf("message: %v\n", msg)
+			return
 		}
-
-		err = r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
-		if err != nil {
-			fmt.Printf("error creating inbound connection: %v\n", err)
-			// TODO: handle error
-		}
+		r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
+		return
 	}
 
 	// send connection not found message in any case

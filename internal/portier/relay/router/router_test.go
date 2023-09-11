@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,18 +18,17 @@ func TestRouting(testing *testing.T) {
 	connectorMock := &ConnectorMock{}
 	connectionAdapterMock := &ConnectionAdapterMock{}
 	msg := make(chan messages.Message, 10)
-	underTest := NewRouter(connectorMock, msg)
+	uplinkMock := &MockUplink{}
+	underTest := NewRouter(connectorMock, uplinkMock, msg)
 	underTest.AddConnection(connectionId, connectionAdapterMock)
 	connectionAdapterMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.CID == connectionId
 	})).Return(nil)
 	err := underTest.Start()
-	if err != nil {
-		testing.Errorf("expected err to be nil, got %v", err)
-	}
+	assert.Nil(testing, err)
 
 	// WHEN
-	err = underTest.HandleMessage(messages.Message{
+	underTest.HandleMessage(messages.Message{
 		Header: messages.MessageHeader{
 			From: uuid.New(),
 			To:   uuid.New(),
@@ -40,7 +39,6 @@ func TestRouting(testing *testing.T) {
 	})
 
 	// THEN
-	assert.Nil(testing, err)
 	connectionAdapterMock.AssertExpectations(testing)
 }
 
@@ -49,7 +47,8 @@ func TestConnectionOpen(testing *testing.T) {
 	connectionId := messages.ConnectionId("test-connection-id")
 	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
-	underTest := NewRouter(connectorMock, msg)
+	uplinkMock := &MockUplink{}
+	underTest := NewRouter(connectorMock, uplinkMock, msg)
 
 	pcKey := "test-pc-key"
 	remoteUrl, _ := url.Parse("tcp://localhost:1234")
@@ -68,12 +67,10 @@ func TestConnectionOpen(testing *testing.T) {
 	}), bridgeOptions, pcKey).Return(nil)
 
 	err := underTest.Start()
-	if err != nil {
-		testing.Errorf("expected err to be nil, got %v", err)
-	}
+	assert.Nil(testing, err)
 
 	// WHEN
-	err = underTest.HandleMessage(messages.Message{
+	underTest.HandleMessage(messages.Message{
 		Header: messages.MessageHeader{
 			From: uuid.New(),
 			To:   uuid.New(),
@@ -84,7 +81,6 @@ func TestConnectionOpen(testing *testing.T) {
 	})
 
 	// THEN
-	assert.Nil(testing, err)
 	connectorMock.AssertExpectations(testing)
 }
 
@@ -93,10 +89,14 @@ func TestConnectionNotFound(testing *testing.T) {
 	connectionId := messages.ConnectionId("test-connection-id")
 	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
-	underTest := NewRouter(connectorMock, msg)
+	uplinkMock := &MockUplink{}
+	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
+		return msg.Header.Type == messages.NF
+	})).Return(nil)
+	underTest := NewRouter(connectorMock, uplinkMock, msg)
 
 	// WHEN
-	err := underTest.HandleMessage(messages.Message{
+	underTest.HandleMessage(messages.Message{
 		Header: messages.MessageHeader{
 			From: uuid.New(),
 			To:   uuid.New(),
@@ -107,10 +107,7 @@ func TestConnectionNotFound(testing *testing.T) {
 	})
 
 	// THEN
-	assert.NotNil(testing, err)
-	assert.Contains(testing, err.Error(), "connection does not exist")
 	connectorMock.AssertExpectations(testing)
-	assert.True(testing, false, "implement sending a connection not found message")
 }
 
 // ConnectorMock is a mock for the connector
@@ -118,18 +115,17 @@ type ConnectorMock struct {
 	mock.Mock
 }
 
-func (c *ConnectorMock) CreateInboundConnection(header messages.MessageHeader, options messages.BridgeOptions, pcKey string) error {
-	args := c.Called(header, options, pcKey)
-	return args.Error(0)
+func (c *ConnectorMock) CreateInboundConnection(header messages.MessageHeader, options messages.BridgeOptions, pcKey string) {
+	c.Called(header, options, pcKey)
 }
 
 type ConnectionAdapterMock struct {
 	mock.Mock
 }
 
-func (c *ConnectionAdapterMock) Start() (chan adapter.AdapterEvent, error) {
+func (c *ConnectionAdapterMock) Start() error {
 	args := c.Called()
-	return args.Get(0).(chan adapter.AdapterEvent), args.Error(1)
+	return args.Error(0)
 }
 
 func (c *ConnectionAdapterMock) Stop() error {
@@ -137,7 +133,30 @@ func (c *ConnectionAdapterMock) Stop() error {
 	return args.Error(0)
 }
 
-func (c *ConnectionAdapterMock) Send(msg messages.Message) error {
-	args := c.Called(msg)
+func (c *ConnectionAdapterMock) Send(msg messages.Message) {
+	c.Called(msg)
+}
+
+type MockUplink struct {
+	mock.Mock
+}
+
+func (m *MockUplink) Connect() (<-chan messages.Message, error) {
+	m.Called()
+	return nil, nil
+}
+
+func (m *MockUplink) Send(message messages.Message) error {
+	args := m.Called(message)
 	return args.Error(0)
+}
+
+func (m *MockUplink) Close() error {
+	m.Called()
+	return nil
+}
+
+func (m *MockUplink) Events() <-chan uplink.UplinkEvent {
+	m.Called()
+	return nil
 }

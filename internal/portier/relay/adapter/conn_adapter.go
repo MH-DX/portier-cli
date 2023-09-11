@@ -21,20 +21,21 @@ const (
 )
 
 type AdapterEvent struct {
-	Type    AdapterEventType
-	Message string
-	Error   error
+	ConnectionId messages.ConnectionId
+	Type         AdapterEventType
+	Message      string
+	Error        error
 }
 
 type ConnectionAdapter interface {
 	// Start starts the connection
-	Start() (chan AdapterEvent, error)
+	Start() error
 
 	// Stop stops the connection
 	Stop() error
 
 	// Send sends a message to the connection
-	Send(msg messages.Message) error
+	Send(msg messages.Message)
 }
 
 type ConnectionAdapterState interface {
@@ -99,7 +100,7 @@ type connectionAdapter struct {
 	mode ConnectionMode
 
 	// eventChannel is the channel that is used to send events to the caller
-	eventChannel chan AdapterEvent
+	eventChannel chan<- AdapterEvent
 }
 
 type ConnectionMode string
@@ -113,8 +114,7 @@ const (
 )
 
 // NewConnectionAdapter creates a new connection adapter for an outbound connection
-func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink) ConnectionAdapter {
-	eventChannel := make(chan AdapterEvent, 10)
+func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -127,8 +127,7 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink) ConnectionAdapter {
-	eventChannel := make(chan AdapterEvent, 10)
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -141,41 +140,52 @@ func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink
 }
 
 // Start starts the connection adapter
-func (c *connectionAdapter) Start() (chan AdapterEvent, error) {
+func (c *connectionAdapter) Start() error {
 	// start the connection adapter
-	c.state.Start()
-	return c.eventChannel, nil
+	err := c.state.Start()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Stop stops the connection adapter
 func (c *connectionAdapter) Stop() error {
 	// stop the connection adapter
-	c.state.Stop()
+	err := c.state.Stop()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // Send sends a message to the queue
-func (c *connectionAdapter) Send(msg messages.Message) error {
+func (c *connectionAdapter) Send(msg messages.Message) {
 	// if the message queue is not closed, send the message to the message queue
 	newState, err := c.state.HandleMessage(msg)
 	if err != nil {
 		fmt.Printf("error handling message: %v\n", err)
 		c.Stop()
-		return err
+		c.eventChannel <- AdapterEvent{
+			ConnectionId: c.options.ConnectionId,
+			Type:         Error,
+			Error:        err,
+		}
+		return
 	}
 	if newState != nil {
 		c.state = newState
 		err = newState.Start()
 		if err != nil {
 			fmt.Printf("error starting new state: %v\n", err)
-			return err
-		}
-		err = c.Send(msg)
-		if err != nil {
-			fmt.Printf("error handling message: %v\n", err)
 			c.Stop()
-			return err
+			c.eventChannel <- AdapterEvent{
+				ConnectionId: c.options.ConnectionId,
+				Type:         Error,
+				Error:        err,
+			}
+			return
 		}
+		c.Send(msg)
 	}
-	return nil
 }

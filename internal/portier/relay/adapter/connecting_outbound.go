@@ -16,7 +16,7 @@ type connectingOutboundState struct {
 	options ConnectionAdapterOptions
 
 	// eventChannel is the event channel
-	eventChannel chan AdapterEvent
+	eventChannel chan<- AdapterEvent
 
 	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder encoder.EncoderDecoder
@@ -54,13 +54,21 @@ func (c *connectingOutboundState) Start() error {
 	// send the message to the uplink using the ticker
 	c.ticker = time.NewTicker(c.options.ResponseInterval)
 
-	c.uplink.Send(msg)
+	err = c.uplink.Send(msg)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		for range c.ticker.C {
 			err := c.uplink.Send(msg)
 			if err != nil {
-				fmt.Printf("error sending connection open message: %s\n", err)
+				// send error event
+				c.eventChannel <- AdapterEvent{
+					ConnectionId: c.options.ConnectionId,
+					Type:         Error,
+					Message:      err.Error(),
+				}
 			}
 		}
 	}()
@@ -120,17 +128,28 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("connection failed: %s", connectionFailedMessage.Reason)
+		// send connection failed event
+		c.eventChannel <- AdapterEvent{
+			ConnectionId: c.options.ConnectionId,
+			Type:         Error,
+			Message:      connectionFailedMessage.Reason,
+		}
+		return nil, nil
 	}
 	if msg.Header.Type == messages.CC {
 		c.ticker.Stop()
 		c.conn.Close()
+		c.eventChannel <- AdapterEvent{
+			ConnectionId: c.options.ConnectionId,
+			Type:         Closed,
+			Message:      "connection closed",
+		}
 		return nil, nil
 	}
 	return nil, fmt.Errorf("expected message type [%s|%s|%s], but got %s", messages.CA, messages.CF, messages.CC, msg.Header.Type)
 }
 
-func NewConnectingOutboundState(options ConnectionAdapterOptions, eventChannel chan AdapterEvent, uplink uplink.Uplink, conn net.Conn) ConnectionAdapterState {
+func NewConnectingOutboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, conn net.Conn) ConnectionAdapterState {
 	return &connectingOutboundState{
 		options:        options,
 		eventChannel:   eventChannel,

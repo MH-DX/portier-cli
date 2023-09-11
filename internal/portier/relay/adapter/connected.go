@@ -25,20 +25,16 @@ type connectedState struct {
 	// CR ticker
 	CRticker *time.Ticker
 
-	// datachannel is the forwarder's data channel
-	datachannel chan messages.DataMessage
-
 	// eventChannel is the event channel
-	eventChannel chan AdapterEvent
+	eventChannel chan<- AdapterEvent
 }
 
 func (c *connectedState) Start() error {
 	// start reading from the connection
-	dataChannel, err := c.forwarder.Start()
+	err := c.forwarder.Start()
 	if err != nil {
 		return err
 	}
-	c.datachannel = dataChannel
 
 	// start CR ticker
 	c.CRticker = time.NewTicker(1000 * time.Millisecond)
@@ -51,11 +47,22 @@ func (c *connectedState) Start() error {
 		},
 		Message: []byte{},
 	}
+
+	err = c.uplink.Send(msg)
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		for range c.CRticker.C {
 			err := c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending CR message: %s\n", err)
+			}
+			c.eventChannel <- AdapterEvent{
+				ConnectionId: c.options.ConnectionId,
+				Type:         Error,
+				Message:      fmt.Sprintf("error sending CR message: %s", err),
 			}
 		}
 	}()
@@ -87,7 +94,15 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		if err != nil {
 			return nil, err
 		}
-		c.datachannel <- dm
+		err = c.forwarder.SendAsync(dm)
+		if err != nil {
+			c.eventChannel <- AdapterEvent{
+				ConnectionId: c.options.ConnectionId,
+				Type:         Error,
+				Message:      fmt.Sprintf("error sending data message to forwarder: %s", err),
+			}
+			return nil, err
+		}
 		return nil, nil
 	} else if msg.Header.Type == messages.DA {
 		c.CRticker.Stop()
@@ -103,11 +118,13 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		return nil, err
 	} else if msg.Header.Type == messages.CR {
 		return nil, nil
+	} else if msg.Header.Type == messages.CA {
+		return nil, nil
 	}
 	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, msg.Header.Type)
 }
 
-func NewConnectedState(options ConnectionAdapterOptions, eventChannel chan AdapterEvent, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
+func NewConnectedState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
 	return &connectedState{
 		options:        options,
 		eventChannel:   eventChannel,
