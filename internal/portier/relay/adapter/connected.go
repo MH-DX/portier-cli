@@ -58,11 +58,11 @@ func (c *connectedState) Start() error {
 			err := c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending CR message: %s\n", err)
-			}
-			c.eventChannel <- AdapterEvent{
-				ConnectionId: c.options.ConnectionId,
-				Type:         Error,
-				Message:      fmt.Sprintf("error sending CR message: %s", err),
+				c.eventChannel <- AdapterEvent{
+					ConnectionId: c.options.ConnectionId,
+					Type:         Error,
+					Message:      fmt.Sprintf("error sending CR message: %s", err),
+				}
 			}
 		}
 	}()

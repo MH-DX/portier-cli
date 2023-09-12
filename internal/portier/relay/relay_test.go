@@ -11,12 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/connector"
+	"github.com/marinator86/portier-cli/internal/portier/relay/controller"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
-	"github.com/stretchr/testify/mock"
 )
 
 var spider = Spider{
@@ -134,12 +133,14 @@ func TestForwarding(testing *testing.T) {
 	forwarded, _ := net.Listen("tcp", "127.0.0.1:18081")
 	defer forwarded.Close()
 
-	router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	router2.Start()
+	ctrl2.Start()
 
-	router1, adapter1, listenerConn := createOutboundRelay(device1, fromOptions, ws_url, outboundEvents, ln)
+	ctrl1, router1, adapter1, listenerConn := createOutboundRelay(device1, fromOptions, ws_url, outboundEvents, ln)
 	router1.Start()
-	router1.AddConnection(cid, adapter1)
+	ctrl1.Start()
+	ctrl1.AddConnection(cid, adapter1)
 
 	// Starting the outbound adapter will initiate sending the connection open message
 	err := adapter1.Start()
@@ -160,38 +161,40 @@ func TestForwarding(testing *testing.T) {
 	if string(buf[:n]) != "Hello, world!" {
 		testing.Errorf("expected %v, got %v", "Hello, world!", string(buf[:n]))
 	}
+
+	// close the forwarded connection to provoke a connection close message
+	listenerConn.Close()
+
+	// expect the listener connection to be closed
+	buf = make([]byte, 1024)
+	_, err = forwardedConn.Read(buf)
+	if err.Error() != "EOF" {
+		testing.Errorf("expected %v, got %v", "EOF", err.Error())
+	}
 }
 
-func createOutboundRelay(deviceId uuid.UUID, opts adapter.ConnectionAdapterOptions, url string, events chan<- adapter.AdapterEvent, ln net.Listener) (router.Router, adapter.ConnectionAdapter, net.Conn) {
+func createOutboundRelay(deviceId uuid.UUID, opts adapter.ConnectionAdapterOptions, url string, events chan adapter.AdapterEvent, ln net.Listener) (controller.Controller, router.Router, adapter.ConnectionAdapter, net.Conn) {
 	uplink := createUplink(deviceId.String(), url)
-	controller := &ControllerMock{}
-	controller.On("GetEventChannel").Return(events)
-	connector := connector.NewConnector(uplink, controller)
 	messageChannel, _ := uplink.Connect()
-	router := router.NewRouter(connector, uplink, messageChannel)
+	routerEventChannel := make(chan router.ConnectionOpenEvent)
+	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
+	controller := controller.NewController(uplink, events, routerEventChannel, router)
 
 	// dial tcp server
 	cConn, _ := net.Dial("tcp", "127.0.0.1:18080")
 	sConn, _ := ln.Accept()
 
 	adapter := adapter.NewOutboundConnectionAdapter(opts, sConn, uplink, events)
-	return router, adapter, cConn
+	return controller, router, adapter, cConn
 }
 
-func createInboundRelay(deviceId uuid.UUID, url string, events chan<- adapter.AdapterEvent) router.Router {
+func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router) {
 	uplink := createUplink(deviceId.String(), url)
-	controller := &ControllerMock{}
-	controller.On("GetEventChannel").Return(events)
-	connector := connector.NewConnector(uplink, controller)
 	messageChannel, _ := uplink.Connect()
-	router := router.NewRouter(connector, uplink, messageChannel)
-	controller.On("AddConnection", mock.MatchedBy(func(cid messages.ConnectionId) bool {
-		return true
-	}), mock.MatchedBy(func(adapter adapter.ConnectionAdapter) bool {
-		router.AddConnection("test-connection-id", adapter)
-		return true
-	})).Return(nil)
-	return router
+	routerEventChannel := make(chan router.ConnectionOpenEvent)
+	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
+	controller := controller.NewController(uplink, events, routerEventChannel, router)
+	return controller, router
 }
 
 func createConnectionAdapterOptions(cid messages.ConnectionId, from uuid.UUID, to uuid.UUID, rawUrl string) adapter.ConnectionAdapterOptions {
@@ -207,18 +210,4 @@ func createConnectionAdapterOptions(cid messages.ConnectionId, from uuid.UUID, t
 		ConnectionReadTimeout: time.Millisecond * 1000,
 		ReadBufferSize:        1024,
 	}
-}
-
-type ControllerMock struct {
-	mock.Mock
-}
-
-func (c *ControllerMock) AddConnection(cid messages.ConnectionId, adapter adapter.ConnectionAdapter) error {
-	c.Called(cid, adapter)
-	return nil
-}
-
-func (c *ControllerMock) GetEventChannel() chan<- adapter.AdapterEvent {
-	args := c.Called()
-	return args.Get(0).(chan<- adapter.AdapterEvent)
 }

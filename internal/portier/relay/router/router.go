@@ -4,11 +4,21 @@ import (
 	"fmt"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/connector"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
+
+type ConnectionOpenEvent struct {
+	// message header
+	Header messages.MessageHeader
+
+	// bridge options
+	BridgeOptions messages.BridgeOptions
+
+	// pc key
+	PCKey string
+}
 
 type Router interface {
 	// Start starts the router
@@ -33,24 +43,24 @@ type router struct {
 	// encoderDecoder is the encoder/decoder
 	encoderDecoder encoder.EncoderDecoder
 
-	// connector is the connector
-	connector connector.Connector
-
 	// uplink is the uplink
 	uplink uplink.Uplink
 
 	// channel to receive messages from the uplink
 	messages <-chan messages.Message
+
+	// channel to push events to the controller
+	events chan<- ConnectionOpenEvent
 }
 
 // NewRouter creates a new router
-func NewRouter(connector connector.Connector, uplink uplink.Uplink, msg <-chan messages.Message) Router {
+func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- ConnectionOpenEvent) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
-		connector:      connector,
 		uplink:         uplink,
 		messages:       msg,
+		events:         events,
 	}
 }
 
@@ -91,7 +101,11 @@ func (r *router) HandleMessage(msg messages.Message) {
 			fmt.Printf("message: %v\n", msg)
 			return
 		}
-		r.connector.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
+		r.events <- ConnectionOpenEvent{
+			Header:        msg.Header,
+			BridgeOptions: connectionOpenMessage.BridgeOptions,
+			PCKey:         connectionOpenMessage.PCKey,
+		}
 		return
 	}
 
