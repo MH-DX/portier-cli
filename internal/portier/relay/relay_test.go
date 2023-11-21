@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -37,38 +38,50 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func echo(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
+func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
+
+	i := 0
+
+	result := func(w http.ResponseWriter, r *http.Request) {
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		// create channels
+		outChannel := make(chan messages.Message)
+		// get device id from Authorization header
+		header := r.Header.Get("Authorization")
+		deviceId := uuid.MustParse(header)
+
+		spider.channels[deviceId] = outChannel
+
+		// start goroutine to read from in channel and write to target device channel
+		go func() {
+			for {
+				_, message, _ := c.ReadMessage()
+				i++
+				if n != 0 && i%n == 0 {
+					fmt.Printf("Dropping message: %s\n", message)
+					continue
+				}
+				fmt.Printf("Forwarding message: %s\n", message)
+				msg, _ := spider.encoder.Decode(message)
+				toDeviceId := msg.Header.To
+				toChannel := spider.channels[toDeviceId]
+				toChannel <- msg
+			}
+		}()
+
+		// start goroutine to read from out channel and write to websocket
+		go func() {
+			for {
+				msg := <-outChannel
+				encoded, _ := spider.encoder.Encode(msg)
+				c.WriteMessage(websocket.BinaryMessage, encoded)
+			}
+		}()
 	}
-	// create channels
-	outChannel := make(chan messages.Message)
-	// get device id from Authorization header
-	header := r.Header.Get("Authorization")
-	deviceId := uuid.MustParse(header)
-
-	spider.channels[deviceId] = outChannel
-
-	// start goroutine to read from in channel and write to target device channel
-	go func() {
-		for {
-			_, message, _ := c.ReadMessage()
-			msg, _ := spider.encoder.Decode(message)
-			toDeviceId := msg.Header.To
-			toChannel := spider.channels[toDeviceId]
-			toChannel <- msg
-		}
-	}()
-
-	// start goroutine to read from out channel and write to websocket
-	go func() {
-		for {
-			msg := <-outChannel
-			encoded, _ := spider.encoder.Encode(msg)
-			c.WriteMessage(websocket.BinaryMessage, encoded)
-		}
-	}()
+	return result
 }
 
 func createUplink(deviceId string, url string) uplink.Uplink {
@@ -82,7 +95,7 @@ func createUplink(deviceId string, url string) uplink.Uplink {
 
 func TestConnectAndBridging(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echo))
+	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -113,7 +126,7 @@ func TestConnectAndBridging(testing *testing.T) {
 
 func TestForwarding(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echo))
+	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -137,7 +150,8 @@ func TestForwarding(testing *testing.T) {
 	router2.Start()
 	ctrl2.Start()
 
-	ctrl1, router1, adapter1, listenerConn := createOutboundRelay(device1, fromOptions, ws_url, outboundEvents, ln)
+	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 	router1.Start()
 	ctrl1.Start()
 	ctrl1.AddConnection(cid, adapter1)
@@ -173,19 +187,73 @@ func TestForwarding(testing *testing.T) {
 	}
 }
 
-func createOutboundRelay(deviceId uuid.UUID, opts adapter.ConnectionAdapterOptions, url string, events chan adapter.AdapterEvent, ln net.Listener) (controller.Controller, router.Router, adapter.ConnectionAdapter, net.Conn) {
+func TestConnOpenUnderStress(testing *testing.T) {
+	// GIVEN
+	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(5)))
+
+	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
+	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
+	defer server.Close()
+	// Replace "http" with "ws" in our URL.
+	ws_url := "ws" + server.URL[4:]
+
+	// create forwarding tcp server
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer ln.Close()
+
+	inboundEvents := make(chan adapter.AdapterEvent)
+	outboundEvents := make(chan adapter.AdapterEvent)
+
+	forwarded, _ := net.Listen("tcp", "127.0.0.1:0")
+	fAddr := fmt.Sprintf("%s://%s", forwarded.Addr().Network(), forwarded.Addr().String())
+	defer forwarded.Close()
+
+	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2.Start()
+	ctrl2.Start()
+
+	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1.Start()
+	ctrl1.Start()
+
+	for i := 0; i < 50; i++ {
+		cid := messages.ConnectionId(fmt.Sprintf("test-connection-id-%d", i))
+		fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
+		adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
+		ctrl1.AddConnection(cid, adapter1)
+
+		// Starting the outbound adapter will initiate sending the connection open message
+		err := adapter1.Start()
+		if err != nil {
+			testing.Errorf("error starting adapter: %v", err)
+		}
+
+		// WHEN
+		// wait for the forwardED listener to accept a connection from the inbound adapter
+		forwarded.Accept()
+
+		// close the forwarded connection to provoke a connection close message
+		listenerConn.Close()
+	}
+}
+
+func createOutboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router, uplink.Uplink) {
 	uplink := createUplink(deviceId.String(), url)
 	messageChannel, _ := uplink.Connect()
 	routerEventChannel := make(chan router.ConnectionOpenEvent)
 	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
 	controller := controller.NewController(uplink, events, routerEventChannel, router)
 
+	return controller, router, uplink
+}
+
+func createOutboundAdapter(uplink uplink.Uplink, opts adapter.ConnectionAdapterOptions, events chan adapter.AdapterEvent, ln net.Listener) (adapter.ConnectionAdapter, net.Conn) {
 	// dial tcp server
-	cConn, _ := net.Dial("tcp", "127.0.0.1:18080")
+	cConn, _ := net.Dial(ln.Addr().Network(), ln.Addr().String())
 	sConn, _ := ln.Accept()
 
 	adapter := adapter.NewOutboundConnectionAdapter(opts, sConn, uplink, events)
-	return controller, router, adapter, cConn
+	return adapter, cConn
 }
 
 func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router) {

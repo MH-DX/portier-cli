@@ -71,6 +71,7 @@ func (c *connectedState) Start() error {
 }
 
 func (c *connectedState) Stop() error {
+	c.CRticker.Stop()
 	// send connection close message
 	msg := messages.Message{
 		Header: messages.MessageHeader{
@@ -114,6 +115,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		c.forwarder.Ack(ackMessage.Seq)
 		return nil, nil
 	} else if msg.Header.Type == messages.CC {
+		c.CRticker.Stop()
 		err := c.forwarder.Close()
 		return nil, err
 	} else if msg.Header.Type == messages.CR {
