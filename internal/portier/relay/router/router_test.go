@@ -15,11 +15,11 @@ import (
 func TestRouting(testing *testing.T) {
 	// GIVEN
 	connectionId := messages.ConnectionId("test-connection-id")
-	connectorMock := &ConnectorMock{}
 	connectionAdapterMock := &ConnectionAdapterMock{}
 	msg := make(chan messages.Message, 10)
+	events := make(chan<- ConnectionOpenEvent, 10)
 	uplinkMock := &MockUplink{}
-	underTest := NewRouter(connectorMock, uplinkMock, msg)
+	underTest := NewRouter(uplinkMock, msg, events)
 	underTest.AddConnection(connectionId, connectionAdapterMock)
 	connectionAdapterMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.CID == connectionId
@@ -45,10 +45,10 @@ func TestRouting(testing *testing.T) {
 func TestConnectionOpen(testing *testing.T) {
 	// GIVEN
 	connectionId := messages.ConnectionId("test-connection-id")
-	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
+	events := make(chan ConnectionOpenEvent, 10)
 	uplinkMock := &MockUplink{}
-	underTest := NewRouter(connectorMock, uplinkMock, msg)
+	underTest := NewRouter(uplinkMock, msg, events)
 
 	pcKey := "test-pc-key"
 	remoteUrl, _ := url.Parse("tcp://localhost:1234")
@@ -61,10 +61,6 @@ func TestConnectionOpen(testing *testing.T) {
 	}
 	encoderDecoder := encoder.NewEncoderDecoder()
 	connectionOpenMessagePayload, _ := encoderDecoder.EncodeConnectionOpenMessage(connectionOpenMessage)
-
-	connectorMock.On("CreateInboundConnection", mock.MatchedBy(func(h messages.MessageHeader) bool {
-		return h.Type == messages.CO && h.CID == connectionId
-	}), bridgeOptions, pcKey).Return(nil)
 
 	err := underTest.Start()
 	assert.Nil(testing, err)
@@ -81,7 +77,13 @@ func TestConnectionOpen(testing *testing.T) {
 	})
 
 	// THEN
-	connectorMock.AssertExpectations(testing)
+	connectionOpenEvent := <-events
+	if connectionOpenEvent.Header.Type != messages.CO {
+		testing.Errorf("expected %v, got %v", messages.CO, connectionOpenEvent.Header.Type)
+	}
+	if messages.MessageType(connectionOpenEvent.Header.CID) != messages.MessageType(connectionId) {
+		testing.Errorf("expected %v, got %v", connectionId, connectionOpenEvent.Header.CID)
+	}
 }
 
 func TestConnectionNotFound(testing *testing.T) {
@@ -89,11 +91,12 @@ func TestConnectionNotFound(testing *testing.T) {
 	connectionId := messages.ConnectionId("test-connection-id")
 	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
+	events := make(chan<- ConnectionOpenEvent, 10)
 	uplinkMock := &MockUplink{}
 	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.Type == messages.NF
 	})).Return(nil)
-	underTest := NewRouter(connectorMock, uplinkMock, msg)
+	underTest := NewRouter(uplinkMock, msg, events)
 
 	// WHEN
 	underTest.HandleMessage(messages.Message{
