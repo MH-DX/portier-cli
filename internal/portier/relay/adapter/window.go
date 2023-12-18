@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"gopkg.in/eapache/queue.v1"
 )
 
@@ -15,8 +16,7 @@ type WindowOptions struct {
 
 // A windowItem is an item in the window
 type windowItem struct {
-	seq           uint64
-	size          int
+	msg           messages.DataMessage
 	time          time.Time
 	acked         bool
 	retransmitted bool
@@ -26,7 +26,7 @@ type Window interface {
 	// add is called when a message is added to the window
 	// seq is the sequence number of the message
 	// this function will block until there is enough space in the window
-	add(seq uint64, size int) error
+	add(msg messages.DataMessage) error
 
 	// ack is called when a message has been ack'ed by peer
 	// seq is the sequence number of the ack'ed message
@@ -62,18 +62,17 @@ func NewWindow(options WindowOptions) Window {
 	}
 }
 
-func (w *window) add(seq uint64, size int) error {
+func (w *window) add(msg messages.DataMessage) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
-	for w.currentSize+size > w.currentCap {
+	for w.currentSize+len(msg.Data) > w.currentCap {
 		// wait until there is enough space in the window
 		w.cond.Wait()
 	}
-	w.currentSize += size
+	w.currentSize += len(msg.Data)
 	w.queue.Add(&windowItem{
-		seq:           seq,
-		size:          size,
+		msg:           msg,
 		time:          time.Now(),
 		acked:         false,
 		retransmitted: false,
@@ -86,7 +85,7 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 	defer func() { w.mutex.Unlock() }()
 
 	// determine the index of the message in the queue using the sequence number
-	first := w.queue.Peek().(*windowItem).seq
+	first := w.queue.Peek().(*windowItem).msg.Seq
 	index := int(seq - first)
 	if index < 0 || index >= w.queue.Length() {
 		// the message is not in the window anymore - it has already been ack'ed
@@ -116,7 +115,7 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 		item := w.queue.Peek().(*windowItem)
 		if item.acked {
 			w.queue.Remove()
-			w.currentSize -= item.size
+			w.currentSize -= len(item.msg.Data)
 		} else {
 			break
 		}

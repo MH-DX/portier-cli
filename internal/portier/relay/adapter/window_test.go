@@ -3,16 +3,26 @@ package adapter
 import (
 	"testing"
 	"time"
+
+	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
+
+func createMessage(seq uint64, length int) messages.DataMessage {
+	return messages.DataMessage{
+		Seq:  seq,
+		Data: make([]byte, length),
+	}
+}
 
 func TestWindowInsert(testing *testing.T) {
 	// GIVEN
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 4,
 	})
+	msg := createMessage(uint64(0), 2)
 
 	// WHEN
-	err := underTest.add(uint64(0), 4)
+	err := underTest.add(msg)
 
 	// THEN
 	if err != nil {
@@ -25,14 +35,14 @@ func TestWindowInsertFullBlock(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 2,
 	})
-	underTest.add(uint64(0), 2)
+	underTest.add(createMessage(uint64(0), 2))
 	calledChan := make(chan bool, 1)
 	addedChan := make(chan time.Duration, 1)
 
 	go func() {
 		calledChan <- true
 		calledTime := time.Now()
-		underTest.add(uint64(0), 1) // blocks
+		underTest.add(createMessage(uint64(1), 1))
 		addedChan <- time.Since(calledTime)
 	}()
 
@@ -61,9 +71,9 @@ func TestWindowInsertFullEnlarge(testing *testing.T) {
 	})
 
 	// WHEN
-	err1 := underTest.add(uint64(0), 2)
+	err1 := underTest.add(createMessage(uint64(0), 2))
 	underTest.setCap(3)
-	err2 := underTest.add(uint64(0), 1)
+	err2 := underTest.add(createMessage(uint64(1), 1))
 
 	// THEN
 	if err1 != nil {
@@ -79,7 +89,7 @@ func TestWindowInsertAck(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 1,
 	})
-	underTest.add(uint64(0), 1)
+	underTest.add(createMessage(uint64(0), 1))
 
 	// WHEN
 	rtt, retrans, err := underTest.ack(uint64(0), false)
@@ -101,8 +111,8 @@ func TestWindowInsertAck2(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 2,
 	})
-	underTest.add(uint64(0), 1)
-	underTest.add(uint64(1), 1)
+	underTest.add(createMessage(uint64(0), 1))
+	underTest.add(createMessage(uint64(1), 1))
 
 	// WHEN
 	rtt, retrans, err := underTest.ack(uint64(0), false)
@@ -127,9 +137,9 @@ func TestWindowInsertAck3(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 3,
 	})
-	underTest.add(uint64(0), 1)
-	underTest.add(uint64(1), 1)
-	underTest.add(uint64(2), 1)
+	underTest.add(createMessage(uint64(0), 1))
+	underTest.add(createMessage(uint64(1), 1))
+	underTest.add(createMessage(uint64(2), 1))
 
 	// WHEN
 	_, retrans, err := underTest.ack(uint64(1), false)
@@ -151,9 +161,9 @@ func TestWindowInsertAck4(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 3,
 	})
-	underTest.add(uint64(0), 1)
-	underTest.add(uint64(1), 1)
-	underTest.add(uint64(2), 1)
+	underTest.add(createMessage(uint64(0), 1))
+	underTest.add(createMessage(uint64(1), 1))
+	underTest.add(createMessage(uint64(2), 1))
 	underTest.ack(uint64(1), false)
 
 	// WHEN
@@ -176,9 +186,9 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 	underTest := NewWindow(WindowOptions{
 		InitialCap: 3,
 	})
-	underTest.add(uint64(0), 1)
-	underTest.add(uint64(1), 1)
-	underTest.add(uint64(2), 1)
+	underTest.add(createMessage(uint64(0), 1))
+	underTest.add(createMessage(uint64(1), 1))
+	underTest.add(createMessage(uint64(2), 1))
 	underTest.ack(uint64(0), true) // should cause retransmission flag for 1 and 2 as well
 
 	// WHEN
