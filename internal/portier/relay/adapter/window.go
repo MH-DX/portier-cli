@@ -6,18 +6,27 @@ import (
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"gopkg.in/eapache/queue.v1"
 )
 
 type WindowOptions struct {
 	// initial size of the window in bytes
 	InitialCap int
+
+	// initial rto of the window
+	InitialRTO time.Duration
+
+	// rtt factor for calculating the rto
+	RTTFactor float64
 }
 
 // A windowItem is an item in the window
 type windowItem struct {
-	msg           messages.DataMessage
+	msg           messages.Message
+	seq           uint64
 	time          time.Time
+	rto           time.Time
 	acked         bool
 	retransmitted bool
 }
@@ -26,57 +35,59 @@ type Window interface {
 	// add is called when a message is added to the window
 	// seq is the sequence number of the message
 	// this function will block until there is enough space in the window
-	add(msg messages.DataMessage) error
+	add(msg messages.Message, seq uint64) error
 
 	// ack is called when a message has been ack'ed by peer
 	// seq is the sequence number of the ack'ed message
 	// retransmitted indicates if the message rtt was a retransmission
 	// returns the rtt of the message, and a flag indicating if the message was a retransmission or influrnced by a retransmission (i.e. rtt is not accurate)
 	ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans_flag bool, err error)
-
-	// setMaxSize sets the size of the window in bytes
-	setCap(size int)
-
-	// getCurSize returns the current size of the window in bytes
-	getCurCap() int
 }
 
 type window struct {
 	options     WindowOptions
 	currentSize int
 	currentCap  int
+	currentRTO  time.Duration
 	queue       *queue.Queue
 	mutex       *sync.Mutex
 	cond        *sync.Cond
+	uplink      uplink.Uplink
 }
 
-func NewWindow(options WindowOptions) Window {
+func NewWindow(options WindowOptions, uplink uplink.Uplink) Window {
 	mutex := sync.Mutex{}
 	return &window{
 		options:     options,
 		currentSize: 0,
 		currentCap:  options.InitialCap,
+		currentRTO:  options.InitialRTO,
 		queue:       queue.New(),
 		mutex:       &mutex,
 		cond:        sync.NewCond(&mutex),
+		uplink:      uplink,
 	}
 }
 
-func (w *window) add(msg messages.DataMessage) error {
+func (w *window) add(msg messages.Message, seq uint64) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
-	for w.currentSize+len(msg.Data) > w.currentCap {
+	for w.currentSize+len(msg.Message) > w.currentCap {
 		// wait until there is enough space in the window
 		w.cond.Wait()
 	}
-	w.currentSize += len(msg.Data)
+	w.currentSize += len(msg.Message)
+	now := time.Now()
 	w.queue.Add(&windowItem{
 		msg:           msg,
-		time:          time.Now(),
+		seq:           seq,
+		time:          now,
+		rto:           now.Add(w.currentRTO),
 		acked:         false,
 		retransmitted: false,
 	})
+	w.uplink.Send(msg)
 	return nil
 }
 
@@ -85,7 +96,7 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 	defer func() { w.mutex.Unlock() }()
 
 	// determine the index of the message in the queue using the sequence number
-	first := w.queue.Peek().(*windowItem).msg.Seq
+	first := w.queue.Peek().(*windowItem).seq
 	index := int(seq - first)
 	if index < 0 || index >= w.queue.Length() {
 		// the message is not in the window anymore - it has already been ack'ed
@@ -115,22 +126,11 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 		item := w.queue.Peek().(*windowItem)
 		if item.acked {
 			w.queue.Remove()
-			w.currentSize -= len(item.msg.Data)
+			w.currentSize -= len(item.msg.Message)
 		} else {
 			break
 		}
 	}
 	w.cond.Signal()
 	return rtt, retransmitted || item.retransmitted, nil
-}
-
-func (w *window) setCap(size int) {
-	w.mutex.Lock()
-	defer func() { w.mutex.Unlock() }()
-
-	w.currentCap = size
-}
-
-func (w *window) getCurCap() int {
-	return w.currentSize
 }
