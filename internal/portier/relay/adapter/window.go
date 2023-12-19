@@ -2,9 +2,11 @@ package adapter
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/marinator86/portier-cli/internal/portier/relay/adapter/rtt"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"gopkg.in/eapache/queue.v1"
@@ -12,13 +14,34 @@ import (
 
 type WindowOptions struct {
 	// initial size of the window in bytes
-	InitialCap int
+	InitialCap float64
 
 	// initial rto of the window
 	InitialRTO time.Duration
 
+	// minimum rto of the window
+	MinRTO float64
+
 	// rtt factor for calculating the rto
-	RTTFactor float64
+	RTTFactor float64 // 4.0
+
+	// ewma alpha
+	EWMAAlpha float64 // 0.125
+
+	// ewma beta
+	EWMABeta float64 // 0.25
+
+	// MaxCap is the maximum size of the window in bytes
+	MaxCap float64
+
+	// InitialRTT
+	InitialRTT float64
+
+	// WindowDownscaleFactor is the factor by which the window is downscaled when a retransmission is detected
+	WindowDownscaleFactor float64
+
+	// WindowUpscaleFactor is the factor by which the window is upscaled when a retransmission is not detected
+	WindowUpscaleFactor float64
 }
 
 // A windowItem is an item in the window
@@ -41,18 +64,33 @@ type Window interface {
 	// seq is the sequence number of the ack'ed message
 	// retransmitted indicates if the message rtt was a retransmission
 	// returns the rtt of the message, and a flag indicating if the message was a retransmission or influrnced by a retransmission (i.e. rtt is not accurate)
-	ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans_flag bool, err error)
+	ack(seq uint64, retransmitted bool) error
 }
 
 type window struct {
 	options     WindowOptions
 	currentSize int
-	currentCap  int
-	currentRTO  time.Duration
+	currentCap  float64
 	queue       *queue.Queue
 	mutex       *sync.Mutex
 	cond        *sync.Cond
 	uplink      uplink.Uplink
+	stats       rtt.TCPStats
+}
+
+func NewDefaultWindowOptions() WindowOptions {
+	return WindowOptions{
+		InitialCap:            1024,
+		InitialRTO:            50 * time.Millisecond,
+		MinRTO:                5000.0,
+		RTTFactor:             4.0,
+		EWMAAlpha:             0.125,
+		EWMABeta:              0.25,
+		MaxCap:                1024 * 1024,
+		InitialRTT:            50000.0,
+		WindowDownscaleFactor: 0.5,
+		WindowUpscaleFactor:   1.5,
+	}
 }
 
 func NewWindow(options WindowOptions, uplink uplink.Uplink) Window {
@@ -61,11 +99,11 @@ func NewWindow(options WindowOptions, uplink uplink.Uplink) Window {
 		options:     options,
 		currentSize: 0,
 		currentCap:  options.InitialCap,
-		currentRTO:  options.InitialRTO,
 		queue:       queue.New(),
 		mutex:       &mutex,
 		cond:        sync.NewCond(&mutex),
 		uplink:      uplink,
+		stats:       rtt.NewTCPStats(options.InitialRTT, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.RTTFactor),
 	}
 }
 
@@ -73,7 +111,7 @@ func (w *window) add(msg messages.Message, seq uint64) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
-	for w.currentSize+len(msg.Message) > w.currentCap {
+	for w.currentSize+len(msg.Message) > int(w.currentCap) {
 		// wait until there is enough space in the window
 		w.cond.Wait()
 	}
@@ -83,7 +121,7 @@ func (w *window) add(msg messages.Message, seq uint64) error {
 		msg:           msg,
 		seq:           seq,
 		time:          now,
-		rto:           now.Add(w.currentRTO),
+		rto:           now.Add(time.Duration(w.stats.RTO)),
 		acked:         false,
 		retransmitted: false,
 	})
@@ -91,7 +129,7 @@ func (w *window) add(msg messages.Message, seq uint64) error {
 	return nil
 }
 
-func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans_flag bool, err error) {
+func (w *window) ack(seq uint64, retransmitted bool) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
@@ -100,19 +138,18 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 	index := int(seq - first)
 	if index < 0 || index >= w.queue.Length() {
 		// the message is not in the window anymore - it has already been ack'ed
-		return 0, false, errors.New("message_not_in_window")
+		return errors.New("message_not_in_window")
 	}
 	// get the message from the queue
 	item := w.queue.Get(index).(*windowItem)
 	if item.acked {
 		// the message has already been ack'ed
-		return 0, false, errors.New("message_already_acked")
+		return errors.New("message_already_acked")
 	}
 	// mark the message as ack'ed
 	item.acked = true
-	rtt = time.Since(item.time)
-	// if the message was a retransmission, mark it as such and all messages after it as well
 	if retransmitted {
+		// if the message was a retransmission, mark it as such and all messages after it as well
 		item.retransmitted = true
 		for i := index + 1; i < w.queue.Length(); i++ {
 			// retrieve pointer to message
@@ -120,6 +157,16 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 			// mark message as retransmitted
 			item.retransmitted = true
 		}
+	} else {
+		// check if the current rtt is an outlier
+		rtt := time.Since(item.time).Microseconds()
+		if float64(rtt) > w.stats.SRTT+w.stats.RTTVAR {
+			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
+		} else {
+			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
+		}
+		// update the rtt stats
+		w.stats.UpdateRTT(float64(rtt))
 	}
 	// remove all messages from the queue that have been ack'ed
 	for w.queue.Length() > 0 {
@@ -132,5 +179,5 @@ func (w *window) ack(seq uint64, retransmitted bool) (rtt time.Duration, retrans
 		}
 	}
 	w.cond.Signal()
-	return rtt, retransmitted || item.retransmitted, nil
+	return nil
 }

@@ -19,11 +19,10 @@ func createOptions(cap int) WindowOptions {
 }
 
 func createOptions2(cap int, rto time.Duration) WindowOptions {
-	return WindowOptions{
-		InitialCap: cap,
-		InitialRTO: rto,
-		RTTFactor:  1.5,
-	}
+	options := NewDefaultWindowOptions()
+	options.InitialCap = float64(cap)
+	options.InitialRTO = rto
+	return options
 }
 
 func TestWindowInsert(testing *testing.T) {
@@ -75,7 +74,7 @@ func TestWindowInsertFullBlock(testing *testing.T) {
 	// WHEN
 	<-calledChan
 	time.Sleep(1010 * time.Millisecond)
-	_, _, err := underTest.ack(uint64(0), false)
+	err := underTest.ack(uint64(0), false)
 
 	// THEN
 	returnTime := <-addedChan
@@ -98,17 +97,11 @@ func TestWindowInsertAck(testing *testing.T) {
 	underTest.add(createMessage(uint64(0), 1), 0)
 
 	// WHEN
-	rtt, retrans, err := underTest.ack(uint64(0), false)
+	err := underTest.ack(uint64(0), false)
 
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
-	}
-	if rtt == 0 {
-		testing.Errorf("Expected rtt")
-	}
-	if retrans {
-		testing.Errorf("Unexpected retrans")
 	}
 }
 
@@ -121,17 +114,11 @@ func TestWindowInsertAck2(testing *testing.T) {
 	underTest.add(createMessage(uint64(1), 1), 1)
 
 	// WHEN
-	rtt, retrans, err := underTest.ack(uint64(0), false)
+	err := underTest.ack(uint64(0), false)
 
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
-	}
-	if rtt == 0 {
-		testing.Errorf("Expected rtt")
-	}
-	if retrans {
-		testing.Errorf("Unexpected retrans")
 	}
 	if underTest.(*window).currentSize != 1 {
 		testing.Errorf("Unexpected currentSize: %v", underTest.(*window).currentSize)
@@ -148,14 +135,11 @@ func TestWindowInsertAck3(testing *testing.T) {
 	underTest.add(createMessage(uint64(2), 1), 2)
 
 	// WHEN
-	_, retrans, err := underTest.ack(uint64(1), false)
+	err := underTest.ack(uint64(1), false)
 
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
-	}
-	if retrans {
-		testing.Errorf("Unexpected retrans")
 	}
 	if underTest.(*window).currentSize != 3 {
 		testing.Errorf("Unexpected currentSize: %v", underTest.(*window).currentSize)
@@ -173,14 +157,11 @@ func TestWindowInsertAck4(testing *testing.T) {
 	underTest.ack(uint64(1), false)
 
 	// WHEN
-	_, retrans, err := underTest.ack(uint64(0), false)
+	err := underTest.ack(uint64(0), false)
 
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
-	}
-	if retrans {
-		testing.Errorf("Unexpected retrans")
 	}
 	if underTest.(*window).currentSize != 1 {
 		testing.Errorf("Unexpected currentSize: %v", underTest.(*window).currentSize)
@@ -195,23 +176,51 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 	underTest.add(createMessage(uint64(2), 1), 2)
-	underTest.ack(uint64(0), true) // should cause retransmission flag for 1 and 2 as well
 
 	// WHEN
-	_, retrans1, err1 := underTest.ack(uint64(1), false)
-	_, retrans2, err2 := underTest.ack(uint64(2), false)
+	err := underTest.ack(uint64(1), true) // should cause retransmission flag for 1 and 2 as well
 
 	// THEN
-	if err1 != nil {
-		testing.Errorf("Unexpected error: %v", err1)
+	if err != nil {
+		testing.Errorf("Unexpected error: %v", err)
 	}
-	if !retrans1 {
-		testing.Errorf("Expected retrans")
+	if underTest.(*window).currentSize != 3 {
+		testing.Errorf("Unexpected currentSize: %v", underTest.(*window).currentSize)
 	}
-	if err2 != nil {
-		testing.Errorf("Unexpected error: %v", err2)
+	windowItem0 := underTest.(*window).queue.Get(0).(*windowItem)
+	if windowItem0.retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem0.retransmitted)
 	}
-	if !retrans2 {
-		testing.Errorf("Expected retrans")
+	windowItem1 := underTest.(*window).queue.Get(1).(*windowItem)
+	if !windowItem1.retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem1.retransmitted)
+	}
+	windowItem2 := underTest.(*window).queue.Get(2).(*windowItem)
+	if !windowItem2.retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem2.retransmitted)
+	}
+}
+
+func TestWindowInsertRtt(testing *testing.T) {
+	// GIVEN
+	var mockUplink MockUplink = MockUplink{}
+	mockUplink.On("Send", mock.Anything).Return(nil)
+	underTest := NewWindow(createOptions(3), &mockUplink)
+	underTest.add(createMessage(uint64(0), 1), 0)
+	underTest.add(createMessage(uint64(1), 1), 1)
+	underTest.add(createMessage(uint64(2), 1), 2)
+
+	// WHEN
+	time.Sleep(50 * time.Millisecond)
+	underTest.ack(uint64(0), false)
+	underTest.ack(uint64(1), false)
+	underTest.ack(uint64(2), false)
+
+	// THEN
+	if underTest.(*window).stats.SRTT < 50000 {
+		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
+	}
+	if underTest.(*window).stats.SRTT > 100000 {
+		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
 }
