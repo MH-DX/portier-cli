@@ -16,11 +16,14 @@ type WindowOptions struct {
 	// initial size of the window in bytes
 	InitialCap float64
 
-	// initial rto of the window
-	InitialRTO time.Duration
+	// initial phase of the window in number of messages
+	InitPhase int
 
-	// minimum rto of the window
+	// minimum rto of the window in microseconds
 	MinRTO float64
+
+	// initial rto of the window in microseconds
+	InitialRTO float64
 
 	// rtt factor for calculating the rto
 	RTTFactor float64 // 4.0
@@ -34,14 +37,20 @@ type WindowOptions struct {
 	// MaxCap is the maximum size of the window in bytes
 	MaxCap float64
 
-	// InitialRTT
-	InitialRTT float64
-
 	// WindowDownscaleFactor is the factor by which the window is downscaled when a retransmission is detected
 	WindowDownscaleFactor float64
 
 	// WindowUpscaleFactor is the factor by which the window is upscaled when a retransmission is not detected
 	WindowUpscaleFactor float64
+
+	// HistSize is the size of the sliding window histogram
+	RTTHistSize int
+
+	// BaseRTT calculation interval in number of messages
+	BaseRTTInterval uint64
+
+	// BaseRTT initial window size in number of messages
+	BaseRTTInitPhase uint64
 }
 
 // A windowItem is an item in the window
@@ -68,42 +77,47 @@ type Window interface {
 }
 
 type window struct {
-	options     WindowOptions
-	currentSize int
-	currentCap  float64
-	queue       *queue.Queue
-	mutex       *sync.Mutex
-	cond        *sync.Cond
-	uplink      uplink.Uplink
-	stats       rtt.TCPStats
+	options        WindowOptions
+	currentSize    int
+	currentCap     float64
+	currentBaseRTT float64
+	queue          *queue.Queue
+	mutex          *sync.Mutex
+	cond           *sync.Cond
+	uplink         uplink.Uplink
+	stats          rtt.TCPStats
 }
 
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
 		InitialCap:            1024,
-		InitialRTO:            50 * time.Millisecond,
+		InitPhase:             50,
 		MinRTO:                5000.0,
+		InitialRTO:            300000.0,
 		RTTFactor:             4.0,
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
 		MaxCap:                1024 * 1024,
-		InitialRTT:            50000.0,
 		WindowDownscaleFactor: 0.5,
 		WindowUpscaleFactor:   1.5,
+		RTTHistSize:           100,
+		BaseRTTInterval:       100,
+		BaseRTTInitPhase:      50,
 	}
 }
 
 func NewWindow(options WindowOptions, uplink uplink.Uplink) Window {
 	mutex := sync.Mutex{}
 	return &window{
-		options:     options,
-		currentSize: 0,
-		currentCap:  options.InitialCap,
-		queue:       queue.New(),
-		mutex:       &mutex,
-		cond:        sync.NewCond(&mutex),
-		uplink:      uplink,
-		stats:       rtt.NewTCPStats(options.InitialRTT, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.RTTFactor),
+		options:        options,
+		currentSize:    0,
+		currentCap:     options.InitialCap,
+		currentBaseRTT: 0,
+		queue:          queue.New(),
+		mutex:          &mutex,
+		cond:           sync.NewCond(&mutex),
+		uplink:         uplink,
+		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.RTTFactor, 2*options.RTTHistSize),
 	}
 }
 
@@ -146,8 +160,10 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 		// the message has already been ack'ed
 		return errors.New("message_already_acked")
 	}
+
 	// mark the message as ack'ed
 	item.acked = true
+	defer func() { w.cond.Signal() }()
 	if retransmitted {
 		// if the message was a retransmission, mark it as such and all messages after it as well
 		item.retransmitted = true
@@ -158,15 +174,22 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 			item.retransmitted = true
 		}
 	} else {
-		// check if the current rtt is an outlier
-		rtt := time.Since(item.time).Microseconds()
-		if float64(rtt) > w.stats.SRTT+w.stats.RTTVAR {
+		rtt := float64(time.Since(item.time).Microseconds())
+		if seq < w.options.BaseRTTInitPhase {
+			if !w.stats.IsInitialized() {
+				w.stats.Init(rtt)
+			}
+			w.currentBaseRTT = w.stats.GetBaseRTT()
+		} else if seq%w.options.BaseRTTInterval == 0 {
+			w.currentBaseRTT = w.stats.GetBaseRTT()
+		}
+
+		w.stats.UpdateRTT(rtt)
+		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
 		}
-		// update the rtt stats
-		w.stats.UpdateRTT(float64(rtt))
 	}
 	// remove all messages from the queue that have been ack'ed
 	for w.queue.Length() > 0 {
@@ -178,6 +201,5 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 			break
 		}
 	}
-	w.cond.Signal()
 	return nil
 }

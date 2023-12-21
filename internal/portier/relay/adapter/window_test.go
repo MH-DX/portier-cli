@@ -15,10 +15,10 @@ func createMessage(seq uint64, length int) messages.Message {
 }
 
 func createOptions(cap int) WindowOptions {
-	return createOptions2(cap, 50*time.Millisecond)
+	return createOptions2(cap, 50)
 }
 
-func createOptions2(cap int, rto time.Duration) WindowOptions {
+func createOptions2(cap int, rto float64) WindowOptions {
 	options := NewDefaultWindowOptions()
 	options.InitialCap = float64(cap)
 	options.InitialRTO = rto
@@ -50,7 +50,7 @@ func TestWindowInsert(testing *testing.T) {
 	if windowItem.time.IsZero() {
 		testing.Errorf("Unexpected time: %v", windowItem.time)
 	}
-	if windowItem.rto != windowItem.time.Add(options.InitialRTO) {
+	if windowItem.rto != windowItem.time.Add(time.Duration(options.InitialRTO)) {
 		testing.Errorf("Unexpected rto: %v", windowItem.rto)
 	}
 }
@@ -211,16 +211,16 @@ func TestWindowInsertRtt(testing *testing.T) {
 	underTest.add(createMessage(uint64(2), 1), 2)
 
 	// WHEN
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	underTest.ack(uint64(0), false)
 	underTest.ack(uint64(1), false)
 	underTest.ack(uint64(2), false)
 
 	// THEN
-	if underTest.(*window).stats.SRTT < 50000 {
+	if underTest.(*window).stats.SRTT < 100000 {
 		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
-	if underTest.(*window).stats.SRTT > 100000 {
+	if underTest.(*window).stats.SRTT > 150000 {
 		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
 }
