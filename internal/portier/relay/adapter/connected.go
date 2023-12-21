@@ -90,12 +90,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 	// decrypt the data
 	if msg.Header.Type == messages.D {
 		c.CRticker.Stop()
-		// TODO send acks
-		dm, err := c.encoderDecoder.DecodeDataMessage(msg.Message)
-		if err != nil {
-			return nil, err
-		}
-		err = c.forwarder.SendAsync(dm)
+		err := c.forwarder.SendAsync(msg)
 		if err != nil {
 			c.eventChannel <- AdapterEvent{
 				ConnectionId: c.options.ConnectionId,

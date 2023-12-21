@@ -53,6 +53,13 @@ type messageHeap struct {
 	queue   PriorityQueue
 }
 
+func NewDefaultMessageHeapOptions() MessageHeapOptions {
+	return MessageHeapOptions{
+		MaxQueueSize: 1000000,
+		MaxQueueGap:  1000000,
+	}
+}
+
 func NewMessageHeap(options MessageHeapOptions) MessageHeap {
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)

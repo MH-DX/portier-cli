@@ -46,12 +46,25 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	err = underTest.Start()
 	assert.Nil(testing, err)
 
+	dm := messages.DataMessage{
+		Seq:  0,
+		Data: []byte("test"),
+	}
+
+	dmEncoded, _ := encoder.NewEncoderDecoder().EncodeDataMessage(dm)
+	encryption.On("Decrypt", mock.Anything, mock.Anything).Return(dmEncoded, nil)
+
 	// WHEN
 	// send a message to the send channel and check if it is received by the conn
 
-	underTest.SendAsync(messages.DataMessage{
-		Seq:  1,
-		Data: []byte("test"),
+	underTest.SendAsync(messages.Message{
+		Header: messages.MessageHeader{
+			From: localDeviceId,
+			To:   peerDeviceId,
+			Type: messages.D,
+			CID:  "test-connection-id",
+		},
+		Message: dmEncoded,
 	})
 
 	// THEN

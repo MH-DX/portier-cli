@@ -115,4 +115,7 @@ type DataMessage struct {
 type DataAckMessage struct {
 	// Seq is the sequence number of the data
 	Seq uint64
+
+	// Retransmitted is a flag that indicates if the ack is for a retransmitted message
+	Re bool
 }

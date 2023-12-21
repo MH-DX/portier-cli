@@ -39,7 +39,7 @@ type Forwarder interface {
 	Start() error
 
 	// AsyncSend sends a message asynchronously, returns an error if the send buffer is full
-	SendAsync(msg messages.DataMessage) error
+	SendAsync(msg messages.Message) error
 
 	// Ack acknowledges a message, returns an error if the message is not found
 	Ack(seqNo uint64) error
@@ -57,8 +57,10 @@ func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink,
 		conn:           conn,
 		uplink:         uplink,
 		encryption:     encryption,
-		sendChannel:    make(chan messages.DataMessage, 1000000),
+		sendChannel:    make(chan messages.Message, 1000000),
 		eventChannel:   eventChannel,
+		window:         NewWindow(NewDefaultWindowOptions(), uplink),
+		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
 	}
 }
 
@@ -82,10 +84,16 @@ type forwarder struct {
 	encryption encryption.Encryption
 
 	// sendChannel is the channel to send messages to the forwarder
-	sendChannel chan messages.DataMessage
+	sendChannel chan messages.Message
 
 	// eventChannel is the event channel
 	eventChannel chan<- AdapterEvent
+
+	// window is the sliding window of pre-sent messages
+	window Window
+
+	// messageHeap is the message heap to buffer messages until they can be sent to the socket
+	messageHeap MessageHeap
 }
 
 // Start starts the forwarder, returns a channel to which messages can be sent
@@ -96,12 +104,45 @@ func (f *forwarder) Start() error {
 			if f.stopped {
 				return
 			}
-			select {
-			case msg := <-f.sendChannel:
-				// decode the message
-				_, err := f.conn.Write(msg.Data)
+			msg := <-f.sendChannel
+
+			// decrypt the data
+			msgData, err := f.encryption.Decrypt(msg.Header, msg.Message)
+			if err != nil {
+				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error decrypting data. Exiting", err)
+				return
+			}
+			// decode the data
+			dm, err := f.encoderDecoder.DecodeDataMessage(msgData)
+			if err != nil {
+				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error decoding data message. Exiting", err)
+				return
+			}
+
+			messages, err := f.messageHeap.Test(dm)
+
+			if err != nil {
+				if err.Error() == "old_message" {
+					err := f.ackMessage(dm.Seq)
+					if err != nil {
+						f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error sending ack to uplink. Exiting", err)
+						return
+					}
+					continue
+				}
+				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error in messageHeap. Exiting", err)
+				return
+			}
+
+			if messages == nil {
+				continue
+			}
+
+			for _, msg := range messages {
+				_, err = f.conn.Write(msg.Data)
+				err := f.ackMessage(msg.Seq)
 				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error writing to connection. Exiting", err)
+					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
 					return
 				}
 			}
@@ -169,8 +210,8 @@ func (f *forwarder) Start() error {
 				Header:  header,
 				Message: encrypted,
 			}
-			// send the data to the uplink
-			err = f.uplink.Send(msg)
+			// send the data to the window
+			err = f.window.add(msg, dm.Seq)
 			if err != nil {
 				fmt.Printf("error sending message to uplink: %s\n", err)
 				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error sending message to uplink. Exiting", err)
@@ -192,7 +233,7 @@ func createEvent(eventType AdapterEventType, cid messages.ConnectionId, msg stri
 }
 
 // AsyncSend sends a message asynchronously, returns an error if the send buffer is full
-func (f *forwarder) SendAsync(msg messages.DataMessage) error {
+func (f *forwarder) SendAsync(msg messages.Message) error {
 	if f.stopped {
 		return fmt.Errorf("forwarder is stopped")
 	}
@@ -207,8 +248,7 @@ func (f *forwarder) SendAsync(msg messages.DataMessage) error {
 
 // Ack acknowledges a message
 func (f *forwarder) Ack(seqNo uint64) error {
-	// TODO
-	return nil
+	return f.window.ack(seqNo, false)
 }
 
 // Stop stops the forwarder, and closes the channel and the underlying connection
@@ -218,4 +258,24 @@ func (f *forwarder) Close() error {
 	}
 	f.stopped = true
 	return f.conn.Close()
+}
+
+func (f *forwarder) ackMessage(seq uint64) error {
+	ackMsg := messages.DataAckMessage{
+		Seq: seq,
+		Re:  false, // TODO set retransmitted flag
+	}
+	ackMsgBytes, _ := f.encoderDecoder.EncodeDataAckMessage(ackMsg)
+
+	msg := messages.Message{
+		Header: messages.MessageHeader{
+			From: f.options.LocalDeviceId,
+			To:   f.options.PeerDeviceId,
+			Type: messages.DA,
+			CID:  f.options.ConnectionId,
+		},
+		Message: ackMsgBytes,
+	}
+
+	return f.uplink.Send(msg)
 }
