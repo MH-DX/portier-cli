@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net"
 	"net/http"
@@ -184,6 +185,96 @@ func TestForwarding(testing *testing.T) {
 	_, err = forwardedConn.Read(buf)
 	if err.Error() != "EOF" {
 		testing.Errorf("expected %v, got %v", "EOF", err.Error())
+	}
+}
+
+func TestForwardingLarge(testing *testing.T) {
+	// GIVEN
+	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
+
+	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
+	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
+	cid := messages.ConnectionId("test-connection-id")
+	defer server.Close()
+	// Replace "http" with "ws" in our URL.
+	ws_url := "ws" + server.URL[4:]
+
+	// create forwarding tcp server
+	ln, _ := net.Listen("tcp", "127.0.0.1:18080")
+	defer ln.Close()
+	fromOptions := createConnectionAdapterOptions(cid, device1, device2, "tcp://localhost:18081")
+
+	inboundEvents := make(chan adapter.AdapterEvent)
+	outboundEvents := make(chan adapter.AdapterEvent)
+
+	forwarded, _ := net.Listen("tcp", "127.0.0.1:18081")
+	defer forwarded.Close()
+
+	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2.Start()
+	ctrl2.Start()
+
+	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
+	router1.Start()
+	ctrl1.Start()
+	ctrl1.AddConnection(cid, adapter1)
+
+	// Starting the outbound adapter will initiate sending the connection open message
+	err := adapter1.Start()
+	if err != nil {
+		testing.Errorf("error starting adapter: %v", err)
+	}
+
+	// WHEN
+	forwardedConn, _ := forwarded.Accept()
+
+	msg := make([]byte, 1024*1024*50)
+	rand.Read(msg)
+
+	startingTime := time.Now()
+
+	go func() {
+		n, err := listenerConn.Write(msg)
+		if err != nil {
+			testing.Errorf("error writing to listener connection: %v", err)
+		}
+		if n != len(msg) {
+			testing.Errorf("expected %v, got %v", len(msg), n)
+		}
+	}()
+
+	// THEN
+	buf := make([]byte, 1024*1024*50)
+
+	// set read deadline to 5 seconds
+	totalBytesRead := 0
+	for {
+		// read from the forwarded connection and append to buf, repeat until EOF
+		currentBuf := make([]byte, 100000)
+		forwardedConn.SetReadDeadline(time.Now().Add(time.Second * 1))
+		n, err := forwardedConn.Read(currentBuf)
+
+		if err != nil {
+			break
+		}
+		if n == 0 {
+			continue
+		}
+		copy(buf[totalBytesRead:], currentBuf[:n])
+		totalBytesRead += n
+		if totalBytesRead == len(msg) {
+			since := time.Since(startingTime)
+			fmt.Printf("Read %v bytes in %v, speed %f MB/s\n", totalBytesRead, since, float64(totalBytesRead)/(1024*1024*float64(since.Seconds())))
+			break
+		}
+	}
+
+	// close the forwarded connection to provoke a connection close message
+	listenerConn.Close()
+
+	if totalBytesRead != len(msg) {
+		testing.Errorf("expected %v, got %v", len(msg), totalBytesRead)
 	}
 }
 

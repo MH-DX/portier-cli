@@ -16,9 +16,6 @@ type WindowOptions struct {
 	// initial size of the window in bytes
 	InitialCap float64
 
-	// initial phase of the window in number of messages
-	InitPhase int
-
 	// minimum rto of the window in microseconds
 	MinRTO float64
 
@@ -90,8 +87,7 @@ type window struct {
 
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
-		InitialCap:            1024,
-		InitPhase:             50,
+		InitialCap:            4096,
 		MinRTO:                5000.0,
 		InitialRTO:            300000.0,
 		RTTFactor:             4.0,
