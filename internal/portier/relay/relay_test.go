@@ -41,9 +41,8 @@ var upgrader = websocket.Upgrader{
 
 func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
 
-	i := 0
-
 	result := func(w http.ResponseWriter, r *http.Request) {
+		i := 0
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
@@ -65,7 +64,7 @@ func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
 					fmt.Printf("Dropping message: %s\n", message)
 					continue
 				}
-				fmt.Printf("Forwarding message: %s\n", message)
+				//fmt.Printf("Forwarding message: %s\n", message)
 				msg, _ := spider.encoder.Decode(message)
 				toDeviceId := msg.Header.To
 				toChannel := spider.channels[toDeviceId]
@@ -229,12 +228,13 @@ func TestForwardingLarge(testing *testing.T) {
 	// WHEN
 	forwardedConn, _ := forwarded.Accept()
 
-	msg := make([]byte, 1024*1024*50)
+	msg := make([]byte, 1024*1024*100)
 	rand.Read(msg)
 
 	startingTime := time.Now()
 
 	go func() {
+		listenerConn.SetWriteDeadline(time.Time{})
 		n, err := listenerConn.Write(msg)
 		if err != nil {
 			testing.Errorf("error writing to listener connection: %v", err)
@@ -245,14 +245,14 @@ func TestForwardingLarge(testing *testing.T) {
 	}()
 
 	// THEN
-	buf := make([]byte, 1024*1024*50)
+	buf := make([]byte, 1024*1024*100)
 
 	// set read deadline to 5 seconds
 	totalBytesRead := 0
 	for {
 		// read from the forwarded connection and append to buf, repeat until EOF
 		currentBuf := make([]byte, 100000)
-		forwardedConn.SetReadDeadline(time.Now().Add(time.Second * 1))
+		forwardedConn.SetReadDeadline(time.Time{})
 		n, err := forwardedConn.Read(currentBuf)
 
 		if err != nil {
