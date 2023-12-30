@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -42,7 +43,7 @@ type Forwarder interface {
 	SendAsync(msg messages.Message) error
 
 	// Ack acknowledges a message, returns an error if the message is not found
-	Ack(seqNo uint64) error
+	Ack(seqNo uint64, re bool) error
 
 	// Stop stops the forwarder, and closes the send channel and the underlying connection
 	Close() error
@@ -50,6 +51,7 @@ type Forwarder interface {
 
 // NewForwarder creates a new forwarder
 func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan<- AdapterEvent) Forwarder {
+
 	return &forwarder{
 		options:        options,
 		stopped:        false,
@@ -59,7 +61,7 @@ func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink,
 		encryption:     encryption,
 		sendChannel:    make(chan messages.Message, 1000000),
 		eventChannel:   eventChannel,
-		window:         NewWindow(NewDefaultWindowOptions(), uplink),
+		window:         NewWindow(context.TODO(), NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
 		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
 	}
 }
@@ -123,7 +125,7 @@ func (f *forwarder) Start() error {
 
 			if err != nil {
 				if err.Error() == "old_message" {
-					err := f.ackMessage(dm.Seq)
+					err := f.ackMessage(dm.Seq, dm.Re)
 					if err != nil {
 						f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error sending ack to uplink. Exiting", err)
 						return
@@ -140,7 +142,7 @@ func (f *forwarder) Start() error {
 
 			for _, msg := range messages {
 				_, err = f.conn.Write(msg.Data)
-				err := f.ackMessage(msg.Seq)
+				err := f.ackMessage(msg.Seq, msg.Re)
 				if err != nil {
 					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
 					return
@@ -247,8 +249,8 @@ func (f *forwarder) SendAsync(msg messages.Message) error {
 }
 
 // Ack acknowledges a message
-func (f *forwarder) Ack(seqNo uint64) error {
-	return f.window.ack(seqNo, false)
+func (f *forwarder) Ack(seqNo uint64, re bool) error {
+	return f.window.ack(seqNo, re)
 }
 
 // Stop stops the forwarder, and closes the channel and the underlying connection
@@ -260,10 +262,10 @@ func (f *forwarder) Close() error {
 	return f.conn.Close()
 }
 
-func (f *forwarder) ackMessage(seq uint64) error {
+func (f *forwarder) ackMessage(seq uint64, re bool) error {
 	ackMsg := messages.DataAckMessage{
 		Seq: seq,
-		Re:  false, // TODO set retransmitted flag
+		Re:  re,
 	}
 	ackMsgBytes, _ := f.encoderDecoder.EncodeDataAckMessage(ackMsg)
 

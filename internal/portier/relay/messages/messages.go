@@ -107,6 +107,9 @@ type DataMessage struct {
 	// Seq is the sequence number of the data
 	Seq uint64
 
+	// Retransmitted is a flag that indicates if the data is a retransmission
+	Re bool
+
 	// Data is the actual payload from the bridged connection
 	Data []byte
 }

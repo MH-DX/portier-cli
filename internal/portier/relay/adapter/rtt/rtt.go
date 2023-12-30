@@ -28,7 +28,6 @@ func NewTCPStats(initialRTO float64, alpha float64, beta float64, minRTO float64
 		K:      K,
 		hist:   *NewSlidingWindowHistogram(histSize),
 	}
-	stats.updateRTO()
 	return stats
 }
 
@@ -64,6 +63,6 @@ func (t *TCPStats) GetBaseRTT() float64 {
 
 // updateRTO updates the RTO based on sRTT and RTTVAR.
 func (t *TCPStats) updateRTO() {
-	rto := t.SRTT + math.Max(t.minRTO, t.K*t.RTTVAR)
+	rto := math.Max(t.minRTO, t.SRTT+t.K*t.RTTVAR)
 	t.RTO = rto
 }

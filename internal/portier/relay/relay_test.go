@@ -189,7 +189,7 @@ func TestForwarding(testing *testing.T) {
 
 func TestForwardingLarge(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
+	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(1204)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -225,10 +225,12 @@ func TestForwardingLarge(testing *testing.T) {
 		testing.Errorf("error starting adapter: %v", err)
 	}
 
+	size := 1024 * 1024 * 100
+
 	// WHEN
 	forwardedConn, _ := forwarded.Accept()
 
-	msg := make([]byte, 1024*1024*100)
+	msg := make([]byte, size)
 	rand.Read(msg)
 
 	startingTime := time.Now()
@@ -245,7 +247,7 @@ func TestForwardingLarge(testing *testing.T) {
 	}()
 
 	// THEN
-	buf := make([]byte, 1024*1024*100)
+	buf := make([]byte, size)
 
 	// set read deadline to 5 seconds
 	totalBytesRead := 0
@@ -268,6 +270,11 @@ func TestForwardingLarge(testing *testing.T) {
 			fmt.Printf("Read %v bytes in %v, speed %f MB/s\n", totalBytesRead, since, float64(totalBytesRead)/(1024*1024*float64(since.Seconds())))
 			break
 		}
+	}
+
+	// compare the received message with the sent message
+	if string(buf[:totalBytesRead]) != string(msg) {
+		testing.Errorf("expected %v, got %v", string(msg), string(buf[:totalBytesRead]))
 	}
 
 	// close the forwarded connection to provoke a connection close message

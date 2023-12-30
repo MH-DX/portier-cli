@@ -1,10 +1,12 @@
 package adapter
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -15,7 +17,7 @@ func createMessage(seq uint64, length int) messages.Message {
 }
 
 func createOptions(cap int) WindowOptions {
-	return createOptions2(cap, 50)
+	return createOptions2(cap, 300000000)
 }
 
 func createOptions2(cap int, rto float64) WindowOptions {
@@ -27,10 +29,12 @@ func createOptions2(cap int, rto float64) WindowOptions {
 
 func TestWindowInsert(testing *testing.T) {
 	// GIVEN
-	var mockUplink MockUplink = MockUplink{}
+	mockUplink := MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	options := createOptions(4)
-	underTest := NewWindow(options, &mockUplink)
+	underTest := newWindow(context.Background(), options, &mockUplink, &mockRtoHeap)
 	msg := createMessage(uint64(0), 2)
 
 	// WHEN
@@ -43,15 +47,15 @@ func TestWindowInsert(testing *testing.T) {
 	if underTest.(*window).queue.Length() != 1 {
 		testing.Errorf("Unexpected queue length: %v", underTest.(*window).queue.Length())
 	}
-	windowItem := underTest.(*window).queue.Peek().(*windowItem)
-	if windowItem.seq != 2 {
-		testing.Errorf("Unexpected seq: %v", windowItem.seq)
+	windowItem := underTest.(*window).queue.Peek().(*windowitem.WindowItem)
+	if windowItem.Seq != 2 {
+		testing.Errorf("Unexpected seq: %v", windowItem.Seq)
 	}
-	if windowItem.time.IsZero() {
-		testing.Errorf("Unexpected time: %v", windowItem.time)
+	if windowItem.Time.IsZero() {
+		testing.Errorf("Unexpected time: %v", windowItem.Time)
 	}
-	if windowItem.rto != windowItem.time.Add(time.Duration(options.InitialRTO)) {
-		testing.Errorf("Unexpected rto: %v", windowItem.rto)
+	if windowItem.Rto != windowItem.Time.Add(time.Duration(options.InitialRTO)) {
+		testing.Errorf("Unexpected rto: %v", windowItem.Rto)
 	}
 }
 
@@ -59,7 +63,9 @@ func TestWindowInsertFullBlock(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(2), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(2), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 2), 0)
 	calledChan := make(chan bool, 1)
 	addedChan := make(chan time.Duration, 1)
@@ -93,7 +99,9 @@ func TestWindowInsertAck(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(1), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(1), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 
 	// WHEN
@@ -109,7 +117,9 @@ func TestWindowInsertAck2(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(2), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(2), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 
@@ -129,7 +139,9 @@ func TestWindowInsertAck3(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(3), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 	underTest.add(createMessage(uint64(2), 1), 2)
@@ -150,7 +162,9 @@ func TestWindowInsertAck4(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(3), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 	underTest.add(createMessage(uint64(2), 1), 2)
@@ -172,7 +186,9 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(3), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 	underTest.add(createMessage(uint64(2), 1), 2)
@@ -187,17 +203,17 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 	if underTest.(*window).currentSize != 3 {
 		testing.Errorf("Unexpected currentSize: %v", underTest.(*window).currentSize)
 	}
-	windowItem0 := underTest.(*window).queue.Get(0).(*windowItem)
-	if windowItem0.retransmitted {
-		testing.Errorf("Unexpected retransmitted: %v", windowItem0.retransmitted)
+	windowItem0 := underTest.(*window).queue.Get(0).(*windowitem.WindowItem)
+	if windowItem0.Retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem0.Retransmitted)
 	}
-	windowItem1 := underTest.(*window).queue.Get(1).(*windowItem)
-	if !windowItem1.retransmitted {
-		testing.Errorf("Unexpected retransmitted: %v", windowItem1.retransmitted)
+	windowItem1 := underTest.(*window).queue.Get(1).(*windowitem.WindowItem)
+	if !windowItem1.Retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem1.Retransmitted)
 	}
-	windowItem2 := underTest.(*window).queue.Get(2).(*windowItem)
-	if !windowItem2.retransmitted {
-		testing.Errorf("Unexpected retransmitted: %v", windowItem2.retransmitted)
+	windowItem2 := underTest.(*window).queue.Get(2).(*windowitem.WindowItem)
+	if !windowItem2.Retransmitted {
+		testing.Errorf("Unexpected retransmitted: %v", windowItem2.Retransmitted)
 	}
 }
 
@@ -205,7 +221,9 @@ func TestWindowInsertRtt(testing *testing.T) {
 	// GIVEN
 	var mockUplink MockUplink = MockUplink{}
 	mockUplink.On("Send", mock.Anything).Return(nil)
-	underTest := NewWindow(createOptions(3), &mockUplink)
+	mockRtoHeap := MockRtoHeap{}
+	mockRtoHeap.On("Add", mock.Anything).Return(nil)
+	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
 	underTest.add(createMessage(uint64(0), 1), 0)
 	underTest.add(createMessage(uint64(1), 1), 1)
 	underTest.add(createMessage(uint64(2), 1), 2)
@@ -217,10 +235,19 @@ func TestWindowInsertRtt(testing *testing.T) {
 	underTest.ack(uint64(2), false)
 
 	// THEN
-	if underTest.(*window).stats.SRTT < 100000 {
+	if underTest.(*window).stats.SRTT < 100000000 {
 		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
-	if underTest.(*window).stats.SRTT > 150000 {
+	if underTest.(*window).stats.SRTT > 150000000 {
 		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
+}
+
+type MockRtoHeap struct {
+	mock.Mock
+}
+
+func (m *MockRtoHeap) Add(item *windowitem.WindowItem) error {
+	args := m.Called(item)
+	return args.Error(0)
 }

@@ -81,6 +81,8 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 			if item.value.Seq == messageHeap.nSeq {
 				messageHeap.nSeq++
 				sequence = append(sequence, item.value)
+			} else if item.value.Seq < messageHeap.nSeq {
+				continue
 			} else {
 				heap.Push(&messageHeap.queue, item)
 				break
