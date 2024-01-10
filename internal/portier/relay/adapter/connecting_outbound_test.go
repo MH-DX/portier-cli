@@ -103,17 +103,18 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	})
 
 	// WHEN
-	_, err = underTest.HandleMessage(messages.Message{
+	underTest.HandleMessage(messages.Message{
 		Header: messages.MessageHeader{
 			Type: messages.CF,
 		},
 		Message: connectionFailedMessagePayload,
 	})
 
+	event := <-eventChannel
+
 	// THEN
-	assert.NotNil(testing, err)
-	// assert error contains port and connection refused
-	assert.Contains(testing, err.Error(), "connection refused")
+	assert.Nil(testing, err)
+	assert.Contains(testing, event.Message, "connection refused")
 	uplink.AssertExpectations(testing)
 }
 
