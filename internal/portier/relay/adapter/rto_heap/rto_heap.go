@@ -158,7 +158,7 @@ func (r *rtoHeap) process() {
 					Message: encrypted,
 				}
 
-				r.uplink.Send(msg)
+				_ = r.uplink.Send(msg)
 				r.updateTimer()
 			}
 			r.lock.Unlock()

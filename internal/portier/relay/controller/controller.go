@@ -57,7 +57,7 @@ func (c *controller) Start() error {
 			}
 			// if event is close event, close connection
 			if event.Type == adapter.Closed || event.Type == adapter.Error {
-				connectionAdapter.Stop()
+				_ = connectionAdapter.Stop()
 				continue
 			}
 		}
@@ -105,5 +105,5 @@ func (c *controller) CreateInboundConnection(header messages.MessageHeader, brid
 		fmt.Printf("error starting connection adapter: %s\n", err)
 		return
 	}
-	c.AddConnection(header.CID, connectionAdapter)
+	_ = c.AddConnection(header.CID, connectionAdapter)
 }

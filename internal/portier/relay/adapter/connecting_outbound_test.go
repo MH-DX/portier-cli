@@ -55,12 +55,12 @@ func TestOutboundConnection(testing *testing.T) {
 	underTest := NewConnectingOutboundState(options, eventChannel, &uplink, conn)
 
 	// WHEN
-	underTest.Start()
+	_ = underTest.Start()
 
 	// THEN
 	<-openChannel // connection accepted message sent
 	<-openChannel // resend connection accepted message sent
-	underTest.Stop()
+	_ = underTest.Stop()
 	<-closedChannel // connection closed message sent
 	uplink.AssertExpectations(testing)
 }
@@ -103,7 +103,7 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	})
 
 	// WHEN
-	underTest.HandleMessage(messages.Message{
+	_, _ = underTest.HandleMessage(messages.Message{
 		Header: messages.MessageHeader{
 			Type: messages.CF,
 		},

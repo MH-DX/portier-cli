@@ -126,7 +126,7 @@ func (c *connectingInboundState) Stop() error {
 		},
 		Message: []byte{},
 	}
-	c.uplink.Send(msg)
+	_ = c.uplink.Send(msg)
 	return c.forwarder.Close()
 }
 

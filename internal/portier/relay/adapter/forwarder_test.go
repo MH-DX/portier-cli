@@ -58,7 +58,7 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	// WHEN
 	// send a message to the send channel and check if it is received by the conn
 
-	underTest.SendAsync(messages.Message{
+	_ = underTest.SendAsync(messages.Message{
 		Header: messages.MessageHeader{
 			From: localDeviceId,
 			To:   peerDeviceId,

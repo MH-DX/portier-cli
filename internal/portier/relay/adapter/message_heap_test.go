@@ -40,10 +40,10 @@ func TestInsertAndReturn2(testing *testing.T) {
 		MaxQueueSize: 3,
 		MaxQueueGap:  2,
 	})
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(1),
 	})
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(2),
 	})
 
@@ -99,7 +99,7 @@ func TestInsertMaxGapExceeded2(testing *testing.T) {
 	})
 
 	// WHEN
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(1),
 	})
 
@@ -124,7 +124,7 @@ func TestInsertOld(testing *testing.T) {
 	})
 
 	// WHEN
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(0),
 	})
 
@@ -149,10 +149,10 @@ func TestInsertOld2(testing *testing.T) {
 	})
 
 	// WHEN
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(0),
 	})
-	underTest.Test(messages.DataMessage{
+	_, _ = underTest.Test(messages.DataMessage{
 		Seq: uint64(1),
 	})
 	_, err := underTest.Test(messages.DataMessage{

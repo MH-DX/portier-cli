@@ -65,7 +65,7 @@ func TestConnectAndEcho(testing *testing.T) {
 	}
 
 	// WHEN
-	uplink.Send(msg) // send message to the uplink
+	_ = uplink.Send(msg) // send message to the uplink
 
 	// THEN
 	response := <-channel
@@ -114,7 +114,7 @@ func TestReconnect(testing *testing.T) {
 	}
 
 	// WHEN
-	uplink.Send(closeMsg) // send message to the uplink to close the connection
+	_ = uplink.Send(closeMsg) // send message to the uplink to close the connection
 
 	// THEN
 	event = <-eventChannel
@@ -127,7 +127,7 @@ func TestReconnect(testing *testing.T) {
 	}
 
 	// WHEN
-	uplink.Send(okayMsg) // send message to the uplink
+	_ = uplink.Send(okayMsg) // send message to the uplink
 
 	// THEN
 	response := <-channel

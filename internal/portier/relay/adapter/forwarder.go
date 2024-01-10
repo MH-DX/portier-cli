@@ -142,6 +142,10 @@ func (f *forwarder) Start() error {
 
 			for _, msg := range messages {
 				_, err = f.conn.Write(msg.Data)
+				if err != nil {
+					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
+					return
+				}
 				err := f.ackMessage(msg.Seq, msg.Re)
 				if err != nil {
 					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
@@ -164,7 +168,7 @@ func (f *forwarder) Start() error {
 
 			// read from the connection
 			buf := make([]byte, f.options.ReadBufferSize)
-			f.conn.SetReadDeadline(time.Now().Add(f.options.ReadTimeout))
+			_ = f.conn.SetReadDeadline(time.Now().Add(f.options.ReadTimeout))
 			n, err := f.conn.Read(buf)
 			if err != nil {
 				// if connection is closed, exit

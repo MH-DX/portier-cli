@@ -151,8 +151,8 @@ func (w *window) add(msg messages.Message, seq uint64) error {
 		RtoDuration:   rtoDuration,
 	}
 	w.queue.Add(item)
-	w.rtoHeap.Add(item)
-	w.uplink.Send(msg)
+	_ = w.rtoHeap.Add(item)
+	_ = w.uplink.Send(msg)
 	return nil
 }
 

@@ -77,7 +77,7 @@ func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
 			for {
 				msg := <-outChannel
 				encoded, _ := spider.encoder.Encode(msg)
-				c.WriteMessage(websocket.BinaryMessage, encoded)
+				_ = c.WriteMessage(websocket.BinaryMessage, encoded)
 			}
 		}()
 	}
@@ -104,7 +104,7 @@ func TestConnectAndBridging(testing *testing.T) {
 	url := "ws" + server.URL[4:]
 
 	uplink1 := createUplink(device1.String(), url)
-	uplink1.Connect()
+	_, _ = uplink1.Connect()
 	downlink2, _ := createUplink(device2.String(), url).Connect()
 
 	// WHEN
@@ -115,7 +115,7 @@ func TestConnectAndBridging(testing *testing.T) {
 		},
 		Message: []byte("Hello, world!"),
 	}
-	uplink1.Send(msg) // send message to the uplink
+	_ = uplink1.Send(msg) // send message to the uplink
 
 	// THEN
 	response := <-downlink2
@@ -147,14 +147,14 @@ func TestForwarding(testing *testing.T) {
 	defer forwarded.Close()
 
 	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
-	router2.Start()
-	ctrl2.Start()
+	_ = router2.Start()
+	_ = ctrl2.Start()
 
 	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
-	router1.Start()
-	ctrl1.Start()
-	ctrl1.AddConnection(cid, adapter1)
+	_ = router1.Start()
+	_ = ctrl1.Start()
+	_ = ctrl1.AddConnection(cid, adapter1)
 
 	// Starting the outbound adapter will initiate sending the connection open message
 	err := adapter1.Start()
@@ -166,7 +166,7 @@ func TestForwarding(testing *testing.T) {
 	// wait for the forwardED listener to accept a connection from the inbound adapter
 	forwardedConn, _ := forwarded.Accept()
 	// then write to the forwardING connection
-	listenerConn.Write([]byte("Hello, world!"))
+	_, _ = listenerConn.Write([]byte("Hello, world!"))
 
 	// THEN
 	// wait till the forwarded connection receives the message, i.e. the inbound adapter has forwarded the message
@@ -210,14 +210,14 @@ func TestForwardingLarge(testing *testing.T) {
 	defer forwarded.Close()
 
 	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
-	router2.Start()
-	ctrl2.Start()
+	_ = router2.Start()
+	_ = ctrl2.Start()
 
 	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
-	router1.Start()
-	ctrl1.Start()
-	ctrl1.AddConnection(cid, adapter1)
+	_ = router1.Start()
+	_ = ctrl1.Start()
+	_ = ctrl1.AddConnection(cid, adapter1)
 
 	// Starting the outbound adapter will initiate sending the connection open message
 	err := adapter1.Start()
@@ -231,12 +231,12 @@ func TestForwardingLarge(testing *testing.T) {
 	forwardedConn, _ := forwarded.Accept()
 
 	msg := make([]byte, size)
-	rand.Read(msg)
+	_, _ = rand.Read(msg)
 
 	startingTime := time.Now()
 
 	go func() {
-		listenerConn.SetWriteDeadline(time.Time{})
+		_ = listenerConn.SetWriteDeadline(time.Time{})
 		n, err := listenerConn.Write(msg)
 		if err != nil {
 			testing.Errorf("error writing to listener connection: %v", err)
@@ -254,7 +254,7 @@ func TestForwardingLarge(testing *testing.T) {
 	for {
 		// read from the forwarded connection and append to buf, repeat until EOF
 		currentBuf := make([]byte, 100000)
-		forwardedConn.SetReadDeadline(time.Time{})
+		_ = forwardedConn.SetReadDeadline(time.Time{})
 		n, err := forwardedConn.Read(currentBuf)
 
 		if err != nil {
@@ -307,18 +307,18 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	defer forwarded.Close()
 
 	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
-	router2.Start()
-	ctrl2.Start()
+	_ = router2.Start()
+	_ = ctrl2.Start()
 
 	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
-	router1.Start()
-	ctrl1.Start()
+	_ = router1.Start()
+	_ = ctrl1.Start()
 
 	for i := 0; i < 50; i++ {
 		cid := messages.ConnectionId(fmt.Sprintf("test-connection-id-%d", i))
 		fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 		adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
-		ctrl1.AddConnection(cid, adapter1)
+		_ = ctrl1.AddConnection(cid, adapter1)
 
 		// Starting the outbound adapter will initiate sending the connection open message
 		err := adapter1.Start()
@@ -328,10 +328,10 @@ func TestConnOpenUnderStress(testing *testing.T) {
 
 		// WHEN
 		// wait for the forwardED listener to accept a connection from the inbound adapter
-		forwarded.Accept()
+		_, _ = forwarded.Accept()
 
 		// close the forwarded connection to provoke a connection close message
-		listenerConn.Close()
+		_ = listenerConn.Close()
 	}
 }
 

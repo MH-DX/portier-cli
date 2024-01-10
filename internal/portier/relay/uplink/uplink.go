@@ -151,7 +151,7 @@ func (u *WebsocketUplink) Send(message messages.Message) error {
 				Event: "websocket disconnected",
 			}
 			time.Sleep(u.calculateBackoff())
-			u.connectWebsocket()
+			_ = u.connectWebsocket()
 		}
 	}
 	return nil
@@ -203,7 +203,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 						Event: "websocket disconnected",
 					}
 					time.Sleep(u.calculateBackoff())
-					u.connectWebsocket()
+					_ = u.connectWebsocket()
 				}
 				return
 			}

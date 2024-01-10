@@ -66,14 +66,14 @@ func TestWindowInsertFullBlock(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(2), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 2), 0)
+	_ = underTest.add(createMessage(uint64(0), 2), 0)
 	calledChan := make(chan bool, 1)
 	addedChan := make(chan time.Duration, 1)
 
 	go func() {
 		calledChan <- true
 		calledTime := time.Now()
-		underTest.add(createMessage(uint64(1), 1), 1)
+		_ = underTest.add(createMessage(uint64(1), 1), 1)
 		addedChan <- time.Since(calledTime)
 	}()
 
@@ -102,7 +102,7 @@ func TestWindowInsertAck(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(1), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
@@ -120,8 +120,8 @@ func TestWindowInsertAck2(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(2), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
-	underTest.add(createMessage(uint64(1), 1), 1)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(1), 1), 1)
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
@@ -142,9 +142,9 @@ func TestWindowInsertAck3(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
-	underTest.add(createMessage(uint64(1), 1), 1)
-	underTest.add(createMessage(uint64(2), 1), 2)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(1), 1), 1)
+	_ = underTest.add(createMessage(uint64(2), 1), 2)
 
 	// WHEN
 	err := underTest.ack(uint64(1), false)
@@ -165,10 +165,10 @@ func TestWindowInsertAck4(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
-	underTest.add(createMessage(uint64(1), 1), 1)
-	underTest.add(createMessage(uint64(2), 1), 2)
-	underTest.ack(uint64(1), false)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(1), 1), 1)
+	_ = underTest.add(createMessage(uint64(2), 1), 2)
+	_ = underTest.ack(uint64(1), false)
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
@@ -189,9 +189,9 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
-	underTest.add(createMessage(uint64(1), 1), 1)
-	underTest.add(createMessage(uint64(2), 1), 2)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(1), 1), 1)
+	_ = underTest.add(createMessage(uint64(2), 1), 2)
 
 	// WHEN
 	err := underTest.ack(uint64(1), true) // should cause retransmission flag for 1 and 2 as well
@@ -224,15 +224,15 @@ func TestWindowInsertRtt(testing *testing.T) {
 	mockRtoHeap := MockRtoHeap{}
 	mockRtoHeap.On("Add", mock.Anything).Return(nil)
 	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
-	underTest.add(createMessage(uint64(0), 1), 0)
-	underTest.add(createMessage(uint64(1), 1), 1)
-	underTest.add(createMessage(uint64(2), 1), 2)
+	_ = underTest.add(createMessage(uint64(0), 1), 0)
+	_ = underTest.add(createMessage(uint64(1), 1), 1)
+	_ = underTest.add(createMessage(uint64(2), 1), 2)
 
 	// WHEN
 	time.Sleep(100 * time.Millisecond)
-	underTest.ack(uint64(0), false)
-	underTest.ack(uint64(1), false)
-	underTest.ack(uint64(2), false)
+	_ = underTest.ack(uint64(0), false)
+	_ = underTest.ack(uint64(1), false)
+	_ = underTest.ack(uint64(2), false)
 
 	// THEN
 	if underTest.(*window).stats.SRTT < 100000000 {

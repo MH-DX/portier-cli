@@ -19,7 +19,7 @@ type encryption struct {
 	peerPublicKey string
 
 	// sessionKey is the session key
-	sessionKey string
+	//sessionKey string
 
 	// Cipher is the cipher that is used to encrypt the data
 	Cipher Cipher
