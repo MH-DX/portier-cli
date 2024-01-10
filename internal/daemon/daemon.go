@@ -27,10 +27,11 @@ func (p *program) run() {
 		return
 	}
 	defer logFile.Close()
+
 	logger = log.New(logFile, "Portier: ", log.LstdFlags)
 
-	// TODO Start relaying
 	ticker := time.NewTicker(30 * time.Second)
+
 	for {
 		select {
 		case tm := <-ticker.C:
@@ -45,7 +46,6 @@ func (p *program) Stop(s service.Service) error {
 	close(p.exit)
 	return nil
 }
-
 func StartDaemon(svcFlag string) error {
 
 	svcConfig := &service.Config{
@@ -55,6 +55,7 @@ func StartDaemon(svcFlag string) error {
 	}
 
 	prg := &program{}
+
 	s, err := service.New(prg, svcConfig)
 	if err != nil {
 		return err
@@ -68,9 +69,11 @@ func StartDaemon(svcFlag string) error {
 		}
 		return nil
 	}
+
 	err = s.Run()
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
