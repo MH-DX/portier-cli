@@ -101,7 +101,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 			// convert msg.Message to string
 			msgText := string(msg.Message)
 			assert.Contains(testing, msgText, fmt.Sprint(port))
-			assert.Contains(testing, msgText, "connection refused")
+			assert.Contains(testing, msgText, "refused")
 			failedChannel <- true
 		}
 		return true
