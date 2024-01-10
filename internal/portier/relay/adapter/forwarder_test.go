@@ -37,6 +37,7 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	// mock uplink
 	uplink := MockUplink{}
+	uplink.On("Send", mock.Anything).Return(nil)
 
 	// mock encryption
 	encryption := MockEncryption{}
