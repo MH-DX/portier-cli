@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// TCPStats holds TCP RTT related statistics
+// TCPStats holds TCP RTT related statistics.
 type TCPStats struct {
 	SRTT   float64 // Smoothed RTT
 	RTTVAR float64 // RTT variance

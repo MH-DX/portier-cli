@@ -2,10 +2,10 @@ package encryption
 
 import "github.com/marinator86/portier-cli/internal/portier/relay/messages"
 
-// Cipher is the cipher type and can be AES-256-GCM
+// Cipher is the cipher type and can be AES-256-GCM.
 type Cipher string
 
-// Curve is the curve type and can be P256
+// Curve is the curve type and can be P256.
 type Curve string
 
 type encryption struct {
@@ -19,7 +19,7 @@ type encryption struct {
 	peerPublicKey string
 
 	// sessionKey is the session key
-	//sessionKey string
+
 
 	// Cipher is the cipher that is used to encrypt the data
 	Cipher Cipher
@@ -44,7 +44,7 @@ func (e *encryption) Decrypt(header messages.MessageHeader, data []byte) ([]byte
 	return data, nil
 }
 
-// NewEncryption creates a new encryption
+// NewEncryption creates a new encryption.
 func NewEncryption(localPublicKey string, localPrivateKey string, peerPublicKey string, cipher Cipher, curve Curve) Encryption {
 	return &encryption{
 		localPublicKey:  localPublicKey,

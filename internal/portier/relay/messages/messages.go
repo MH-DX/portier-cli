@@ -12,28 +12,28 @@ type ConnectionId string
 type MessageType string
 
 const (
-	// ConnectionOpenMessage is a message that is sent when a connection is opened
+	// ConnectionOpenMessage is a message that is sent when a connection is opened.
 	CO MessageType = "CO"
 
-	// ConnectionCloseMessage is a message that is sent when a connection is closed
+	// ConnectionCloseMessage is a message that is sent when a connection is closed.
 	CC MessageType = "CC"
 
-	// ConnectionAcceptMessage is a message that is sent when a connection is accepted
+	// ConnectionAcceptMessage is a message that is sent when a connection is accepted.
 	CA MessageType = "CA"
 
-	// ConnectionReadyMessage is a message that is sent after CA, when both sides of the connection are ready
+	// ConnectionReadyMessage is a message that is sent after CA, when both sides of the connection are ready.
 	CR MessageType = "CR"
 
-	// ConnectionFailedMessage is a message that is sent when a connection open attempt failed
+	// ConnectionFailedMessage is a message that is sent when a connection open attempt failed.
 	CF MessageType = "CF"
 
-	// ConnectionNotFoundMessage is a message that is sent when a connection is not found
+	// ConnectionNotFoundMessage is a message that is sent when a connection is not found.
 	NF MessageType = "NF"
 
-	// DataMessage is a message that contains data
+	// DataMessage is a message that contains data.
 	D MessageType = "D"
 
-	// DataAckMessage is a message that is sent when data with a sequence number is received
+	// DataAckMessage is a message that is sent when data with a sequence number is received.
 	DA MessageType = "DA"
 )
 
@@ -73,7 +73,7 @@ type MessageHeader struct {
 	CID ConnectionId
 }
 
-// Message is a message that is sent to the portier server
+// Message is a message that is sent to the portier server.
 type Message struct {
 	// Header is the plaintext, but authenticated header of the message
 	Header MessageHeader
@@ -82,7 +82,7 @@ type Message struct {
 	Message []byte
 }
 
-// ConnectionOpenMessage is a message that is sent when a connection is opened
+// ConnectionOpenMessage is a message that is sent when a connection is opened.
 type ConnectionOpenMessage struct {
 	// BridgeOptions defines the options for the bridge, which are shared
 	BridgeOptions BridgeOptions
@@ -96,13 +96,13 @@ type ConnectionAcceptMessage struct {
 	PCKey string
 }
 
-// ConnectionFailedMessage is a message that is sent when a connection open attempt failed
+// ConnectionFailedMessage is a message that is sent when a connection open attempt failed.
 type ConnectionFailedMessage struct {
 	// Reason is the reason why the connection failed
 	Reason string
 }
 
-// DataMessage is a message that contains data
+// DataMessage is a message that contains data.
 type DataMessage struct {
 	// Seq is the sequence number of the data
 	Seq uint64
@@ -114,7 +114,7 @@ type DataMessage struct {
 	Data []byte
 }
 
-// DataAckMessage is a message that is sent when data with a sequence number is received
+// DataAckMessage is a message that is sent when data with a sequence number is received.
 type DataAckMessage struct {
 	// Seq is the sequence number of the data
 	Seq uint64

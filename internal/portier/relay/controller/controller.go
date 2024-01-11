@@ -85,7 +85,7 @@ func (c *controller) AddConnection(connectionId messages.ConnectionId, connectio
 	return nil
 }
 
-// CreateInboundConnection creates an inbound connection
+// CreateInboundConnection creates an inbound connection.
 func (c *controller) CreateInboundConnection(header messages.MessageHeader, bridgeOptions messages.BridgeOptions, pcKey string) {
 	// create a new inbound connection adapter
 	connectionAdapter := adapter.NewInboundConnectionAdapter(adapter.ConnectionAdapterOptions{

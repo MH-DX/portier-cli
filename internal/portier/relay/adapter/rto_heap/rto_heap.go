@@ -98,7 +98,7 @@ func (r *rtoHeap) updateTimer() {
 
 		// pop item from queue as long as it is acked
 		for len(r.queue) > 0 && r.queue[0].value.Acked {
-			//fmt.Printf("PRE: Removing message with seq %d\n", r.queue[0].value.Seq)
+
 			heap.Pop(&r.queue)
 		}
 
@@ -113,7 +113,6 @@ func (r *rtoHeap) updateTimer() {
 }
 
 func (r *rtoHeap) process() {
-
 	for {
 		r.lock.Lock()
 		r.updateTimer()
@@ -125,10 +124,10 @@ func (r *rtoHeap) process() {
 			r.lock.Lock()
 			item := r.currentItem
 			if item.value.Acked {
-				//fmt.Printf("Removing message with seq %d\n", item.value.Seq)
+
 				heap.Remove(&r.queue, item.index)
 			} else {
-				//fmt.Printf("Retransmitting message with seq %d\n", item.value.Seq)
+
 				item.value.Rto = time.Now().Add(item.value.RtoDuration)
 				item.value.Retransmitted = true
 				heap.Fix(&r.queue, item.index)

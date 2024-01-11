@@ -19,9 +19,10 @@ func (p *program) Start(s service.Service) error {
 	go p.run()
 	return nil
 }
+
 func (p *program) run() {
 	// Load config
-	logFile, err := os.OpenFile("/var/log/portier.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile("/var/log/portier.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {
 		fmt.Printf("Error opening file: %v", err)
 		return
@@ -42,12 +43,13 @@ func (p *program) run() {
 		}
 	}
 }
+
 func (p *program) Stop(s service.Service) error {
 	close(p.exit)
 	return nil
 }
-func StartDaemon(svcFlag string) error {
 
+func StartDaemon(svcFlag string) error {
 	svcConfig := &service.Config{
 		Name:        "portier",
 		DisplayName: "Portier.dev service",

@@ -39,7 +39,6 @@ func TestWindowInsert(testing *testing.T) {
 
 	// WHEN
 	err := underTest.add(msg, 2)
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -106,7 +105,6 @@ func TestWindowInsertAck(testing *testing.T) {
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -125,7 +123,6 @@ func TestWindowInsertAck2(testing *testing.T) {
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -148,7 +145,6 @@ func TestWindowInsertAck3(testing *testing.T) {
 
 	// WHEN
 	err := underTest.ack(uint64(1), false)
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -172,7 +168,6 @@ func TestWindowInsertAck4(testing *testing.T) {
 
 	// WHEN
 	err := underTest.ack(uint64(0), false)
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -195,7 +190,6 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 
 	// WHEN
 	err := underTest.ack(uint64(1), true) // should cause retransmission flag for 1 and 2 as well
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)

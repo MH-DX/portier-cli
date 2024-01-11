@@ -49,9 +49,8 @@ type Forwarder interface {
 	Close() error
 }
 
-// NewForwarder creates a new forwarder
+// NewForwarder creates a new forwarder.
 func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan<- AdapterEvent) Forwarder {
-
 	return &forwarder{
 		options:        options,
 		stopped:        false,
@@ -98,7 +97,7 @@ type forwarder struct {
 	messageHeap MessageHeap
 }
 
-// Start starts the forwarder, returns a channel to which messages can be sent
+// Start starts the forwarder, returns a channel to which messages can be sent.
 func (f *forwarder) Start() error {
 	go func() {
 		defer close(f.sendChannel)
@@ -122,7 +121,6 @@ func (f *forwarder) Start() error {
 			}
 
 			messages, err := f.messageHeap.Test(dm)
-
 			if err != nil {
 				if err.Error() == "old_message" {
 					err := f.ackMessage(dm.Seq, dm.Re)
@@ -238,7 +236,7 @@ func createEvent(eventType AdapterEventType, cid messages.ConnectionId, msg stri
 	}
 }
 
-// AsyncSend sends a message asynchronously, returns an error if the send buffer is full
+// AsyncSend sends a message asynchronously, returns an error if the send buffer is full.
 func (f *forwarder) SendAsync(msg messages.Message) error {
 	if f.stopped {
 		return fmt.Errorf("forwarder is stopped")
@@ -252,12 +250,12 @@ func (f *forwarder) SendAsync(msg messages.Message) error {
 	}
 }
 
-// Ack acknowledges a message
+// Ack acknowledges a message.
 func (f *forwarder) Ack(seqNo uint64, re bool) error {
 	return f.window.ack(seqNo, re)
 }
 
-// Stop stops the forwarder, and closes the channel and the underlying connection
+// Stop stops the forwarder, and closes the channel and the underlying connection.
 func (f *forwarder) Close() error {
 	if f.stopped {
 		return nil

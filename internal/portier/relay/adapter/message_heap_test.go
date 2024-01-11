@@ -18,7 +18,6 @@ func TestInsertAndReturn(testing *testing.T) {
 		Seq:  uint64(0),
 		Data: []byte("test"),
 	})
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
@@ -51,7 +50,6 @@ func TestInsertAndReturn2(testing *testing.T) {
 	result, err := underTest.Test(messages.DataMessage{
 		Seq: uint64(0),
 	})
-
 	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)

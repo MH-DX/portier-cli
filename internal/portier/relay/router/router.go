@@ -53,7 +53,7 @@ type router struct {
 	events chan<- ConnectionOpenEvent
 }
 
-// NewRouter creates a new router
+// NewRouter creates a new router.
 func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- ConnectionOpenEvent) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
@@ -64,7 +64,7 @@ func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- 
 	}
 }
 
-// Start starts the router
+// Start starts the router.
 func (r *router) Start() error {
 	// start goroutine to handle messages
 	go func() {
@@ -125,12 +125,12 @@ func (r *router) HandleMessage(msg messages.Message) {
 	}
 }
 
-// AddConnection adds an outbound connection to the router
+// AddConnection adds an outbound connection to the router.
 func (r *router) AddConnection(connectionId messages.ConnectionId, connection adapter.ConnectionAdapter) {
 	r.connections[connectionId] = connection
 }
 
-// RemoveConnection removes a connection from the router
+// RemoveConnection removes a connection from the router.
 func (r *router) RemoveConnection(connectionId messages.ConnectionId) {
 	delete(r.connections, connectionId)
 }

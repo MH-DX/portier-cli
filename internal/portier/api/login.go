@@ -73,7 +73,7 @@ func NewVerifier() (Verifier, error) {
 func NewAuthRequest(verifier Verifier) (AuthRequest, error) {
 	// create a new auth request
 	// url encode the verifier
-	var authRequest = AuthRequest{
+	authRequest := AuthRequest{
 		AuthURL:             "https://portier-spider.eu.auth0.com/authorize",
 		ClientID:            "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb",
 		RedirectURI:         "http://localhost:5555/callback",
@@ -96,6 +96,7 @@ func WaitForAuthCode(authRequest AuthRequest) (string, error) {
 	// return the authorization code
 	var server http.Server
 	var code string
+
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		// This is where you would handle the callback and extract the code
 		// For now, we'll just print the entire request URL
@@ -133,7 +134,7 @@ func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, e
 	data.Set("redirect_uri", authRequest.RedirectURI)
 
 	// create the request
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return AuthResponse{}, err
 	}
@@ -180,7 +181,7 @@ func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, e
 func StoreAccessToken(authResponse AuthResponse, home string) error {
 	// store the access token in ~/.portier/credentials.json
 	// create the file if it does not exist
-	var credentialsFile = fmt.Sprintf("%s/credentials.json", home)
+	credentialsFile := fmt.Sprintf("%s/credentials.json", home)
 	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
 		// create the file
 		_, err := os.Create(credentialsFile)
@@ -200,7 +201,7 @@ func StoreAccessToken(authResponse AuthResponse, home string) error {
 		return err
 	}
 	// write the yaml to the file
-	err = os.WriteFile(credentialsFile, yamlCredentials, 0644)
+	err = os.WriteFile(credentialsFile, yamlCredentials, 0o644)
 	if err != nil {
 		return err
 	}
@@ -212,7 +213,7 @@ func StoreAccessToken(authResponse AuthResponse, home string) error {
 // This is the recommended way to authenticate users.
 // See https://tools.ietf.org/html/rfc7636
 func Login() error {
-	var home, err = utils.Home()
+	home, err := utils.Home()
 	if err != nil {
 		return err
 	}

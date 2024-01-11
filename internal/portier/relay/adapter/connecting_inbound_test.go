@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -81,7 +82,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 	failedChannel := make(chan bool, 1)
 	eventChannel := make(chan AdapterEvent, 10)
 
-	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
+	urlRemote, _ := url.Parse("tcp://localhost:" + strconv.Itoa(port))
 	options := ConnectionAdapterOptions{
 		ConnectionId:        "test-connection-id",
 		LocalDeviceId:       uuid.New(),
@@ -100,7 +101,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 		if msg.Header.Type == messages.CF {
 			// convert msg.Message to string
 			msgText := string(msg.Message)
-			assert.Contains(testing, msgText, fmt.Sprint(port))
+			assert.Contains(testing, msgText, strconv.Itoa(port))
 			assert.Contains(testing, msgText, "refused")
 			failedChannel <- true
 		}
@@ -115,7 +116,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 	// THEN
 	assert.NotNil(testing, err)
 	// assert error contains port and connection refused
-	assert.Contains(testing, err.Error(), fmt.Sprint(port))
+	assert.Contains(testing, err.Error(), strconv.Itoa(port))
 	assert.Contains(testing, err.Error(), "connection refused")
 	<-failedChannel // connection failed message sent
 	uplink.AssertExpectations(testing)

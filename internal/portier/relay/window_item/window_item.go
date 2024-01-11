@@ -6,7 +6,7 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
 
-// A windowItem is an item in the window
+// A windowItem is an item in the window.
 type WindowItem struct {
 	Msg           messages.Message
 	Seq           uint64

@@ -32,7 +32,6 @@ type connectingOutboundState struct {
 }
 
 func (c *connectingOutboundState) Start() error {
-
 	// send connection open message
 	connectionOpenMessagePayload, err := c.encoderDecoder.EncodeConnectionOpenMessage(messages.ConnectionOpenMessage{
 		PCKey:         c.options.LocalPublicKey,
@@ -95,7 +94,6 @@ func (c *connectingOutboundState) Stop() error {
 func (c *connectingOutboundState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
 	// if message is a connection accept message, create encryption and return connected state
 	if msg.Header.Type == messages.CA {
-
 		// TODO check signature
 
 		c.ticker.Stop()

@@ -7,7 +7,7 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
-// ServiceOptions defines the local options for the service
+// ServiceOptions defines the local options for the service.
 type ServiceOptions struct {
 	// The max queue size of messages to fetch from the connection
 	MaxQueueSize int
@@ -40,15 +40,15 @@ type Service struct {
 	Options ServiceOptions
 }
 
-// Relay is the portier relay to bridging TCP / UDP traffic via websocket to the portier server
+// Relay is the portier relay to bridging TCP / UDP traffic via websocket to the portier server.
 type Relay struct {
-	//The portier server URL
+
 	ServerURL string
 
-	//The service document
+
 	Services []Service
 
-	//Router is the router that is used to route traffic to the correct service
+
 	Router router.Router
 
 	// Uplink is the uplink that is used to send traffic to the portier server

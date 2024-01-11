@@ -17,7 +17,7 @@ func Home() (string, error) {
 
 	if _, err := os.Stat(home); err != nil {
 		if os.IsNotExist(err) {
-			err := os.Mkdir(home, 0700)
+			err := os.Mkdir(home, 0o700)
 			if err != nil {
 				return "", err
 			}

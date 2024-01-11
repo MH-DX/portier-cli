@@ -160,7 +160,7 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
-	//fmt.Printf("Ack received for message seq %d\n", seq)
+
 	if w.queue.Length() == 0 {
 		// the window is empty
 		return errors.New("window_empty")
@@ -205,7 +205,7 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
-			//fmt.Printf("RTT: %f, SRTT: %f, RTTVAR: %f, BaseRTT: %f\n", rtt, w.stats.SRTT, w.stats.RTTVAR, w.currentBaseRTT)
+
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)

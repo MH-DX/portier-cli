@@ -13,14 +13,14 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
 
-// State is the state of the relay
+// State is the state of the relay.
 type UplinkState string
 
 const (
-	// UplinkStateDisconnected is the state when the uplink is disconnected
+	// UplinkStateDisconnected is the state when the uplink is disconnected.
 	UplinkStateDisconnected UplinkState = "disconnected"
 
-	// UplinkStateConnected is the state when the uplink is connected
+	// UplinkStateConnected is the state when the uplink is connected.
 	UplinkStateConnected UplinkState = "connected"
 )
 
@@ -51,7 +51,7 @@ type Uplink interface {
 	Events() <-chan UplinkEvent
 }
 
-// dialer is the websocket dialer
+// dialer is the websocket dialer.
 var dialer = websocket.Dialer{}
 
 type Options struct {
@@ -98,7 +98,7 @@ func defaultOptions() Options {
 	}
 }
 
-// NewWebsocketUplink creates a new websocket uplink
+// NewWebsocketUplink creates a new websocket uplink.
 func NewWebsocketUplink(options Options, encoderDecoder encoder.EncoderDecoder) *WebsocketUplink {
 	if options.APIToken == "" {
 		log.Fatal("API token is required")
@@ -157,7 +157,7 @@ func (u *WebsocketUplink) Send(message messages.Message) error {
 	return nil
 }
 
-// Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel
+// Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel.
 func (u *WebsocketUplink) Close() error {
 	u.connection.Close()
 	return nil

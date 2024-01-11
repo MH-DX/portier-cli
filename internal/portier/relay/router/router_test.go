@@ -113,7 +113,7 @@ func TestConnectionNotFound(testing *testing.T) {
 	connectorMock.AssertExpectations(testing)
 }
 
-// ConnectorMock is a mock for the connector
+// ConnectorMock is a mock for the connector.
 type ConnectorMock struct {
 	mock.Mock
 }

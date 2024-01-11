@@ -9,7 +9,6 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
@@ -106,14 +105,14 @@ type connectionAdapter struct {
 type ConnectionMode string
 
 const (
-	// Inbound is the inbound connection mode, i.e. the connection is bridged to this relay
+	// Inbound is the inbound connection mode, i.e. the connection is bridged to this relay.
 	Inbound ConnectionMode = "inbound"
 
-	// Outbound is the outbound connection mode, i.e. the connection is bridged from this relay
+	// Outbound is the outbound connection mode, i.e. the connection is bridged from this relay.
 	Outbound ConnectionMode = "outbound"
 )
 
-// NewConnectionAdapter creates a new connection adapter for an outbound connection
+// NewConnectionAdapter creates a new connection adapter for an outbound connection.
 func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection net.Conn, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
@@ -126,7 +125,7 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 	}
 }
 
-// NewConnectionAdapter creates a new connection adapter for an inbound connection
+// NewConnectionAdapter creates a new connection adapter for an inbound connection.
 func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
@@ -139,7 +138,7 @@ func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink
 	}
 }
 
-// Start starts the connection adapter
+// Start starts the connection adapter.
 func (c *connectionAdapter) Start() error {
 	// start the connection adapter
 	err := c.state.Start()
@@ -149,7 +148,7 @@ func (c *connectionAdapter) Start() error {
 	return nil
 }
 
-// Stop stops the connection adapter
+// Stop stops the connection adapter.
 func (c *connectionAdapter) Stop() error {
 	// stop the connection adapter
 	err := c.state.Stop()
@@ -159,7 +158,7 @@ func (c *connectionAdapter) Stop() error {
 	return nil
 }
 
-// Send sends a message to the queue
+// Send sends a message to the queue.
 func (c *connectionAdapter) Send(msg messages.Message) {
 	// if the message queue is not closed, send the message to the message queue
 	newState, err := c.state.HandleMessage(msg)

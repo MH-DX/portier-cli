@@ -40,7 +40,6 @@ var upgrader = websocket.Upgrader{
 }
 
 func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
-
 	result := func(w http.ResponseWriter, r *http.Request) {
 		i := 0
 		c, err := upgrader.Upgrade(w, r, nil)
@@ -64,7 +63,7 @@ func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
 					fmt.Printf("Dropping message: %s\n", message)
 					continue
 				}
-				//fmt.Printf("Forwarding message: %s\n", message)
+
 				msg, _ := spider.encoder.Decode(message)
 				toDeviceId := msg.Header.To
 				toChannel := spider.channels[toDeviceId]
@@ -256,7 +255,6 @@ func TestForwardingLarge(testing *testing.T) {
 		currentBuf := make([]byte, 100000)
 		_ = forwardedConn.SetReadDeadline(time.Time{})
 		n, err := forwardedConn.Read(currentBuf)
-
 		if err != nil {
 			break
 		}

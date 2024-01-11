@@ -85,6 +85,7 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 				continue
 			} else {
 				heap.Push(&messageHeap.queue, item)
+
 				break
 			}
 		}
