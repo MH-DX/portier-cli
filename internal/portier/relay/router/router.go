@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -51,6 +52,9 @@ type router struct {
 
 	// channel to push events to the controller
 	events chan<- ConnectionOpenEvent
+
+	// mutex to protect the services map
+	mutex sync.Mutex
 }
 
 // NewRouter creates a new router.
@@ -61,6 +65,7 @@ func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- 
 		uplink:         uplink,
 		messages:       msg,
 		events:         events,
+		mutex:          sync.Mutex{},
 	}
 }
 
@@ -86,11 +91,16 @@ func (r *router) Start() error {
 // or routes the message to the existing service, or shuts down the service if the message is a shutdown message.
 // Returns an error if the message could not be routed.
 func (r *router) HandleMessage(msg messages.Message) {
+	r.mutex.Lock()
+
 	// if connection exists, route to connection
 	if connection, ok := r.connections[msg.Header.CID]; ok {
+		r.mutex.Unlock()
 		connection.Send(msg)
 		return
 	}
+
+	defer r.mutex.Unlock()
 
 	// if connection does not exist, and message is a ConnectionOpenMessage, create a new connection using the connection provider
 	if msg.Header.Type == messages.CO {
@@ -127,10 +137,14 @@ func (r *router) HandleMessage(msg messages.Message) {
 
 // AddConnection adds an outbound connection to the router.
 func (r *router) AddConnection(connectionId messages.ConnectionID, connection adapter.ConnectionAdapter) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.connections[connectionId] = connection
 }
 
 // RemoveConnection removes a connection from the router.
 func (r *router) RemoveConnection(connectionId messages.ConnectionID) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	delete(r.connections, connectionId)
 }

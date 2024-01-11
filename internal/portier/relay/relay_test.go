@@ -355,7 +355,7 @@ func createOutboundAdapter(uplink uplink.Uplink, opts adapter.ConnectionAdapterO
 func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router) {
 	uplink := createUplink(deviceId.String(), url)
 	messageChannel, _ := uplink.Connect()
-	routerEventChannel := make(chan router.ConnectionOpenEvent)
+	routerEventChannel := make(chan router.ConnectionOpenEvent, 100)
 	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
 	controller := controller.NewController(uplink, events, routerEventChannel, router)
 	return controller, router
