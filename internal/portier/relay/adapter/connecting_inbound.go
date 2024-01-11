@@ -103,9 +103,9 @@ func (c *connectingInboundState) Start() error {
 
 	forwarderOptions := ForwarderOptions{
 		Throughput:     c.options.ThroughputLimit,
-		LocalDeviceId:  c.options.LocalDeviceId,
-		PeerDeviceId:   c.options.PeerDeviceId,
-		ConnectionId:   c.options.ConnectionId,
+		LocalDeviceID:  c.options.LocalDeviceId,
+		PeerDeviceID:   c.options.PeerDeviceId,
+		ConnectionID:   c.options.ConnectionId,
 		ReadTimeout:    c.options.ConnectionReadTimeout,
 		ReadBufferSize: c.options.ReadBufferSize,
 	}

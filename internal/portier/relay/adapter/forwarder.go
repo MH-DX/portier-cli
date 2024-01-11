@@ -18,13 +18,13 @@ type ForwarderOptions struct {
 	Throughput int
 
 	// LocalDeviceId is the id of the local device
-	LocalDeviceId uuid.UUID
+	LocalDeviceID uuid.UUID
 
 	// PeerDeviceId is the id of the peer device that this connection is bridged to/from
-	PeerDeviceId uuid.UUID
+	PeerDeviceID uuid.UUID
 
 	// ConnectionId is the connection id
-	ConnectionId messages.ConnectionId
+	ConnectionID messages.ConnectionID
 
 	// ReadTimeout is the read timeout
 	ReadTimeout time.Duration
@@ -110,13 +110,13 @@ func (f *forwarder) Start() error {
 			// decrypt the data
 			msgData, err := f.encryption.Decrypt(msg.Header, msg.Message)
 			if err != nil {
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error decrypting data. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decrypting data. Exiting", err)
 				return
 			}
 			// decode the data
 			dm, err := f.encoderDecoder.DecodeDataMessage(msgData)
 			if err != nil {
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error decoding data message. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decoding data message. Exiting", err)
 				return
 			}
 
@@ -125,12 +125,12 @@ func (f *forwarder) Start() error {
 				if err.Error() == "old_message" {
 					err := f.ackMessage(dm.Seq, dm.Re)
 					if err != nil {
-						f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error sending ack to uplink. Exiting", err)
+						f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending ack to uplink. Exiting", err)
 						return
 					}
 					continue
 				}
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error in messageHeap. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error in messageHeap. Exiting", err)
 				return
 			}
 
@@ -141,12 +141,12 @@ func (f *forwarder) Start() error {
 			for _, msg := range messages {
 				_, err = f.conn.Write(msg.Data)
 				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
+					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message. Exiting", err)
 					return
 				}
 				err := f.ackMessage(msg.Seq, msg.Re)
 				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error processing message. Exiting", err)
+					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message. Exiting", err)
 					return
 				}
 			}
@@ -154,7 +154,7 @@ func (f *forwarder) Start() error {
 	}()
 
 	go func() {
-		var seq uint64 = 0
+		var seq uint64
 
 		for {
 			// exit if the stopped flag is set
@@ -171,7 +171,7 @@ func (f *forwarder) Start() error {
 			if err != nil {
 				// if connection is closed, exit
 				if err.Error() == "EOF" {
-					f.eventChannel <- createEvent(Closed, f.options.ConnectionId, "connection closed by peer. Exiting", nil)
+					f.eventChannel <- createEvent(Closed, f.options.ConnectionID, "connection closed by peer. Exiting", nil)
 					return
 				}
 				// if timeout, continue
@@ -179,7 +179,7 @@ func (f *forwarder) Start() error {
 					continue
 				}
 				fmt.Printf("error reading from connection: %s\n", err)
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error reading from connection. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error reading from connection. Exiting", err)
 				return
 			}
 			if n == 0 {
@@ -187,10 +187,10 @@ func (f *forwarder) Start() error {
 			}
 			// decrypt the data
 			header := messages.MessageHeader{
-				From: f.options.LocalDeviceId,
-				To:   f.options.PeerDeviceId,
+				From: f.options.LocalDeviceID,
+				To:   f.options.PeerDeviceID,
 				Type: messages.D,
-				CID:  f.options.ConnectionId,
+				CID:  f.options.ConnectionID,
 			}
 			dm := messages.DataMessage{
 				Seq:  seq,
@@ -200,13 +200,13 @@ func (f *forwarder) Start() error {
 			dmBytes, err := f.encoderDecoder.EncodeDataMessage(dm)
 			if err != nil {
 				fmt.Printf("error encoding data message: %s\n", err)
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error encoding data message. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encoding data message. Exiting", err)
 				return
 			}
 			encrypted, err := f.encryption.Encrypt(header, dmBytes)
 			if err != nil {
 				fmt.Printf("error encrypting data: %s\n", err)
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error encrypting data. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encrypting data. Exiting", err)
 				return
 			}
 			// wrap the data in a message
@@ -218,7 +218,7 @@ func (f *forwarder) Start() error {
 			err = f.window.add(msg, dm.Seq)
 			if err != nil {
 				fmt.Printf("error sending message to uplink: %s\n", err)
-				f.eventChannel <- createEvent(Error, f.options.ConnectionId, "error sending message to uplink. Exiting", err)
+				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending message to uplink. Exiting", err)
 				return
 			}
 		}
@@ -227,7 +227,7 @@ func (f *forwarder) Start() error {
 	return nil
 }
 
-func createEvent(eventType AdapterEventType, cid messages.ConnectionId, msg string, err error) AdapterEvent {
+func createEvent(eventType EventType, cid messages.ConnectionID, msg string, err error) AdapterEvent {
 	return AdapterEvent{
 		ConnectionId: cid,
 		Type:         eventType,
@@ -273,10 +273,10 @@ func (f *forwarder) ackMessage(seq uint64, re bool) error {
 
 	msg := messages.Message{
 		Header: messages.MessageHeader{
-			From: f.options.LocalDeviceId,
-			To:   f.options.PeerDeviceId,
+			From: f.options.LocalDeviceID,
+			To:   f.options.PeerDeviceID,
 			Type: messages.DA,
-			CID:  f.options.ConnectionId,
+			CID:  f.options.ConnectionID,
 		},
 		Message: ackMsgBytes,
 	}

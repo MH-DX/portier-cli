@@ -15,7 +15,7 @@ type Controller interface {
 	Start() error
 
 	// AddConnection adds a connection to the controller
-	AddConnection(messages.ConnectionId, adapter.ConnectionAdapter) error
+	AddConnection(messages.ConnectionID, adapter.ConnectionAdapter) error
 }
 
 type controller struct {
@@ -23,7 +23,7 @@ type controller struct {
 	uplink uplink.Uplink
 
 	// map of connection id to connection adapter
-	connections map[messages.ConnectionId]adapter.ConnectionAdapter
+	connections map[messages.ConnectionID]adapter.ConnectionAdapter
 
 	// event channel
 	eventChannel chan adapter.AdapterEvent
@@ -38,7 +38,7 @@ type controller struct {
 func NewController(uplink uplink.Uplink, eventChannel chan adapter.AdapterEvent, routerEventChannel chan router.ConnectionOpenEvent, router router.Router) Controller {
 	return &controller{
 		uplink:             uplink,
-		connections:        make(map[messages.ConnectionId]adapter.ConnectionAdapter),
+		connections:        make(map[messages.ConnectionID]adapter.ConnectionAdapter),
 		eventChannel:       eventChannel,
 		routerEventChannel: routerEventChannel,
 		router:             router,
@@ -70,17 +70,18 @@ func (c *controller) Start() error {
 			c.CreateInboundConnection(event.Header, event.BridgeOptions, event.PCKey)
 		}
 	}()
+
 	return nil
 }
 
-func (c *controller) AddConnection(connectionId messages.ConnectionId, connectionAdapter adapter.ConnectionAdapter) error {
-	if _, ok := c.connections[connectionId]; ok {
-		return fmt.Errorf("connection with id %s already exists", connectionId)
+func (c *controller) AddConnection(connectionID messages.ConnectionID, connectionAdapter adapter.ConnectionAdapter) error {
+	if _, ok := c.connections[connectionID]; ok {
+		return fmt.Errorf("connection with id %s already exists", connectionID)
 	}
 
-	c.connections[connectionId] = connectionAdapter
+	c.connections[connectionID] = connectionAdapter
 
-	c.router.AddConnection(connectionId, connectionAdapter)
+	c.router.AddConnection(connectionID, connectionAdapter)
 
 	return nil
 }
@@ -105,5 +106,6 @@ func (c *controller) CreateInboundConnection(header messages.MessageHeader, brid
 		fmt.Printf("error starting connection adapter: %s\n", err)
 		return
 	}
+
 	_ = c.AddConnection(header.CID, connectionAdapter)
 }

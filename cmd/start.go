@@ -62,7 +62,7 @@ func (o *startOptions) run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *startOptions) parseArgs(cmd *cobra.Command, args []string) error {
+func (o *startOptions) parseArgs(cmd *cobra.Command, _ []string) error {
 	command, err := cmd.Flags().GetString("action")
 	if err != nil {
 		log.Fatalf("could not get action flag: %v", err)

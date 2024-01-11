@@ -19,8 +19,6 @@ type encryption struct {
 	peerPublicKey string
 
 	// sessionKey is the session key
-
-
 	// Cipher is the cipher that is used to encrypt the data
 	Cipher Cipher
 
@@ -36,11 +34,11 @@ type Encryption interface {
 	Decrypt(header messages.MessageHeader, data []byte) ([]byte, error)
 }
 
-func (e *encryption) Encrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
+func (e *encryption) Encrypt(_ messages.MessageHeader, data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (e *encryption) Decrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
+func (e *encryption) Decrypt(_ messages.MessageHeader, data []byte) ([]byte, error) {
 	return data, nil
 }
 

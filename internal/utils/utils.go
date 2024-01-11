@@ -9,7 +9,7 @@ func Home() (string, error) {
 		return "", err
 	}
 
-	home = home + "/.portier"
+	home += "/.portier"
 
 	if customHome := os.Getenv("PORTIER_HOME"); customHome != "" {
 		home = customHome
@@ -17,7 +17,8 @@ func Home() (string, error) {
 
 	if _, err := os.Stat(home); err != nil {
 		if os.IsNotExist(err) {
-			err := os.Mkdir(home, 0o700)
+			perm := os.FileMode(0o700)
+			err := os.Mkdir(home, perm)
 			if err != nil {
 				return "", err
 			}

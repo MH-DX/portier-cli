@@ -98,7 +98,6 @@ func (r *rtoHeap) updateTimer() {
 
 		// pop item from queue as long as it is acked
 		for len(r.queue) > 0 && r.queue[0].value.Acked {
-
 			heap.Pop(&r.queue)
 		}
 
@@ -124,10 +123,8 @@ func (r *rtoHeap) process() {
 			r.lock.Lock()
 			item := r.currentItem
 			if item.value.Acked {
-
 				heap.Remove(&r.queue, item.index)
 			} else {
-
 				item.value.Rto = time.Now().Add(item.value.RtoDuration)
 				item.value.Retransmitted = true
 				heap.Fix(&r.queue, item.index)

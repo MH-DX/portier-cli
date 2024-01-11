@@ -12,16 +12,16 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
-type AdapterEventType string
+type EventType string
 
 const (
-	Closed AdapterEventType = "adapter-closed"
-	Error  AdapterEventType = "error"
+	Closed EventType = "adapter-closed"
+	Error  EventType = "error"
 )
 
 type AdapterEvent struct {
-	ConnectionId messages.ConnectionId
-	Type         AdapterEventType
+	ConnectionId messages.ConnectionID
+	Type         EventType
 	Message      string
 	Error        error
 }
@@ -46,8 +46,8 @@ type ConnectionAdapterState interface {
 }
 
 type ConnectionAdapterOptions struct {
-	// ConnectionId is the connection id
-	ConnectionId messages.ConnectionId
+	// ConnectionID is the connection id
+	ConnectionId messages.ConnectionID
 
 	// LocalDeviceId is the id of the local device
 	LocalDeviceId uuid.UUID

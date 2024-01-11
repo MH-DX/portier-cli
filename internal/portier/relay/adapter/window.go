@@ -160,7 +160,6 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 	w.mutex.Lock()
 	defer func() { w.mutex.Unlock() }()
 
-
 	if w.queue.Length() == 0 {
 		// the window is empty
 		return errors.New("window_empty")
@@ -205,7 +204,6 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
-
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)

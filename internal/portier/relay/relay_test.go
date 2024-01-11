@@ -60,7 +60,7 @@ func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
 				_, message, _ := c.ReadMessage()
 				i++
 				if n != 0 && i%n == 0 {
-					fmt.Printf("Dropping message: %s\n", message)
+					// fmt.Printf("Dropping message: %s\n", message)
 					continue
 				}
 
@@ -129,7 +129,7 @@ func TestForwarding(testing *testing.T) {
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
-	cid := messages.ConnectionId("test-connection-id")
+	cid := messages.ConnectionID("test-connection-id")
 	defer server.Close()
 	// Replace "http" with "ws" in our URL.
 	ws_url := "ws" + server.URL[4:]
@@ -192,7 +192,7 @@ func TestForwardingLarge(testing *testing.T) {
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
-	cid := messages.ConnectionId("test-connection-id")
+	cid := messages.ConnectionID("test-connection-id")
 	defer server.Close()
 	// Replace "http" with "ws" in our URL.
 	ws_url := "ws" + server.URL[4:]
@@ -313,7 +313,7 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	_ = ctrl1.Start()
 
 	for i := 0; i < 50; i++ {
-		cid := messages.ConnectionId(fmt.Sprintf("test-connection-id-%d", i))
+		cid := messages.ConnectionID(fmt.Sprintf("test-connection-id-%d", i))
 		fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 		adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 		_ = ctrl1.AddConnection(cid, adapter1)
@@ -361,7 +361,7 @@ func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.Adap
 	return controller, router
 }
 
-func createConnectionAdapterOptions(cid messages.ConnectionId, from uuid.UUID, to uuid.UUID, rawUrl string) adapter.ConnectionAdapterOptions {
+func createConnectionAdapterOptions(cid messages.ConnectionID, from uuid.UUID, to uuid.UUID, rawUrl string) adapter.ConnectionAdapterOptions {
 	url, _ := url.Parse(rawUrl)
 	return adapter.ConnectionAdapterOptions{
 		ConnectionId:  cid,

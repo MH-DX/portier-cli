@@ -109,8 +109,8 @@ func TestReconnect(testing *testing.T) {
 	}
 	// expect connected event
 	event := <-eventChannel
-	if event.State != UplinkStateConnected {
-		testing.Errorf("expected %v, got %v", UplinkStateConnected, event.State)
+	if event.State != Connected {
+		testing.Errorf("expected %v, got %v", Connected, event.State)
 	}
 
 	// WHEN
@@ -118,12 +118,12 @@ func TestReconnect(testing *testing.T) {
 
 	// THEN
 	event = <-eventChannel
-	if event.State != UplinkStateDisconnected {
-		testing.Errorf("expected %v, got %v", UplinkStateDisconnected, event.State)
+	if event.State != Disconnected {
+		testing.Errorf("expected %v, got %v", Disconnected, event.State)
 	}
 	event = <-eventChannel
-	if event.State != UplinkStateConnected {
-		testing.Errorf("expected %v, got %v", UplinkStateConnected, event.State)
+	if event.State != Connected {
+		testing.Errorf("expected %v, got %v", Connected, event.State)
 	}
 
 	// WHEN

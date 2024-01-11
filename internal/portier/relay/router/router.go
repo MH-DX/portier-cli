@@ -30,15 +30,15 @@ type Router interface {
 	HandleMessage(msg messages.Message)
 
 	// AddConnection adds a connection to the router
-	AddConnection(messages.ConnectionId, adapter.ConnectionAdapter)
+	AddConnection(messages.ConnectionID, adapter.ConnectionAdapter)
 
 	// RemoveConnection removes a connection from the router
-	RemoveConnection(messages.ConnectionId)
+	RemoveConnection(messages.ConnectionID)
 }
 
 type router struct {
 	// services is the map of service connection id to service
-	connections map[messages.ConnectionId]adapter.ConnectionAdapter
+	connections map[messages.ConnectionID]adapter.ConnectionAdapter
 
 	// encoderDecoder is the encoder/decoder
 	encoderDecoder encoder.EncoderDecoder
@@ -56,7 +56,7 @@ type router struct {
 // NewRouter creates a new router.
 func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- ConnectionOpenEvent) Router {
 	return &router{
-		connections:    make(map[messages.ConnectionId]adapter.ConnectionAdapter),
+		connections:    make(map[messages.ConnectionID]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		messages:       msg,
@@ -126,11 +126,11 @@ func (r *router) HandleMessage(msg messages.Message) {
 }
 
 // AddConnection adds an outbound connection to the router.
-func (r *router) AddConnection(connectionId messages.ConnectionId, connection adapter.ConnectionAdapter) {
+func (r *router) AddConnection(connectionId messages.ConnectionID, connection adapter.ConnectionAdapter) {
 	r.connections[connectionId] = connection
 }
 
 // RemoveConnection removes a connection from the router.
-func (r *router) RemoveConnection(connectionId messages.ConnectionId) {
+func (r *router) RemoveConnection(connectionId messages.ConnectionID) {
 	delete(r.connections, connectionId)
 }

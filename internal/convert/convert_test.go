@@ -35,7 +35,7 @@ func TestToInteger(t *testing.T) {
 		res, err := ToInteger(tc.input)
 
 		if tc.err {
-			assert.ErrorIs(t, errConversionError(tc.input), err)
+			assert.Error(t, errConversionError(tc.input), err)
 		} else {
 			assert.Equal(t, tc.expected, res)
 		}

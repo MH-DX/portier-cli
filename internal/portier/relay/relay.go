@@ -42,14 +42,10 @@ type Service struct {
 
 // Relay is the portier relay to bridging TCP / UDP traffic via websocket to the portier server.
 type Relay struct {
-
 	ServerURL string
 
-
 	Services []Service
-
-
-	Router router.Router
+	Router   router.Router
 
 	// Uplink is the uplink that is used to send traffic to the portier server
 	Uplink uplink.Uplink

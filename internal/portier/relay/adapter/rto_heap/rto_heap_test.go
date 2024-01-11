@@ -86,7 +86,7 @@ func (m *MockUplink) Close() error {
 	return nil
 }
 
-func (m *MockUplink) Events() <-chan uplink.UplinkEvent {
+func (m *MockUplink) Events() <-chan uplink.Event {
 	m.Called()
 	return nil
 }

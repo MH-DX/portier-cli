@@ -29,7 +29,7 @@ func newLoginCmd() *cobra.Command {
 	return cmd
 }
 
-func (o *loginOptions) run(cmd *cobra.Command, args []string) error {
+func (o *loginOptions) run(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Logging in...\n")
 	return portier.Login()
 }

@@ -15,7 +15,7 @@ type program struct {
 	exit chan struct{}
 }
 
-func (p *program) Start(s service.Service) error {
+func (p *program) Start(_ service.Service) error {
 	go p.run()
 	return nil
 }
@@ -44,7 +44,7 @@ func (p *program) run() {
 	}
 }
 
-func (p *program) Stop(s service.Service) error {
+func (p *program) Stop(_ service.Service) error {
 	close(p.exit)
 	return nil
 }

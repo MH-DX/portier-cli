@@ -16,7 +16,6 @@ type MessageHeapOptions struct {
 }
 
 type MessageHeap interface {
-
 	// Test checks if the sequence number of msg is the next expected sequence number n_seq.
 	// If it is, it returns a sequence of messages that are ready to be sent to the
 	// port. The first message in the sequence is msg.
@@ -46,7 +45,7 @@ type Item struct {
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 
-// internally, the message heap is implemented as a priority queue using a heap from the standard library
+// internally, the message heap is implemented as a priority queue using a heap from the standard library.
 type messageHeap struct {
 	options MessageHeapOptions
 	nSeq    uint64
@@ -93,24 +92,23 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 	} else if msg.Seq < messageHeap.nSeq {
 		// the message is old
 		return nil, errors.New("old_message")
-	} else {
-		// the message is new
-		if len(messageHeap.queue) == messageHeap.options.MaxQueueSize {
-			// the queue is full
-			return nil, errors.New("queue_full")
-		} else if msg.Seq-messageHeap.nSeq > uint64(messageHeap.options.MaxQueueGap) {
-			// the gap is too large
-			return nil, errors.New("gap_too_large")
-		} else {
-			// the message is new, but the queue is not full
-			item := &Item{
-				value:    msg,
-				priority: -msg.Seq,
-			}
-			heap.Push(&messageHeap.queue, item)
-			return nil, nil
-		}
 	}
+	// the message is new
+	if len(messageHeap.queue) == messageHeap.options.MaxQueueSize {
+		// the queue is full
+		return nil, errors.New("queue_full")
+	} else if msg.Seq-messageHeap.nSeq > uint64(messageHeap.options.MaxQueueGap) {
+		// the gap is too large
+		return nil, errors.New("gap_too_large")
+	}
+	// the message is new, but the queue is not full
+	item := &Item{
+		value:    msg,
+		priority: -msg.Seq,
+	}
+	heap.Push(&messageHeap.queue, item)
+
+	return nil, nil
 }
 
 func (pq PriorityQueue) Len() int { return len(pq) }

@@ -14,7 +14,7 @@ import (
 
 func TestRouting(testing *testing.T) {
 	// GIVEN
-	connectionId := messages.ConnectionId("test-connection-id")
+	connectionId := messages.ConnectionID("test-connection-id")
 	connectionAdapterMock := &ConnectionAdapterMock{}
 	msg := make(chan messages.Message, 10)
 	events := make(chan<- ConnectionOpenEvent, 10)
@@ -44,7 +44,7 @@ func TestRouting(testing *testing.T) {
 
 func TestConnectionOpen(testing *testing.T) {
 	// GIVEN
-	connectionId := messages.ConnectionId("test-connection-id")
+	connectionId := messages.ConnectionID("test-connection-id")
 	msg := make(chan messages.Message, 10)
 	events := make(chan ConnectionOpenEvent, 10)
 	uplinkMock := &MockUplink{}
@@ -88,7 +88,7 @@ func TestConnectionOpen(testing *testing.T) {
 
 func TestConnectionNotFound(testing *testing.T) {
 	// GIVEN
-	connectionId := messages.ConnectionId("test-connection-id")
+	connectionId := messages.ConnectionID("test-connection-id")
 	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
 	events := make(chan<- ConnectionOpenEvent, 10)
@@ -159,7 +159,7 @@ func (m *MockUplink) Close() error {
 	return nil
 }
 
-func (m *MockUplink) Events() <-chan uplink.UplinkEvent {
+func (m *MockUplink) Events() <-chan uplink.Event {
 	m.Called()
 	return nil
 }

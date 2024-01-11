@@ -52,7 +52,7 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *registerOptions) parseArgs(cmd *cobra.Command, args []string) error {
+func (o *registerOptions) parseArgs(cmd *cobra.Command, _ []string) error {
 	output, err := cmd.Flags().GetString("output")
 	if err != nil {
 		log.Fatalf("could not get output flag: %v", err)

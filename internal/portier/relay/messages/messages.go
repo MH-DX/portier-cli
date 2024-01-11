@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type ConnectionId string
+type ConnectionID string
 
 type MessageType string
 
@@ -70,7 +70,7 @@ type MessageHeader struct {
 	Type MessageType
 
 	// CID is a uuid for the connection
-	CID ConnectionId
+	CID ConnectionID
 }
 
 // Message is a message that is sent to the portier server.

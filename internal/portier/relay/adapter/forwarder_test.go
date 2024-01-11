@@ -30,9 +30,9 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	options := ForwarderOptions{
 		Throughput:    1000,
-		LocalDeviceId: localDeviceId,
-		PeerDeviceId:  peerDeviceId,
-		ConnectionId:  "test-connection-id",
+		LocalDeviceID: localDeviceId,
+		PeerDeviceID:  peerDeviceId,
+		ConnectionID:  "test-connection-id",
 	}
 
 	// mock uplink
@@ -99,9 +99,9 @@ func TestForwardingToUplink(testing *testing.T) {
 
 	options := ForwarderOptions{
 		Throughput:     1000,
-		LocalDeviceId:  localDeviceId,
-		PeerDeviceId:   peerDeviceId,
-		ConnectionId:   "test-connection-id",
+		LocalDeviceID:  localDeviceId,
+		PeerDeviceID:   peerDeviceId,
+		ConnectionID:   "test-connection-id",
 		ReadTimeout:    100,
 		ReadBufferSize: 1024,
 	}
