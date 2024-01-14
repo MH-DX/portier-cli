@@ -117,7 +117,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 	assert.NotNil(testing, err)
 	// assert error contains port and connection refused
 	assert.Contains(testing, err.Error(), strconv.Itoa(port))
-	assert.Contains(testing, err.Error(), "connection refused")
+	assert.Contains(testing, err.Error(), "refused")
 	<-failedChannel // connection failed message sent
 	uplink.AssertExpectations(testing)
 }

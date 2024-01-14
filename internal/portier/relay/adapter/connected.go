@@ -109,16 +109,17 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		}
 		_ = c.forwarder.Ack(ackMessage.Seq, ackMessage.Re)
 		return nil, nil
-	} else if msg.Header.Type == messages.CC {
+	} else if msg.Header.Type == messages.CC || msg.Header.Type == messages.NF {
 		c.CRticker.Stop()
 		err := c.forwarder.Close()
 		return nil, err
 	} else if msg.Header.Type == messages.CR {
+		c.CRticker.Stop()
 		return nil, nil
 	} else if msg.Header.Type == messages.CA {
 		return nil, nil
 	}
-	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, msg.Header.Type)
+	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, messages.NF, msg.Header.Type)
 }
 
 func NewConnectedState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
