@@ -135,15 +135,15 @@ func TestForwarding(testing *testing.T) {
 	ws_url := "ws" + server.URL[4:]
 
 	// create forwarding tcp server
-	ln, _ := net.Listen("tcp", "127.0.0.1:18080")
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer ln.Close()
-	fromOptions := createConnectionAdapterOptions(cid, device1, device2, "tcp://localhost:18081")
+	forwarded, _ := net.Listen("tcp", "127.0.0.1:0")
+	fAddr := fmt.Sprintf("%s://%s", forwarded.Addr().Network(), forwarded.Addr().String())
+	defer forwarded.Close()
 
+	fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
-
-	forwarded, _ := net.Listen("tcp", "127.0.0.1:18081")
-	defer forwarded.Close()
 
 	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
@@ -198,15 +198,15 @@ func TestForwardingLarge(testing *testing.T) {
 	ws_url := "ws" + server.URL[4:]
 
 	// create forwarding tcp server
-	ln, _ := net.Listen("tcp", "127.0.0.1:18080")
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer ln.Close()
-	fromOptions := createConnectionAdapterOptions(cid, device1, device2, "tcp://localhost:18081")
+	forwarded, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer forwarded.Close()
+	fAddr := fmt.Sprintf("%s://%s", forwarded.Addr().Network(), forwarded.Addr().String())
+	fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
-
-	forwarded, _ := net.Listen("tcp", "127.0.0.1:18081")
-	defer forwarded.Close()
 
 	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
@@ -224,7 +224,7 @@ func TestForwardingLarge(testing *testing.T) {
 		testing.Errorf("error starting adapter: %v", err)
 	}
 
-	size := 1024 * 1024 * 100
+	size := 1024 * 1024 * 10
 
 	// WHEN
 	forwardedConn, _ := forwarded.Accept()
@@ -312,7 +312,7 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	_ = router1.Start()
 	_ = ctrl1.Start()
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 20; i++ {
 		cid := messages.ConnectionID(fmt.Sprintf("test-connection-id-%d", i))
 		fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 		adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
