@@ -19,7 +19,12 @@ func newRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(NewManCmd().Cmd)        // man subcommand
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newRegisterCmd())
-	cmd.AddCommand(newStartCmd())
+
+	startCmd, err := newStartCmd()
+	if err != nil {
+		panic(err)
+	}
+	cmd.AddCommand(startCmd)
 
 	return cmd
 }

@@ -3,45 +3,38 @@ package daemon
 import (
 	"fmt"
 	"log"
-	"os"
-	"time"
 
 	"github.com/kardianos/service"
+	"github.com/marinator86/portier-cli/internal/portier/application"
 )
 
 var logger *log.Logger
 
 type program struct {
 	exit chan struct{}
+
+	daemonService service.Service
 }
 
-func (p *program) Start(_ service.Service) error {
+func (p *program) Start(service service.Service) error {
+	p.daemonService = service
 	go p.run()
 	return nil
 }
 
 func (p *program) run() {
-	// Load config
-	logFile, err := os.OpenFile("/var/log/portier.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-	if err != nil {
-		fmt.Printf("Error opening file: %v", err)
-		return
-	}
-	defer logFile.Close()
+	application := application.NewPortierApplication()
 
-	logger = log.New(logFile, "Portier: ", log.LstdFlags)
+	application.LoadConfig(p.configFilePath)
 
-	ticker := time.NewTicker(30 * time.Second)
+	application.LoadApiToken(p.apiTokenFilePath)
 
-	for {
-		select {
-		case tm := <-ticker.C:
-			logger.Printf("Still running at %v...", tm)
-		case <-p.exit:
-			ticker.Stop()
-			return
-		}
-	}
+	application.StartServices()
+
+	// wait for exit
+	<-p.exit
+
+	application.StopServices()
 }
 
 func (p *program) Stop(_ service.Service) error {
@@ -49,11 +42,28 @@ func (p *program) Stop(_ service.Service) error {
 	return nil
 }
 
-func StartDaemon(svcFlag string) error {
+func StartDaemon() error {
+	err := controlService("start")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func StopDaemon() error {
+	err := controlService("stop")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func controlService(svcFlag string) error {
 	svcConfig := &service.Config{
 		Name:        "portier",
 		DisplayName: "Portier.dev service",
 		Description: "The portier.dev service is your local relay to the portier.dev cloud service.",
+		Arguments:  []string{"-c", "/etc/portier/config.yaml", "-t", "/etc/portier/apiToken.yaml"},
 	}
 
 	prg := &program{}

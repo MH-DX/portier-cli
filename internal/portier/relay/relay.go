@@ -3,23 +3,19 @@ package relay
 import (
 	"net/url"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/router"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
+	"github.com/google/uuid"
 )
 
 // ServiceOptions defines the local options for the service.
 type ServiceOptions struct {
-	// The max queue size of messages to fetch from the connection
-	MaxQueueSize int
+	// The local URL
+	URLLocal url.URL
 
 	// The remote URL the bridge has to connect to
 	URLRemote url.URL
 
-	// RateLimit is the rate limit in bytes per second that is applied to the connection
-	RateLimitBytesPerSecond int
-
-	// AckWindowSize is the size of the ack window, i.e. the number of messages that are sent before an ack is expected
-	AckWindowSize int
+	// The remote device id
+	PeerDeviceID uuid.UUID
 }
 
 // Service is a service that is exposed by the portier server as a TCP or UDP service. Each Service
@@ -33,20 +29,14 @@ type Service struct {
 	// The service name
 	Name string
 
-	// The local URL
-	URLLocal string
-
 	// ServiceOptions defines the options for the service
 	Options ServiceOptions
 }
 
-// Relay is the portier relay to bridging TCP / UDP traffic via websocket to the portier server.
-type Relay struct {
+type RelayConfig struct {
+	// The portier server URL
 	ServerURL string
 
+	// The services that are exposed by the relay
 	Services []Service
-	Router   router.Router
-
-	// Uplink is the uplink that is used to send traffic to the portier server
-	Uplink uplink.Uplink
 }

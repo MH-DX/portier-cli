@@ -16,6 +16,9 @@ type Controller interface {
 
 	// AddConnection adds a connection to the controller
 	AddConnection(messages.ConnectionID, adapter.ConnectionAdapter) error
+
+	// Returns the event channel
+	EventChannel() chan adapter.AdapterEvent
 }
 
 type controller struct {
@@ -108,4 +111,8 @@ func (c *controller) CreateInboundConnection(header messages.MessageHeader, brid
 	}
 
 	_ = c.AddConnection(header.CID, connectionAdapter)
+}
+
+func (c *controller) EventChannel() chan adapter.AdapterEvent {
+	return c.eventChannel
 }
