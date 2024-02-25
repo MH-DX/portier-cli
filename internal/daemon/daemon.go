@@ -25,9 +25,9 @@ func (p *program) Start(service service.Service) error {
 func (p *program) run() {
 	application := application.NewPortierApplication()
 
-	application.LoadConfig(p.configFilePath)
+	//application.LoadConfig(p.configFilePath)
 
-	application.LoadApiToken(p.apiTokenFilePath)
+	//application.LoadApiToken(p.apiTokenFilePath)
 
 	application.StartServices()
 
@@ -63,7 +63,7 @@ func controlService(svcFlag string) error {
 		Name:        "portier",
 		DisplayName: "Portier.dev service",
 		Description: "The portier.dev service is your local relay to the portier.dev cloud service.",
-		Arguments:  []string{"-c", "/etc/portier/config.yaml", "-t", "/etc/portier/apiToken.yaml"},
+		Arguments:   []string{"-c", "/etc/portier/config.yaml", "-t", "/etc/portier/apiToken.yaml"},
 	}
 
 	prg := &program{}
