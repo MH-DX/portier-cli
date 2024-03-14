@@ -37,6 +37,9 @@ type EncoderDecoder interface {
 	// EncodeDataMessage encodes a data message
 	EncodeDataMessage(messages.DataMessage) ([]byte, error)
 
+	// EncodeDatagramMessage encodes a datagram message
+	EncodeDatagramMessage(messages.DatagramMessage) ([]byte, error)
+
 	// Decode DataAckMessage decodes a ack message
 	DecodeDataAckMessage([]byte) (messages.DataAckMessage, error)
 
@@ -148,6 +151,16 @@ func (e *encoderDecoder) DecodeDataMessage(msg []byte) (messages.DataMessage, er
 
 // EncodeDataMessage encodes a data message.
 func (e *encoderDecoder) EncodeDataMessage(msg messages.DataMessage) ([]byte, error) {
+	// use msgpack to encode the message
+	msgpack, err := msgpack.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return msgpack, nil
+}
+
+// EncodeDatagramMessage encodes a datagram message.
+func (e *encoderDecoder) EncodeDatagramMessage(msg messages.DatagramMessage) ([]byte, error) {
 	// use msgpack to encode the message
 	msgpack, err := msgpack.Marshal(msg)
 	if err != nil {

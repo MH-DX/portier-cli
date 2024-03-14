@@ -33,6 +33,9 @@ const (
 	// DataMessage is a message that contains data.
 	D MessageType = "D"
 
+	// DataGram a message that contains data from *gram socket.
+	DG MessageType = "DG"
+
 	// DataAckMessage is a message that is sent when data with a sequence number is received.
 	DA MessageType = "DA"
 )
@@ -45,12 +48,6 @@ type BridgeOptions struct {
 
 	// The remote URL
 	URLRemote url.URL
-
-	// RateLimit is the rate limit in bytes per second that is applied to the connection
-	RateLimitBytesPerSecond int
-
-	// AckWindowSize is the size of the ack window, i.e. the number of messages that are sent before an ack is expected
-	AckWindowSize int
 
 	// Cipher is the cipher that is used to encrypt the data
 	Cipher string
@@ -109,6 +106,18 @@ type DataMessage struct {
 
 	// Retransmitted is a flag that indicates if the data is a retransmission
 	Re bool
+
+	// Data is the actual payload from the bridged connection
+	Data []byte
+}
+
+// DataGramMessage is a message that contains data.
+type DatagramMessage struct {
+	// Addr is the address of the sender
+	Source string
+
+	// Target is the address of the recipient
+	Target string
 
 	// Data is the actual payload from the bridged connection
 	Data []byte
