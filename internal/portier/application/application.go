@@ -15,22 +15,27 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
-	"gopkg.in/yaml.v2"
+	"github.com/marinator86/portier-cli/internal/utils"
+	"gopkg.in/yaml.v3"
 )
 
 type PortierConfig struct {
-	PortierURL                  url.URL               `yaml:"portierUrl"`
-	DeviceID                    uuid.UUID             `yaml:"deviceId"`
-	RelayConfig                 relay.RelayConfig     `yaml:"relay"`
-	DefaultLocalPublicKey       string                `yaml:"defaultLocalPublicKey" default:"not-implemented-yet"`
-	DefaultLocalPrivateKey      string                `yaml:"defaultLocalPrivateKey" default:"not-implemented-yet"`
-	DefaultCipher               string                `yaml:"defaultCipher" default:"aes-256-gcm"`
-	DefaultCurve                string                `yaml:"defaultCurve" default:"curve25519"`
-	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval" default:"1s"`
-	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout" default:"1s"`
-	DefaultThroughputLimit      int                   `yaml:"defaultThroughputLimit" default:"0"`
-	DefaultReadBufferSize       int                   `yaml:"defaultReadBufferSize" default:"4096"`
-	DefaultDatagramConnectionID messages.ConnectionID `yaml:"defaultDatagramConnectionId" default:"00000000-1111-0000-0000-000000000000"`
+	PortierURL                  utils.YAMLURL         `yaml:"portierUrl"`
+	Services                    []relay.Service       `yaml:"services"`
+	DefaultLocalPublicKey       string                `yaml:"defaultLocalPublicKey"`
+	DefaultLocalPrivateKey      string                `yaml:"defaultLocalPrivateKey"`
+	DefaultCipher               string                `yaml:"defaultCipher"`
+	DefaultCurve                string                `yaml:"defaultCurve"`
+	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval"`
+	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout"`
+	DefaultThroughputLimit      int                   `yaml:"defaultThroughputLimit"`
+	DefaultReadBufferSize       int                   `yaml:"defaultReadBufferSize"`
+	DefaultDatagramConnectionID messages.ConnectionID `yaml:"defaultDatagramConnectionId"`
+}
+
+type DeviceCredentials struct {
+	DeviceID uuid.UUID `yaml:"deviceID"`
+	ApiToken string    `yaml:"APIKey"`
 }
 
 type ServiceContext struct {
@@ -46,7 +51,7 @@ type ServiceContext struct {
 type PortierApplication struct {
 	config *PortierConfig
 
-	apiToken string
+	deviceCredentials *DeviceCredentials
 
 	contexts []ServiceContext
 
@@ -61,6 +66,27 @@ func NewPortierApplication() *PortierApplication {
 
 	return &PortierApplication{
 		contexts: []ServiceContext{},
+	}
+}
+
+func defaultPortierConfig() *PortierConfig {
+	return &PortierConfig{
+		PortierURL: utils.YAMLURL{
+			URL: &url.URL{
+				Scheme: "wss",
+				Host:   "api.portier.dev/spider",
+			},
+		},
+		Services:                    []relay.Service{},
+		DefaultLocalPublicKey:       "not-implemented-yet",
+		DefaultLocalPrivateKey:      "not-implemented-yet",
+		DefaultCipher:               "aes-256-gcm",
+		DefaultCurve:                "curve25519",
+		DefaultResponseInterval:     1 * time.Second,
+		DefaultReadTimeout:          1 * time.Second,
+		DefaultThroughputLimit:      0,
+		DefaultReadBufferSize:       4096,
+		DefaultDatagramConnectionID: messages.ConnectionID("00000000-1111-0000-0000-000000000000"),
 	}
 }
 
@@ -86,7 +112,7 @@ func (p *PortierApplication) LoadConfig(filePath string) error {
 		return err
 	}
 
-	config := PortierConfig{}
+	config := defaultPortierConfig()
 
 	err = yaml.Unmarshal(fileContent, &config)
 	if err != nil {
@@ -94,7 +120,7 @@ func (p *PortierApplication) LoadConfig(filePath string) error {
 		return err
 	}
 
-	p.config = &config
+	p.config = config
 
 	return nil
 }
@@ -120,14 +146,24 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 		return err
 	}
 
-	p.apiToken = string(fileContent)
+	credentials := DeviceCredentials{}
+
+	err = yaml.Unmarshal(fileContent, &credentials)
+	if err != nil {
+		fmt.Printf("Error unmarshalling yaml: %v", err)
+		return err
+	}
+
+	p.deviceCredentials = &credentials
 
 	return nil
 }
 
 func (p *PortierApplication) StartServices() error {
 
-	controller, router, uplink, err := createRelay(p.config.DeviceID, p.config.PortierURL, p.apiToken)
+	fmt.Println("Creating relay...")
+
+	controller, router, uplink, err := createRelay(p.deviceCredentials.DeviceID, *p.config.PortierURL.URL, p.deviceCredentials.ApiToken)
 	if err != nil {
 		fmt.Printf("Error creating outbound relay: %v", err)
 		os.Exit(1)
@@ -135,6 +171,8 @@ func (p *PortierApplication) StartServices() error {
 	p.router = router
 	p.controller = controller
 	p.uplink = uplink
+
+	fmt.Println("Starting services...")
 
 	err = p.startListeners()
 	if err != nil {
@@ -151,6 +189,8 @@ func (p *PortierApplication) StartServices() error {
 		}(c)
 	}
 
+	fmt.Println("All Services started...")
+
 	return nil
 }
 
@@ -162,18 +202,20 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 			continue
 		}
 
+		fmt.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
+
 		// Now we create a new connection adapter for the outbound connection
 		// First, we define the options for the connection adapter
 
 		cID := messages.ConnectionID(uuid.New().String())
 		options := adapter.ConnectionAdapterOptions{
 			ConnectionId:        cID,
-			LocalDeviceId:       p.config.DeviceID,
+			LocalDeviceId:       p.deviceCredentials.DeviceID,
 			PeerDeviceId:        context.service.Options.PeerDeviceID,
 			PeerDevicePublicKey: context.service.Options.PeerDevicePublicKey,
 			BridgeOptions: messages.BridgeOptions{
 				Timestamp: time.Now(),
-				URLRemote: context.service.Options.URLRemote,
+				URLRemote: *context.service.Options.URLRemote.URL,
 				Cipher:    context.service.Options.Cipher,
 				Curve:     context.service.Options.Curve,
 			},
@@ -210,9 +252,14 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 			options.ReadBufferSize = p.config.DefaultReadBufferSize
 		}
 
+		// print the options to the console in pretty format
+		fmt.Printf("Connection adapter options: %v\n", options)
+
 		context.adapter = adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.controller.EventChannel())
 		p.controller.AddConnection(cID, context.adapter)
 		context.adapter.Start()
+
+		fmt.Printf("Started connection adapter for service: %s\n", context.service.Name)
 	}
 }
 
@@ -240,7 +287,7 @@ func (p *PortierApplication) handlePacket(context ServiceContext, packetConn net
 		// send the packet to the portier server via the uplink
 		p.uplink.Send(messages.Message{
 			Header: messages.MessageHeader{
-				From: p.config.DeviceID,
+				From: p.deviceCredentials.DeviceID,
 				To:   context.service.Options.PeerDeviceID,
 				Type: messages.DG,
 				CID:  p.config.DefaultDatagramConnectionID,
@@ -272,9 +319,11 @@ func (p *PortierApplication) StopServices() error {
 }
 
 func (p *PortierApplication) startListeners() error {
-	for _, service := range p.config.RelayConfig.Services {
+	for _, service := range p.config.Services {
+		fmt.Printf("Starting service: %s\n", service.Name)
 		switch service.Options.URLLocal.Scheme {
 		case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":
+			fmt.Printf("Starting gram listener on %s\n", service.Options.URLLocal.Host)
 			conn, err := net.ListenPacket(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err
@@ -285,6 +334,7 @@ func (p *PortierApplication) startListeners() error {
 			})
 			break
 		case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
+			fmt.Printf("Starting listener for service: %s\n", service.Name)
 			listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err

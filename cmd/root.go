@@ -26,6 +26,12 @@ func newRootCmd(version string) *cobra.Command {
 	}
 	cmd.AddCommand(startCmd)
 
+	runCmd, err := newRunCmd()
+	if err != nil {
+		panic(err)
+	}
+	cmd.AddCommand(runCmd)
+
 	return cmd
 }
 

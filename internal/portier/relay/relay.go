@@ -1,22 +1,22 @@
 package relay
 
 import (
-	"net/url"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/utils"
 )
 
 // ServiceOptions are options for the service that need to be known beforehand.
 type ServiceOptions struct {
 	// The local URL
-	URLLocal url.URL
+	URLLocal utils.YAMLURL `yaml:"urlLocal" validate:"required"`
 
 	// The remote URL the bridge has to connect to
-	URLRemote url.URL
+	URLRemote utils.YAMLURL `yaml:"urlRemote" validate:"required"`
 
 	// The remote device id
-	PeerDeviceID uuid.UUID
+	PeerDeviceID uuid.UUID `yaml:"peerDeviceID" validate:"required,uuid"`
 
 	// The remote device public key
 	PeerDevicePublicKey string
@@ -55,16 +55,8 @@ type ServiceOptions struct {
 // A service also implements encryption, i.e. it encrypts the data that is sent to the portier server after exchanging the public keys.
 type Service struct {
 	// The service name
-	Name string
+	Name string `yaml:"name"`
 
 	// ServiceOptions defines the options for the service
-	Options ServiceOptions
-}
-
-type RelayConfig struct {
-	// The portier server URL
-	ServerURL string
-
-	// The services that are exposed by the relay
-	Services []Service
+	Options ServiceOptions `yaml:"options"`
 }

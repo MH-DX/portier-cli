@@ -1,6 +1,9 @@
 package utils
 
-import "os"
+import (
+	"net/url"
+	"os"
+)
 
 // Home returns the home directory of the current user withouth a trailing slash.
 func Home() (string, error) {
@@ -28,4 +31,19 @@ func Home() (string, error) {
 	}
 
 	return home, nil
+}
+
+type YAMLURL struct {
+	*url.URL
+}
+
+func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	err := unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	url, err := url.Parse(s)
+	j.URL = url
+	return err
 }
