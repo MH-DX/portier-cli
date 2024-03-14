@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// TODO rename to "service" command, i.e. portier service start --config config.yaml --apiToken apiToken.yaml ...
+
 type startOptions struct {
 	Command      string
 	ConfigFile   string
