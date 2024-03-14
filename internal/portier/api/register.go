@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/utils"
 	"gopkg.in/yaml.v2"
 )
 
@@ -142,9 +141,9 @@ func GenerateApiKey(baseURL, deviceGUID, description, accessToken, home string) 
 }
 
 // Function to store device credentials
-func StoreCredentials(device Device, apiKey ApiKeyCreation, home string) error {
+func StoreCredentials(device Device, apiKey ApiKeyCreation, home string, filename string) error {
 	// Create YAML file
-	file, err := os.Create(fmt.Sprintf("%s/credentials_device.json", home))
+	file, err := os.Create(fmt.Sprintf("%s/%s", home, filename))
 	if err != nil {
 		return err
 	}
@@ -184,11 +183,7 @@ func LoadAccessToken(home string) (AuthResponse, error) {
 	}, nil
 }
 
-func Register(name string, baseURL string) error {
-	home, err := utils.Home()
-	if err != nil {
-		return err
-	}
+func Register(name string, baseURL string, home string, credentialsFileName string) error {
 	// Attempt to load access token from credentials file
 	authResponse, err := LoadAccessToken(home)
 	if err != nil {
@@ -211,7 +206,7 @@ func Register(name string, baseURL string) error {
 		return err
 	}
 
-	err = StoreCredentials(device, apiKey, home)
+	err = StoreCredentials(device, apiKey, home, credentialsFileName)
 	if err != nil {
 		fmt.Println("Error storing credentials:", err)
 		return err

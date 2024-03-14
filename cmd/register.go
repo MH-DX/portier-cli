@@ -5,19 +5,29 @@ import (
 	"log"
 
 	portier "github.com/marinator86/portier-cli/internal/portier/api"
+	"github.com/marinator86/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
 type registerOptions struct {
-	Name   string
-	ApiURL string
-	Output string
+	Name                string
+	ApiURL              string
+	HomeFolderPath      string
+	CredentialsFileName string
+	Output              string
 }
 
 func defaultRegisterOptions() *registerOptions {
+	home, err := utils.Home()
+	if err != nil {
+		log.Fatalf("could not get home directory: %v", err)
+	}
+
 	return &registerOptions{
-		ApiURL: "https://api.portier.dev/api",
-		Output: "json",
+		ApiURL:              "https://api.portier.dev/api",
+		HomeFolderPath:      home,
+		CredentialsFileName: "credentials_device.yaml",
+		Output:              "yaml",
 	}
 }
 
@@ -28,12 +38,14 @@ func newRegisterCmd() *cobra.Command {
 		Use:          "register",
 		Short:        "registers a new device in portier.dev and downloads the device's API key",
 		SilenceUsage: true,
-		Args:         cobra.MaximumNArgs(1),
+		Args:         cobra.MaximumNArgs(3),
 		RunE:         o.run,
 	}
 
 	cmd.Flags().StringVarP(&o.Output, "output", "o", o.Output, "output format (yaml | json)")
 	cmd.Flags().StringVarP(&o.Name, "name", "n", o.Name, "name of the device")
+	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
+	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
 	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the API (https://api.portier.dev)")
 
 	return cmd
@@ -52,7 +64,7 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Command: Create device %s at %s, out %s\n", o.Name, o.ApiURL, o.Output)
 
-	portier.Register(o.Name, o.ApiURL)
+	portier.Register(o.Name, o.ApiURL, o.HomeFolderPath, o.CredentialsFileName)
 
 	return nil
 }
