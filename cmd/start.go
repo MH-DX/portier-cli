@@ -42,7 +42,7 @@ func newStartCmd() (*cobra.Command, error) {
 
 	cmd := &cobra.Command{
 		Use:          "start",
-		Short:        "start a device",
+		Short:        "start all local services defined for this device (requires registration)",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE:         o.run,
