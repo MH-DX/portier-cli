@@ -179,6 +179,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// Establish a websocket connection to the portier server
 	connection, resp, err := dialer.Dial(u.Options.PortierURL, header)
 	if err != nil {
+		fmt.Println("Error connecting to portier server: ", err)
 		if u.retries < u.Options.ReconnectRetries || u.Options.ReconnectRetries == 0 {
 			u.retries++
 		} else {
