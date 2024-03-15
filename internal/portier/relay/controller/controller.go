@@ -94,6 +94,7 @@ func (c *controller) CreateInboundConnection(header messages.MessageHeader, brid
 	// create a new inbound connection adapter
 	connectionAdapter := adapter.NewInboundConnectionAdapter(adapter.ConnectionAdapterOptions{
 		ConnectionId:          header.CID,
+		LocalDeviceId:         header.To,
 		PeerDeviceId:          header.From,
 		PeerDevicePublicKey:   pcKey,
 		BridgeOptions:         bridgeOptions,
