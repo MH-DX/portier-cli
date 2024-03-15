@@ -118,21 +118,6 @@ func (r *router) HandleMessage(msg messages.Message) {
 		}
 		return
 	}
-
-	// send connection not found message in any case
-	connectionNotFoundMessage := messages.Message{
-		Header: messages.MessageHeader{
-			From: msg.Header.To,
-			To:   msg.Header.From,
-			Type: messages.NF,
-			CID:  msg.Header.CID,
-		},
-		Message: []byte(""),
-	}
-	err := r.uplink.Send(connectionNotFoundMessage)
-	if err != nil {
-		fmt.Printf("error sending connection not found message: %v\n", err)
-	}
 }
 
 // AddConnection adds an outbound connection to the router.
