@@ -191,6 +191,16 @@ func (p *PortierApplication) StartServices() error {
 
 	fmt.Println("All Services started...")
 
+	err = router.Start()
+	if err != nil {
+		return err
+	}
+
+	err = controller.Start()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
