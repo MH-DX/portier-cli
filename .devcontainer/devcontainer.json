@@ -8,7 +8,8 @@
 		"vscode": {
 			"extensions": [
 				"GitHub.copilot-chat",
-				"GitHub.copilot"
+				"GitHub.copilot",
+				"ms-kubernetes-tools.vscode-kubernetes-tools"
 			]
 		}
 	}
