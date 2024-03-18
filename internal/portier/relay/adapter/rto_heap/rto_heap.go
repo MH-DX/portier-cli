@@ -125,6 +125,7 @@ func (r *rtoHeap) process() {
 			if item.value.Acked {
 				heap.Remove(&r.queue, item.index)
 			} else {
+				fmt.Printf("Resending message with seq %d\n", item.value.Seq)
 				item.value.Rto = time.Now().Add(item.value.RtoDuration)
 				item.value.Retransmitted = true
 				heap.Fix(&r.queue, item.index)
@@ -160,7 +161,7 @@ func (r *rtoHeap) process() {
 			r.lock.Unlock()
 
 		case <-r.ctx.Done():
-			fmt.Println("Context done")
+			fmt.Println("RTO heap shutting down")
 			return
 		}
 	}
