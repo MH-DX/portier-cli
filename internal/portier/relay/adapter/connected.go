@@ -107,7 +107,10 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		if err != nil {
 			return nil, err
 		}
-		_ = c.forwarder.Ack(ackMessage.Seq, ackMessage.Re)
+		err = c.forwarder.Ack(ackMessage.Seq, ackMessage.Re)
+		if err != nil {
+			fmt.Printf("error acknowledging message: %s\n", err)
+		}
 		return nil, nil
 	} else if msg.Header.Type == messages.CC || msg.Header.Type == messages.NF {
 		c.CRticker.Stop()
