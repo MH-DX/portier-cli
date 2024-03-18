@@ -51,6 +51,7 @@ type Forwarder interface {
 
 // NewForwarder creates a new forwarder.
 func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan<- AdapterEvent) Forwarder {
+	context, cancel := context.WithCancel(context.Background())
 	return &forwarder{
 		options:        options,
 		stopped:        false,
@@ -60,8 +61,9 @@ func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink,
 		encryption:     encryption,
 		sendChannel:    make(chan messages.Message, 1000000),
 		eventChannel:   eventChannel,
-		window:         NewWindow(context.TODO(), NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
+		window:         NewWindow(context, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
 		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
+		cancel:         cancel,
 	}
 }
 
@@ -95,6 +97,9 @@ type forwarder struct {
 
 	// messageHeap is the message heap to buffer messages until they can be sent to the socket
 	messageHeap MessageHeap
+
+	// cancel is the cancel function for the context to stop the rto heap
+	cancel context.CancelFunc
 }
 
 // Start starts the forwarder, returns a channel to which messages can be sent.
@@ -261,6 +266,7 @@ func (f *forwarder) Close() error {
 		return nil
 	}
 	f.stopped = true
+	f.cancel()
 	return f.conn.Close()
 }
 
