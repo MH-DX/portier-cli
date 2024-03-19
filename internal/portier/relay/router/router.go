@@ -118,6 +118,21 @@ func (r *router) HandleMessage(msg messages.Message) {
 		}
 		return
 	}
+
+	if msg.Header.Type != messages.NF {
+		fmt.Printf("received message for unknown connection: %v\n", msg)
+		// send a not found message
+		notFoundMessage := messages.Message{
+			Header: messages.MessageHeader{
+				From: msg.Header.To,
+				To:   msg.Header.From,
+				Type: messages.NF,
+				CID:  msg.Header.CID,
+			},
+			Message: []byte{},
+		}
+		r.uplink.Send(notFoundMessage)
+	}
 }
 
 // AddConnection adds an outbound connection to the router.
