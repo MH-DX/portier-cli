@@ -120,7 +120,8 @@ func (r *router) HandleMessage(msg messages.Message) {
 	}
 
 	if msg.Header.Type != messages.NF {
-		fmt.Printf("received message for unknown connection: %v\n", msg)
+		fmt.Printf("received message for unknown connection %s, type %s\n",
+			msg.Header.CID, msg.Header.Type)
 		// send a not found message
 		notFoundMessage := messages.Message{
 			Header: messages.MessageHeader{
