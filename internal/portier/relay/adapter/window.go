@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -83,13 +84,13 @@ type window struct {
 
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
-		InitialCap:            1024 * 4,
+		InitialCap:            32768 * 4,
 		MinRTO:                5000000.0,
 		InitialRTO:            300000000.0,
 		RTTFactor:             4.0,
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
-		MaxCap:                1024 * 1024,
+		MaxCap:                32768 * 32,
 		WindowDownscaleFactor: 0.5,
 		WindowUpscaleFactor:   1.5,
 		RTTHistSize:           200,
@@ -205,8 +206,10 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
+			fmt.Printf("downscaling window to %f\n", w.currentCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
+			fmt.Printf("upscaling window to %f\n", w.currentCap)
 		}
 	}
 	// remove all messages from the queue that have been ack'ed
