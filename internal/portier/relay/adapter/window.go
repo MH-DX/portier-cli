@@ -3,7 +3,6 @@ package adapter
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -206,10 +205,8 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
-			fmt.Printf("downscaling window to %f\n", w.currentCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
-			fmt.Printf("upscaling window to %f\n", w.currentCap)
 		}
 	}
 	// remove all messages from the queue that have been ack'ed
