@@ -24,6 +24,9 @@ type WindowOptions struct {
 	// minimum rto of the window in microseconds
 	MinRTO float64
 
+	// maximum rto of the window in microseconds
+	MaxRTO float64
+
 	// initial rto of the window in microseconds
 	InitialRTO float64
 
@@ -85,7 +88,8 @@ func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
 		InitialCap:            32768 * 4,
 		MinRTO:                5000000.0,
-		InitialRTO:            300000000.0,
+		MaxRTO:                300000000.0,
+		InitialRTO:            150000000.0,
 		RTTFactor:             4.0,
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
@@ -109,7 +113,7 @@ func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.RTTFactor, 2*options.RTTHistSize),
+		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
 		rtoHeap:        rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder, encryption),
 	}
 }
@@ -125,7 +129,7 @@ func newWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.RTTFactor, 2*options.RTTHistSize),
+		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
 		rtoHeap:        rtoHeap,
 	}
 }
