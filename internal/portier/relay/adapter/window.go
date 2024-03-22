@@ -21,6 +21,9 @@ type WindowOptions struct {
 	// initial size of the window in bytes
 	InitialCap float64
 
+	// minimum rtt variance of the window in microseconds
+	MinRTTVAR float64
+
 	// minimum rto of the window in microseconds
 	MinRTO float64
 
@@ -87,6 +90,7 @@ type window struct {
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
 		InitialCap:            32768 * 4,
+		MinRTTVAR:             2000000.0,
 		MinRTO:                5000000.0,
 		MaxRTO:                300000000.0,
 		InitialRTO:            150000000.0,
@@ -113,7 +117,7 @@ func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
+		stats:          rtt.NewTCPStats(options.InitialRTO, options.MinRTTVAR, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
 		rtoHeap:        rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder, encryption),
 	}
 }
@@ -129,7 +133,7 @@ func newWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
+		stats:          rtt.NewTCPStats(options.InitialRTO, options.MinRTTVAR, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
 		rtoHeap:        rtoHeap,
 	}
 }
@@ -211,6 +215,7 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
 		} else {
 			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
+			//fmt.Println("upscale window size to", w.currentCap)
 		}
 	}
 	// remove all messages from the queue that have been ack'ed
