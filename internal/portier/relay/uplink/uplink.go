@@ -93,7 +93,7 @@ type WebsocketUplink struct {
 
 func defaultOptions() Options {
 	return Options{
-		MaxReconnectInterval: 10 * time.Second,
+		MaxReconnectInterval: 5 * time.Second,
 		ReconnectRetries:     0,
 	}
 }
@@ -195,20 +195,28 @@ func (u *WebsocketUplink) connectWebsocket() error {
 
 	u.retries = 0
 
+	// setup ping
+	connection.SetPingHandler(func(appData string) error {
+		u.mutex.Lock()
+		_ = connection.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
+		u.mutex.Unlock()
+		connection.SetReadDeadline(time.Now().Add(10 * time.Second))
+		return nil
+	})
+
 	// receive messages from the portier server and forward them to the recv channel
 	go func() {
 		for {
 			_, frame, err := connection.ReadMessage()
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err) {
-					log.Printf("read loop - websocket disconnected: %v", err)
-					u.events <- Event{
-						State: Disconnected,
-						Event: "read loop - websocket disconnected",
-					}
-					time.Sleep(u.calculateBackoff())
-					_ = u.connectWebsocket()
+				log.Printf("read - websocket: %v", err)
+				u.connection.Close()
+				u.events <- Event{
+					State: Disconnected,
+					Event: "read - websocket closed after error",
 				}
+				time.Sleep(u.calculateBackoff())
+				_ = u.connectWebsocket()
 				return
 			}
 			message, err := u.encoderDecoder.Decode(frame)
