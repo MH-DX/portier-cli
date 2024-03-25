@@ -148,15 +148,14 @@ func (u *WebsocketUplink) Send(message messages.Message) error {
 	}
 	err = u.connection.WriteMessage(websocket.BinaryMessage, payload)
 	if err != nil {
-		if websocket.IsUnexpectedCloseError(err) {
-			log.Printf("websocket disconnected: %v", err)
-			u.events <- Event{
-				State: Disconnected,
-				Event: "websocket disconnected",
-			}
-			time.Sleep(u.calculateBackoff())
-			_ = u.connectWebsocket()
+		u.events <- Event{
+			State: Disconnected,
+			Event: "send - websocket disconnected",
 		}
+		log.Printf("send - websocket disconnected: %v", err)
+		u.connection.Close()
+		time.Sleep(u.calculateBackoff())
+		return u.connectWebsocket()
 	}
 	return nil
 }
@@ -183,7 +182,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 		if u.retries < u.Options.ReconnectRetries || u.Options.ReconnectRetries == 0 {
 			u.retries++
 		} else {
-			fmt.Println(resp)
+			log.Println(resp)
 			return fmt.Errorf("maximum number of retries reached after: %v", err)
 		}
 		time.Sleep(u.calculateBackoff())
@@ -202,10 +201,10 @@ func (u *WebsocketUplink) connectWebsocket() error {
 			_, frame, err := connection.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err) {
-					log.Printf("websocket disconnected: %v", err)
+					log.Printf("read loop - websocket disconnected: %v", err)
 					u.events <- Event{
 						State: Disconnected,
-						Event: "websocket disconnected",
+						Event: "read loop - websocket disconnected",
 					}
 					time.Sleep(u.calculateBackoff())
 					_ = u.connectWebsocket()

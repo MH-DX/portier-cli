@@ -2,6 +2,7 @@ package application
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -94,13 +95,13 @@ func defaultPortierConfig() *PortierConfig {
 func (p *PortierApplication) LoadConfig(filePath string) error {
 	stat, err := os.Stat(filePath)
 	if err != nil {
-		fmt.Printf("Error getting file info: %v", err)
+		log.Printf("Error getting file info: %v", err)
 		return err
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Error opening file: %v", err)
+		log.Printf("Error opening file: %v", err)
 		return err
 	}
 	defer file.Close()
@@ -108,7 +109,7 @@ func (p *PortierApplication) LoadConfig(filePath string) error {
 	fileContent := make([]byte, stat.Size())
 	_, err = file.Read(fileContent)
 	if err != nil {
-		fmt.Printf("Error reading file: %v", err)
+		log.Printf("Error reading file: %v", err)
 		return err
 	}
 
@@ -116,7 +117,7 @@ func (p *PortierApplication) LoadConfig(filePath string) error {
 
 	err = yaml.Unmarshal(fileContent, &config)
 	if err != nil {
-		fmt.Printf("Error unmarshalling yaml: %v", err)
+		log.Printf("Error unmarshalling yaml: %v", err)
 		return err
 	}
 
@@ -128,13 +129,13 @@ func (p *PortierApplication) LoadConfig(filePath string) error {
 func (p *PortierApplication) LoadApiToken(filePath string) error {
 	stat, err := os.Stat(filePath)
 	if err != nil {
-		fmt.Printf("Error getting file info: %v", err)
+		log.Printf("Error getting file info: %v", err)
 		return err
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Error opening file: %v", err)
+		log.Printf("Error opening file: %v", err)
 		return err
 	}
 	defer file.Close()
@@ -142,7 +143,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 	fileContent := make([]byte, stat.Size())
 	_, err = file.Read(fileContent)
 	if err != nil {
-		fmt.Printf("Error reading file: %v", err)
+		log.Printf("Error reading file: %v", err)
 		return err
 	}
 
@@ -150,7 +151,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 
 	err = yaml.Unmarshal(fileContent, &credentials)
 	if err != nil {
-		fmt.Printf("Error unmarshalling yaml: %v", err)
+		log.Printf("Error unmarshalling yaml: %v", err)
 		return err
 	}
 
@@ -161,18 +162,18 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 
 func (p *PortierApplication) StartServices() error {
 
-	fmt.Println("Creating relay...")
+	log.Println("Creating relay...")
 
 	controller, router, uplink, err := createRelay(p.deviceCredentials.DeviceID, *p.config.PortierURL.URL, p.deviceCredentials.ApiToken)
 	if err != nil {
-		fmt.Printf("Error creating outbound relay: %v", err)
+		log.Printf("Error creating outbound relay: %v", err)
 		os.Exit(1)
 	}
 	p.router = router
 	p.controller = controller
 	p.uplink = uplink
 
-	fmt.Println("Starting services...")
+	log.Println("Starting services...")
 
 	err = p.startListeners()
 	if err != nil {
@@ -189,7 +190,7 @@ func (p *PortierApplication) StartServices() error {
 		}(c)
 	}
 
-	fmt.Println("All Services started...")
+	log.Println("All Services started...")
 
 	err = router.Start()
 	if err != nil {
@@ -208,11 +209,11 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 	for {
 		conn, err := context.listener.Accept()
 		if err != nil {
-			fmt.Printf("Error accepting connection: %v", err)
+			log.Printf("Error accepting connection: %v", err)
 			continue
 		}
 
-		fmt.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
+		log.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
 
 		// Now we create a new connection adapter for the outbound connection
 		// First, we define the options for the connection adapter
@@ -263,13 +264,13 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		}
 
 		// print the options to the console in pretty format
-		fmt.Printf("Connection adapter options: %v\n", options)
+		log.Printf("Connection adapter options: %v\n", options)
 
 		context.adapter = adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.controller.EventChannel())
 		p.controller.AddConnection(cID, context.adapter)
 		context.adapter.Start()
 
-		fmt.Printf("Started connection adapter for service: %s\n", context.service.Name)
+		log.Printf("Started connection adapter for service: %s\n", context.service.Name)
 	}
 }
 
@@ -278,7 +279,7 @@ func (p *PortierApplication) handlePacket(context ServiceContext, packetConn net
 		buffer := make([]byte, 4096)
 		n, addr, err := packetConn.ReadFrom(buffer)
 		if err != nil {
-			fmt.Printf("Error reading from packet connection: %v", err)
+			log.Printf("Error reading from packet connection: %v", err)
 			continue
 		}
 
@@ -290,7 +291,7 @@ func (p *PortierApplication) handlePacket(context ServiceContext, packetConn net
 
 		datagramEncoded, err := encoder.NewEncoderDecoder().EncodeDatagramMessage(datagram) // TODO avoid creating a new encoder/decoder for each message
 		if err != nil {
-			fmt.Printf("Error encoding datagram message: %v", err)
+			log.Printf("Error encoding datagram message: %v", err)
 			continue
 		}
 
@@ -312,12 +313,12 @@ func (p *PortierApplication) StopServices() error {
 	for _, c := range p.contexts {
 		err := c.adapter.Stop()
 		if err != nil {
-			fmt.Printf("Error stopping adapter: %v", err)
+			log.Printf("Error stopping adapter: %v", err)
 			errors = append(errors, err)
 		}
 		err = c.listener.Close()
 		if err != nil {
-			fmt.Printf("Error closing connection listener: %v", err)
+			log.Printf("Error closing connection listener: %v", err)
 			errors = append(errors, err)
 		}
 	}
@@ -330,10 +331,10 @@ func (p *PortierApplication) StopServices() error {
 
 func (p *PortierApplication) startListeners() error {
 	for _, service := range p.config.Services {
-		fmt.Printf("Starting service: %s\n", service.Name)
+		log.Printf("Starting service: %s\n", service.Name)
 		switch service.Options.URLLocal.Scheme {
 		case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":
-			fmt.Printf("Starting gram listener on %s\n", service.Options.URLLocal.Host)
+			log.Printf("Starting gram listener on %s\n", service.Options.URLLocal.Host)
 			conn, err := net.ListenPacket(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err
@@ -342,9 +343,9 @@ func (p *PortierApplication) startListeners() error {
 				service:    &service,
 				packetConn: conn,
 			})
-			break
+			continue
 		case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
-			fmt.Printf("Starting listener for service: %s\n", service.Name)
+			log.Printf("Starting listener for service: %s\n", service.Name)
 			listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err
@@ -353,7 +354,7 @@ func (p *PortierApplication) startListeners() error {
 				service:  &service,
 				listener: listener,
 			})
-			break
+			continue
 		default:
 			return fmt.Errorf("unsupported scheme: %s", service.Options.URLLocal.Scheme)
 		}
@@ -369,7 +370,7 @@ func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (contr
 	uplink := uplink.NewWebsocketUplink(uplinkOptions, nil)
 	messageChannel, err := uplink.Connect()
 	if err != nil {
-		fmt.Printf("Error connecting to portier server: %v", err)
+		log.Printf("Error connecting to portier server: %v", err)
 		return nil, nil, nil, err
 	}
 
