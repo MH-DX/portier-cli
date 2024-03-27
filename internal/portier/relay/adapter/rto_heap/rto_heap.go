@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"errors"
-	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -38,11 +38,10 @@ type rtoHeap struct {
 	encryption    encryption.Encryption
 	options       RtoHeapOptions
 	queue         priorityQueue
-	timer         *time.Timer
+	ticker        *time.Ticker
 	updateChannel chan bool
 	ctx           context.Context
 	lock          sync.Mutex
-	currentItem   *item
 }
 
 func NewDefaultRtoHeapOptions() RtoHeapOptions {
@@ -61,7 +60,7 @@ func NewRtoHeap(ctx context.Context, options RtoHeapOptions, uplink uplink.Uplin
 		encryption:    encryption,
 		options:       options,
 		queue:         pq,
-		timer:         time.NewTimer(time.Hour),
+		ticker:        time.NewTicker(time.Millisecond * 20),
 		updateChannel: make(chan bool, 1),
 		ctx:           ctx,
 		lock:          sync.Mutex{},
@@ -82,86 +81,71 @@ func (r *rtoHeap) Add(newItem *windowitem.WindowItem) error {
 	}
 	r.lock.Lock()
 	heap.Push(&r.queue, wrapper)
-	r.updateTimer()
 	r.lock.Unlock()
 	return nil
 }
 
-func (r *rtoHeap) updateTimer() {
-	if len(r.queue) != 0 {
-		if !r.timer.Stop() {
-			select {
-			case <-r.timer.C:
-			default:
-			}
-		}
-
-		// pop item from queue as long as it is acked
-		for len(r.queue) > 0 && r.queue[0].value.Acked {
-			heap.Pop(&r.queue)
-		}
-
-		if len(r.queue) == 0 {
-			return
-		}
-
-		nextRTO := r.queue[0].value.RtoDuration
-		r.timer.Reset(nextRTO)
-		r.currentItem = r.queue[0]
-	}
-}
-
 func (r *rtoHeap) process() {
 	for {
-		r.lock.Lock()
-		r.updateTimer()
-		r.lock.Unlock()
 
 		select {
-		case <-r.timer.C:
-			// Timer expired, check the item and resend if necessary
+		case <-r.ticker.C:
+			// Ticker expired, check the items and resend if necessary
+
+			// iterate over every item in the queue and remove it when it is acked
+			// or resend it when it is not acked
+			if len(r.queue) == 0 {
+				continue
+			}
+
 			r.lock.Lock()
-			item := r.currentItem
-			if item.value.Acked {
-				heap.Remove(&r.queue, item.index)
-			} else {
-				fmt.Printf("Resending message with seq %d\n", item.value.Seq)
-				item.value.Rto = time.Now().Add(item.value.RtoDuration)
-				item.value.Retransmitted = true
-				heap.Fix(&r.queue, item.index)
+			for i := 0; i < len(r.queue); i++ {
+				item := r.queue[0].value
+				if item.Acked {
+					heap.Remove(&r.queue, i)
+					i--
+					continue
+				}
+				if item.Rto.Before(time.Now()) {
+					// resend the message
+					log.Printf("Resending message with seq: %d\n", item.Seq)
+					// decode the datamessage and update the retransmitted flag
+					dataMsg, err := r.encoder.DecodeDataMessage(item.Msg.Message)
+					if err != nil {
+						log.Println("Error decoding data message")
+						continue
+					}
+					dataMsg.Re = true
+					// encode the datamessage
+					dmBytes, err := r.encoder.EncodeDataMessage(dataMsg)
+					if err != nil {
+						log.Println("Error encoding data message")
+						continue
+					}
+					// encrypt the data
+					encrypted, err := r.encryption.Encrypt(item.Msg.Header, dmBytes)
+					if err != nil {
+						log.Printf("error encrypting data: %s\n", err)
+						continue
+					}
+					// wrap the data in a message
+					msg := messages.Message{
+						Header:  item.Msg.Header,
+						Message: encrypted,
+					}
 
-				// decode the datamessage and update the retransmitted flag
-				dataMsg, err := r.encoder.DecodeDataMessage(item.value.Msg.Message)
-				if err != nil {
-					fmt.Println("Error decoding data message")
-					continue
-				}
-				dataMsg.Re = true
-				// encode the datamessage
-				dmBytes, err := r.encoder.EncodeDataMessage(dataMsg)
-				if err != nil {
-					fmt.Println("Error encoding data message")
-					continue
-				}
-				// encrypt the data
-				encrypted, err := r.encryption.Encrypt(item.value.Msg.Header, dmBytes)
-				if err != nil {
-					fmt.Printf("error encrypting data: %s\n", err)
-					continue
-				}
-				// wrap the data in a message
-				msg := messages.Message{
-					Header:  item.value.Msg.Header,
-					Message: encrypted,
-				}
+					err = r.uplink.Send(msg)
+					if err != nil {
+						log.Printf("Error sending message: %s\n", err)
+					}
 
-				_ = r.uplink.Send(msg)
-				r.updateTimer()
+					item.Rto = time.Now().Add(item.RtoDuration)
+				}
 			}
 			r.lock.Unlock()
 
 		case <-r.ctx.Done():
-			fmt.Println("RTO heap shutting down")
+			log.Printf("RTO heap shutting down")
 			return
 		}
 	}
@@ -173,8 +157,8 @@ func (pq priorityQueue) Len() int { return len(pq) }
 
 func (pq priorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	// return pq[i].value.Rto.Before(pq[j].value.Rto)
-	return pq[i].value.Seq < pq[j].value.Seq
+	return pq[i].value.Rto.Before(pq[j].value.Rto)
+	// return pq[i].value.Seq < pq[j].value.Seq
 }
 
 func (pq priorityQueue) Swap(i, j int) {
