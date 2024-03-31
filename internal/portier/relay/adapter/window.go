@@ -90,11 +90,11 @@ type window struct {
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
 		InitialCap:            32768 * 4,
-		MinRTTVAR:             2000000.0,
-		MinRTO:                5000000.0,
-		MaxRTO:                300000000.0,
-		InitialRTO:            150000000.0,
-		RTTFactor:             4.0,
+		MinRTTVAR:             5000000.0,
+		MinRTO:                50000000.0,
+		MaxRTO:                500000000.0,
+		InitialRTO:            100000000.0,
+		RTTFactor:             10.0,
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
 		MaxCap:                32768 * 32,
