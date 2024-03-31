@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/marinator86/portier-cli/internal/portier/application"
@@ -25,8 +26,8 @@ func defaultRunOptions() (*runOptions, error) {
 		return nil, err
 	}
 
-	configFile := home + "/config.yaml"
-	apiTokenFile := home + "/credentials_device.yaml"
+	configFile := filepath.Join(home, "config.yaml")
+	apiTokenFile := filepath.Join(home, "credentials_device.yaml")
 
 	return &runOptions{
 		ConfigFile:   configFile,
