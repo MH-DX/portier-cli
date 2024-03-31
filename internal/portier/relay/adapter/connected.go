@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -57,7 +58,7 @@ func (c *connectedState) Start() error {
 		for range c.CRticker.C {
 			err := c.uplink.Send(msg)
 			if err != nil {
-				fmt.Printf("error sending CR message: %s\n", err)
+				log.Printf("error sending CR message: %s\n", err)
 				c.eventChannel <- AdapterEvent{
 					ConnectionId: c.options.ConnectionId,
 					Type:         Error,
@@ -109,7 +110,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		}
 		err = c.forwarder.Ack(ackMessage.Seq, ackMessage.Re)
 		if err != nil {
-			fmt.Printf("error acknowledging message: %s\n", err)
+			log.Printf("error acknowledging message: %s\n", err)
 		}
 		return nil, nil
 	} else if msg.Header.Type == messages.CC || msg.Header.Type == messages.NF {
