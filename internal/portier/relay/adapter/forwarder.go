@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -183,7 +184,7 @@ func (f *forwarder) Start() error {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					continue
 				}
-				fmt.Printf("error reading from connection: %s\n", err)
+				log.Printf("error reading from connection: %s\n", err)
 				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error reading from connection. Exiting", err)
 				return
 			}
@@ -204,13 +205,13 @@ func (f *forwarder) Start() error {
 			seq++
 			dmBytes, err := f.encoderDecoder.EncodeDataMessage(dm)
 			if err != nil {
-				fmt.Printf("error encoding data message: %s\n", err)
+				log.Printf("error encoding data message: %s\n", err)
 				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encoding data message. Exiting", err)
 				return
 			}
 			encrypted, err := f.encryption.Encrypt(header, dmBytes)
 			if err != nil {
-				fmt.Printf("error encrypting data: %s\n", err)
+				log.Printf("error encrypting data: %s\n", err)
 				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encrypting data. Exiting", err)
 				return
 			}
@@ -222,7 +223,7 @@ func (f *forwarder) Start() error {
 			// send the data to the window
 			err = f.window.add(msg, dm.Seq)
 			if err != nil {
-				fmt.Printf("error sending message to uplink: %s\n", err)
+				log.Printf("error sending message to uplink: %s\n", err)
 				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending message to uplink. Exiting", err)
 				return
 			}
