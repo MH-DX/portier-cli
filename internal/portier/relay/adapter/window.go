@@ -178,7 +178,7 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 	index := int(seq - first)
 	if index < 0 || index >= w.queue.Length() {
 		// the message is not in the window anymore - it has already been ack'ed
-		return errors.New("message_not_in_window")
+		return nil
 	}
 	// get the message from the queue
 	item := w.queue.Get(index).(*windowitem.WindowItem)
