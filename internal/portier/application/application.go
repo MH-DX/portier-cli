@@ -40,7 +40,7 @@ type DeviceCredentials struct {
 }
 
 type ServiceContext struct {
-	service *relay.Service
+	service relay.Service
 
 	packetConn net.PacketConn
 
@@ -340,18 +340,18 @@ func (p *PortierApplication) startListeners() error {
 				return err
 			}
 			p.contexts = append(p.contexts, ServiceContext{
-				service:    &service,
+				service:    service,
 				packetConn: conn,
 			})
 			continue
 		case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
-			log.Printf("Starting listener for service: %s\n", service.Name)
+			log.Printf("Starting listener for service: %v\n", service)
 			listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err
 			}
 			p.contexts = append(p.contexts, ServiceContext{
-				service:  &service,
+				service:  service,
 				listener: listener,
 			})
 			continue
