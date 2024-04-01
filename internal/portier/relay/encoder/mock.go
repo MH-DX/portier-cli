@@ -19,6 +19,16 @@ func (m *MockEncoderDecoder) DecodeDataMessage(data []byte) (messages.DataMessag
 	return args.Get(0).(messages.DataMessage), args.Error(1)
 }
 
+func (m *MockEncoderDecoder) EncodeDatagramMessage(dm messages.DatagramMessage) ([]byte, error) {
+	args := m.Called(dm)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncoderDecoder) DecodeDatagramMessage(data []byte) (messages.DatagramMessage, error) {
+	args := m.Called(data)
+	return args.Get(0).(messages.DatagramMessage), args.Error(1)
+}
+
 func (m *MockEncoderDecoder) EncodeConnectionOpenMessage(dm messages.ConnectionOpenMessage) ([]byte, error) {
 	args := m.Called(dm)
 	return args.Get(0).([]byte), args.Error(1)
