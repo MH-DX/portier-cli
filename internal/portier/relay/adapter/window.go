@@ -169,8 +169,7 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 	defer func() { w.mutex.Unlock() }()
 
 	if w.queue.Length() == 0 {
-		// the window is empty
-		return errors.New("window_empty")
+		return nil
 	}
 
 	// determine the index of the message in the queue using the sequence number
