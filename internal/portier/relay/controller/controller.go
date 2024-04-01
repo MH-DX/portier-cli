@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
@@ -60,7 +61,12 @@ func (c *controller) Start() error {
 			}
 			// if event is close event, close connection
 			if event.Type == adapter.Closed || event.Type == adapter.Error {
-				_ = connectionAdapter.Stop()
+				err := connectionAdapter.Stop()
+				if err != nil {
+					log.Printf("error stopping connection adapter: %s\n", err)
+				}
+				c.router.RemoveConnection(event.ConnectionId)
+				delete(c.connections, event.ConnectionId)
 				continue
 			}
 		}
