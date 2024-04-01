@@ -1,7 +1,7 @@
 package router
 
 import (
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
@@ -77,7 +77,7 @@ func (r *router) Start() error {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						fmt.Printf("recovered from panic: %v\n", r)
+						log.Printf("recovered from panic: %v\n", r)
 					}
 				}()
 				r.HandleMessage(msg)
@@ -107,8 +107,8 @@ func (r *router) HandleMessage(msg messages.Message) {
 		// decode the message into a ConnectionOpenMessage
 		connectionOpenMessage, err := r.encoderDecoder.DecodeConnectionOpenMessage(msg.Message)
 		if err != nil {
-			fmt.Printf("error decoding connection open message: %v\n", err)
-			fmt.Printf("message: %v\n", msg)
+			log.Printf("error decoding connection open message: %v\n", err)
+			log.Printf("message: %v\n", msg)
 			return
 		}
 		r.events <- ConnectionOpenEvent{
@@ -120,7 +120,7 @@ func (r *router) HandleMessage(msg messages.Message) {
 	}
 
 	if msg.Header.Type != messages.NF {
-		fmt.Printf("received message for unknown connection %s, type %s\n",
+		log.Printf("received message for unknown connection %s, type %s\n",
 			msg.Header.CID, msg.Header.Type)
 		// send a not found message
 		notFoundMessage := messages.Message{
