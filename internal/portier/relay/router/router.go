@@ -105,6 +105,7 @@ func (r *router) HandleMessage(msg messages.Message) {
 	// if connection does not exist, and message is a ConnectionOpenMessage, create a new connection using the connection provider
 	if msg.Header.Type == messages.CO {
 		// decode the message into a ConnectionOpenMessage
+		log.Printf("received connection open message for connection %s\n", msg.Header.CID)
 		connectionOpenMessage, err := r.encoderDecoder.DecodeConnectionOpenMessage(msg.Message)
 		if err != nil {
 			log.Printf("error decoding connection open message: %v\n", err)

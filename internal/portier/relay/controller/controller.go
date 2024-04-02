@@ -76,6 +76,7 @@ func (c *controller) Start() error {
 	go func() {
 		// iterate over router event channel
 		for event := range c.routerEventChannel {
+			log.Printf("router event: %v\n", event)
 			// create inbound connection
 			c.CreateInboundConnection(event.Header, event.BridgeOptions, event.PCKey)
 		}
