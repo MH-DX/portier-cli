@@ -164,12 +164,6 @@ func (c *connectionAdapter) Send(msg messages.Message) {
 	newState, err := c.state.HandleMessage(msg)
 	if err != nil {
 		fmt.Printf("error handling message: %v\n", err)
-		_ = c.Stop()
-		c.eventChannel <- AdapterEvent{
-			ConnectionId: c.options.ConnectionId,
-			Type:         Error,
-			Error:        err,
-		}
 		return
 	}
 	if newState != nil {

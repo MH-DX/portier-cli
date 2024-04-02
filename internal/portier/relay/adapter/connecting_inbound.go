@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -131,16 +132,17 @@ func (c *connectingInboundState) Stop() error {
 }
 
 func (c *connectingInboundState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
-	// if message is a data message, return connected state
+
 	if msg.Header.Type == messages.D || msg.Header.Type == messages.CR {
 		// TODO check signature
 
 		c.ticker.Stop()
 		return NewConnectedState(c.options, c.eventChannel, c.uplink, c.forwarder), nil
 	}
+	if msg.Header.Type == messages.CO {
+		return nil, nil
+	}
 	if msg.Header.Type == messages.CC {
-		c.ticker.Stop()
-		c.forwarder.Close()
 		c.eventChannel <- AdapterEvent{
 			ConnectionId: c.options.ConnectionId,
 			Type:         Closed,
@@ -148,10 +150,14 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 		}
 		return nil, nil
 	}
-	if msg.Header.Type == messages.CO {
-		return nil, nil
+	message := fmt.Sprintf("expected message type [%s|%s], but got %s", messages.D, messages.CO, msg.Header.Type)
+	log.Println(message)
+	c.eventChannel <- AdapterEvent{
+		ConnectionId: c.options.ConnectionId,
+		Type:         Error,
+		Message:      message,
 	}
-	return nil, fmt.Errorf("expected message type [%s|%s], but got %s", messages.D, messages.CO, msg.Header.Type)
+	return nil, fmt.Errorf(message)
 }
 
 func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink) ConnectionAdapterState {
