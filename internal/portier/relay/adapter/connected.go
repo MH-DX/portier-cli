@@ -113,14 +113,24 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 			log.Printf("error acknowledging message: %s\n", err)
 		}
 		return nil, nil
-	} else if msg.Header.Type == messages.CC || msg.Header.Type == messages.NF {
-		c.CRticker.Stop()
-		err := c.forwarder.Close()
-		return nil, err
 	} else if msg.Header.Type == messages.CR {
 		c.CRticker.Stop()
 		return nil, nil
 	} else if msg.Header.Type == messages.CA {
+		return nil, nil
+	} else if msg.Header.Type == messages.CC {
+		c.eventChannel <- AdapterEvent{
+			ConnectionId: c.options.ConnectionId,
+			Type:         Closed,
+			Message:      "connection closed by peer",
+		}
+		return nil, nil
+	} else if msg.Header.Type == messages.NF {
+		c.eventChannel <- AdapterEvent{
+			ConnectionId: c.options.ConnectionId,
+			Type:         Error,
+			Message:      "connection not found by peer",
+		}
 		return nil, nil
 	}
 	return nil, fmt.Errorf("expected message type [%s|%s|%s|%s|%s], but got %s", messages.D, messages.DA, messages.CC, messages.CR, messages.NF, msg.Header.Type)

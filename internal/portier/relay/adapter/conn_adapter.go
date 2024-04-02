@@ -171,7 +171,6 @@ func (c *connectionAdapter) Send(msg messages.Message) {
 		err = newState.Start()
 		if err != nil {
 			fmt.Printf("error starting new state: %v\n", err)
-			_ = c.Stop()
 			c.eventChannel <- AdapterEvent{
 				ConnectionId: c.options.ConnectionId,
 				Type:         Error,
