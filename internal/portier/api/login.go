@@ -181,7 +181,7 @@ func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, e
 func StoreAccessToken(authResponse AuthResponse, home string) error {
 	// store the access token in ~/.portier/credentials.json
 	// create the file if it does not exist
-	credentialsFile := fmt.Sprintf("%s/credentials.json", home)
+	credentialsFile := fmt.Sprintf("%s/credentials.yaml", home)
 	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
 		// create the file
 		_, err := os.Create(credentialsFile)
