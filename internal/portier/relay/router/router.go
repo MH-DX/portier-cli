@@ -199,7 +199,8 @@ func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOp
 	}
 	log.Printf("started connection adapter for connection %s\n", header.CID)
 
-	r.AddConnection(header.CID, connectionAdapter)
+	r.connections[header.CID] = connectionAdapter
+	log.Printf("added connection %s\n", header.CID)
 }
 
 // EventChannel returns the event channel.
