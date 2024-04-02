@@ -1,8 +1,10 @@
 package router
 
 import (
+	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -35,6 +37,8 @@ type Router interface {
 
 	// RemoveConnection removes a connection from the router
 	RemoveConnection(messages.ConnectionID)
+
+	EventChannel() chan adapter.AdapterEvent
 }
 
 type router struct {
@@ -50,15 +54,15 @@ type router struct {
 	// channel to receive messages from the uplink
 	messages <-chan messages.Message
 
-	// channel to push events to the controller
-	events chan<- ConnectionOpenEvent
+	// event channel
+	events chan adapter.AdapterEvent
 
 	// mutex to protect the services map
 	mutex sync.Mutex
 }
 
 // NewRouter creates a new router.
-func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan<- ConnectionOpenEvent) Router {
+func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan adapter.AdapterEvent) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionID]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -84,6 +88,29 @@ func (r *router) Start() error {
 			}()
 		}
 	}()
+
+	go func() {
+		// iterate over event channel
+		for event := range r.events {
+			log.Printf("event: %v\n", event)
+			// get connection adapter
+			connectionAdapter, ok := r.connections[event.ConnectionId]
+			if !ok {
+				// connection not found
+				continue
+			}
+			// if event is close event, close connection
+			if event.Type == adapter.Closed || event.Type == adapter.Error {
+				err := connectionAdapter.Stop()
+				if err != nil {
+					log.Printf("error stopping connection adapter: %s\n", err)
+				}
+				r.RemoveConnection(event.ConnectionId)
+				continue
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -112,11 +139,7 @@ func (r *router) HandleMessage(msg messages.Message) {
 			log.Printf("message: %v\n", msg)
 			return
 		}
-		r.events <- ConnectionOpenEvent{
-			Header:        msg.Header,
-			BridgeOptions: connectionOpenMessage.BridgeOptions,
-			PCKey:         connectionOpenMessage.PCKey,
-		}
+		r.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
 		return
 	}
 
@@ -149,4 +172,34 @@ func (r *router) RemoveConnection(connectionId messages.ConnectionID) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	delete(r.connections, connectionId)
+}
+
+// CreateInboundConnection creates an inbound connection.
+func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOptions messages.BridgeOptions, pcKey string) {
+	// create a new inbound connection adapter
+	connectionAdapter := adapter.NewInboundConnectionAdapter(adapter.ConnectionAdapterOptions{
+		ConnectionId:          header.CID,
+		LocalDeviceId:         header.To,
+		PeerDeviceId:          header.From,
+		PeerDevicePublicKey:   pcKey,
+		BridgeOptions:         bridgeOptions,
+		ResponseInterval:      1000 * time.Millisecond,
+		ConnectionReadTimeout: 1000 * time.Millisecond,
+		ReadBufferSize:        1024,
+		// TODO create a default config
+	}, r.uplink, r.events)
+
+	// start the connection adapter
+	err := connectionAdapter.Start()
+	if err != nil {
+		fmt.Printf("error starting connection adapter: %s\n", err)
+		return
+	}
+
+	r.AddConnection(header.CID, connectionAdapter)
+}
+
+// EventChannel returns the event channel.
+func (r *router) EventChannel() chan adapter.AdapterEvent {
+	return r.events
 }

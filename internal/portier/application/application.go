@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/controller"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
@@ -57,8 +56,6 @@ type PortierApplication struct {
 	contexts []ServiceContext
 
 	router router.Router
-
-	controller controller.Controller
 
 	uplink uplink.Uplink
 }
@@ -164,13 +161,12 @@ func (p *PortierApplication) StartServices() error {
 
 	log.Println("Creating relay...")
 
-	controller, router, uplink, err := createRelay(p.deviceCredentials.DeviceID, *p.config.PortierURL.URL, p.deviceCredentials.ApiToken)
+	router, uplink, err := createRelay(p.deviceCredentials.DeviceID, *p.config.PortierURL.URL, p.deviceCredentials.ApiToken)
 	if err != nil {
 		log.Printf("Error creating outbound relay: %v", err)
 		os.Exit(1)
 	}
 	p.router = router
-	p.controller = controller
 	p.uplink = uplink
 
 	log.Println("Starting services...")
@@ -193,11 +189,6 @@ func (p *PortierApplication) StartServices() error {
 	log.Println("All Services started...")
 
 	err = router.Start()
-	if err != nil {
-		return err
-	}
-
-	err = controller.Start()
 	if err != nil {
 		return err
 	}
@@ -266,8 +257,8 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		// print the options to the console in pretty format
 		log.Printf("Connection adapter options: %v\n", options)
 
-		context.adapter = adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.controller.EventChannel())
-		p.controller.AddConnection(cID, context.adapter)
+		context.adapter = adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.router.EventChannel())
+		p.router.AddConnection(cID, context.adapter)
 		context.adapter.Start()
 
 		log.Printf("Started connection adapter for service: %s\n", context.service.Name)
@@ -362,7 +353,7 @@ func (p *PortierApplication) startListeners() error {
 	return nil
 }
 
-func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (controller.Controller, router.Router, uplink.Uplink, error) {
+func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (router.Router, uplink.Uplink, error) {
 	uplinkOptions := uplink.Options{
 		APIToken:   apiToken,
 		PortierURL: portierUrl.String(),
@@ -371,13 +362,11 @@ func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (contr
 	messageChannel, err := uplink.Connect()
 	if err != nil {
 		log.Printf("Error connecting to portier server: %v", err)
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	routerEventChannel := make(chan router.ConnectionOpenEvent)
-	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
 	events := make(chan adapter.AdapterEvent, 100)
-	controller := controller.NewController(uplink, events, routerEventChannel, router)
+	router := router.NewRouter(uplink, messageChannel, events)
 
-	return controller, router, uplink, nil
+	return router, uplink, nil
 }
