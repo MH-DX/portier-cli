@@ -1,10 +1,12 @@
 package router
 
 import (
+	"net"
 	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
@@ -17,7 +19,7 @@ func TestRouting(testing *testing.T) {
 	connectionId := messages.ConnectionID("test-connection-id")
 	connectionAdapterMock := &ConnectionAdapterMock{}
 	msg := make(chan messages.Message, 10)
-	events := make(chan<- ConnectionOpenEvent, 10)
+	events := make(chan adapter.AdapterEvent, 10)
 	uplinkMock := &MockUplink{}
 	underTest := NewRouter(uplinkMock, msg, events)
 	underTest.AddConnection(connectionId, connectionAdapterMock)
@@ -44,14 +46,20 @@ func TestRouting(testing *testing.T) {
 
 func TestConnectionOpen(testing *testing.T) {
 	// GIVEN
+	forwarded, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer forwarded.Close()
 	connectionId := messages.ConnectionID("test-connection-id")
 	msg := make(chan messages.Message, 10)
-	events := make(chan ConnectionOpenEvent, 10)
+	events := make(chan adapter.AdapterEvent, 10)
 	uplinkMock := &MockUplink{}
+	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
+		return true
+	})).Return(nil)
+
 	underTest := NewRouter(uplinkMock, msg, events)
 
 	pcKey := "test-pc-key"
-	remoteUrl, _ := url.Parse("tcp://localhost:1234")
+	remoteUrl, _ := url.Parse("tcp://" + forwarded.Addr().String())
 	bridgeOptions := messages.BridgeOptions{
 		URLRemote: *remoteUrl,
 	}
@@ -77,21 +85,14 @@ func TestConnectionOpen(testing *testing.T) {
 	})
 
 	// THEN
-	connectionOpenEvent := <-events
-	if connectionOpenEvent.Header.Type != messages.CO {
-		testing.Errorf("expected %v, got %v", messages.CO, connectionOpenEvent.Header.Type)
-	}
-	if messages.MessageType(connectionOpenEvent.Header.CID) != messages.MessageType(connectionId) {
-		testing.Errorf("expected %v, got %v", connectionId, connectionOpenEvent.Header.CID)
-	}
+	assert.NotNil(testing, underTest.(*router).connections[connectionId])
 }
 
 func TestConnectionNotFound(testing *testing.T) {
 	// GIVEN
 	connectionId := messages.ConnectionID("test-connection-id")
-	connectorMock := &ConnectorMock{}
 	msg := make(chan messages.Message, 10)
-	events := make(chan<- ConnectionOpenEvent, 10)
+	events := make(chan adapter.AdapterEvent, 10)
 	uplinkMock := &MockUplink{}
 	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.Type == messages.NF
@@ -110,16 +111,7 @@ func TestConnectionNotFound(testing *testing.T) {
 	})
 
 	// THEN
-	connectorMock.AssertExpectations(testing)
-}
-
-// ConnectorMock is a mock for the connector.
-type ConnectorMock struct {
-	mock.Mock
-}
-
-func (c *ConnectorMock) CreateInboundConnection(header messages.MessageHeader, options messages.BridgeOptions, pcKey string) {
-	c.Called(header, options, pcKey)
+	uplinkMock.AssertExpectations(testing)
 }
 
 type ConnectionAdapterMock struct {

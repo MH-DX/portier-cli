@@ -12,17 +12,6 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
 
-type ConnectionOpenEvent struct {
-	// message header
-	Header messages.MessageHeader
-
-	// bridge options
-	BridgeOptions messages.BridgeOptions
-
-	// pc key
-	PCKey string
-}
-
 type Router interface {
 	// Start starts the router
 	Start() error

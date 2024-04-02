@@ -3,6 +3,7 @@ package relay
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/controller"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
@@ -145,15 +145,13 @@ func TestForwarding(testing *testing.T) {
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
 
-	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
-	_ = ctrl2.Start()
 
-	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 	_ = router1.Start()
-	_ = ctrl1.Start()
-	_ = ctrl1.AddConnection(cid, adapter1)
+	router1.AddConnection(cid, adapter1)
 
 	// Starting the outbound adapter will initiate sending the connection open message
 	err := adapter1.Start()
@@ -208,15 +206,13 @@ func TestForwardingLarge(testing *testing.T) {
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
 
-	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
-	_ = ctrl2.Start()
 
-	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 	_ = router1.Start()
-	_ = ctrl1.Start()
-	_ = ctrl1.AddConnection(cid, adapter1)
+	router1.AddConnection(cid, adapter1)
 
 	// Starting the outbound adapter will initiate sending the connection open message
 	err := adapter1.Start()
@@ -263,6 +259,7 @@ func TestForwardingLarge(testing *testing.T) {
 		}
 		copy(buf[totalBytesRead:], currentBuf[:n])
 		totalBytesRead += n
+		log.Printf("Read %v bytes\n", totalBytesRead)
 		if totalBytesRead == len(msg) {
 			since := time.Since(startingTime)
 			fmt.Printf("Read %v bytes in %v, speed %f MB/s\n", totalBytesRead, since, float64(totalBytesRead)/(1024*1024*float64(since.Seconds())))
@@ -304,19 +301,17 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	fAddr := fmt.Sprintf("%s://%s", forwarded.Addr().Network(), forwarded.Addr().String())
 	defer forwarded.Close()
 
-	ctrl2, router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2 := createInboundRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
-	_ = ctrl2.Start()
 
-	ctrl1, router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
 	_ = router1.Start()
-	_ = ctrl1.Start()
 
 	for i := 0; i < 20; i++ {
 		cid := messages.ConnectionID(fmt.Sprintf("test-connection-id-%d", i))
 		fromOptions := createConnectionAdapterOptions(cid, device1, device2, fAddr)
 		adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
-		_ = ctrl1.AddConnection(cid, adapter1)
+		router1.AddConnection(cid, adapter1)
 
 		// Starting the outbound adapter will initiate sending the connection open message
 		err := adapter1.Start()
@@ -333,14 +328,12 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	}
 }
 
-func createOutboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router, uplink.Uplink) {
+func createOutboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (router.Router, uplink.Uplink) {
 	uplink := createUplink(deviceId.String(), url)
 	messageChannel, _ := uplink.Connect()
-	routerEventChannel := make(chan router.ConnectionOpenEvent)
-	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
-	controller := controller.NewController(uplink, events, routerEventChannel, router)
+	router := router.NewRouter(uplink, messageChannel, events)
 
-	return controller, router, uplink
+	return router, uplink
 }
 
 func createOutboundAdapter(uplink uplink.Uplink, opts adapter.ConnectionAdapterOptions, events chan adapter.AdapterEvent, ln net.Listener) (adapter.ConnectionAdapter, net.Conn) {
@@ -352,13 +345,11 @@ func createOutboundAdapter(uplink uplink.Uplink, opts adapter.ConnectionAdapterO
 	return adapter, cConn
 }
 
-func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (controller.Controller, router.Router) {
+func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) router.Router {
 	uplink := createUplink(deviceId.String(), url)
 	messageChannel, _ := uplink.Connect()
-	routerEventChannel := make(chan router.ConnectionOpenEvent, 100)
-	router := router.NewRouter(uplink, messageChannel, routerEventChannel)
-	controller := controller.NewController(uplink, events, routerEventChannel, router)
-	return controller, router
+	router := router.NewRouter(uplink, messageChannel, events)
+	return router
 }
 
 func createConnectionAdapterOptions(cid messages.ConnectionID, from uuid.UUID, to uuid.UUID, rawUrl string) adapter.ConnectionAdapterOptions {

@@ -100,7 +100,7 @@ func (r *rtoHeap) process() {
 
 			r.lock.Lock()
 			for i := 0; i < len(r.queue); i++ {
-				item := r.queue[0].value
+				item := r.queue[i].value
 				if item.Acked {
 					heap.Remove(&r.queue, i)
 					i--
