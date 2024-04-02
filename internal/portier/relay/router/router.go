@@ -165,6 +165,7 @@ func (r *router) AddConnection(connectionId messages.ConnectionID, connection ad
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	r.connections[connectionId] = connection
+	log.Printf("added connection %s\n", connectionId)
 }
 
 // RemoveConnection removes a connection from the router.
@@ -172,6 +173,7 @@ func (r *router) RemoveConnection(connectionId messages.ConnectionID) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	delete(r.connections, connectionId)
+	log.Printf("removed connection %s\n", connectionId)
 }
 
 // CreateInboundConnection creates an inbound connection.
@@ -195,6 +197,7 @@ func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOp
 		fmt.Printf("error starting connection adapter: %s\n", err)
 		return
 	}
+	log.Printf("started connection adapter for connection %s\n", header.CID)
 
 	r.AddConnection(header.CID, connectionAdapter)
 }
