@@ -53,6 +53,7 @@ func (c *controller) Start() error {
 	go func() {
 		// iterate over event channel
 		for event := range c.eventChannel {
+			log.Printf("event: %v\n", event)
 			// get connection adapter
 			connectionAdapter, ok := c.connections[event.ConnectionId]
 			if !ok {

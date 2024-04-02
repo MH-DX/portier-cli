@@ -116,6 +116,7 @@ func (c *connectingInboundState) Start() error {
 }
 
 func (c *connectingInboundState) Stop() error {
+	log.Println("stopping connecting inbound state for connection id", c.options.ConnectionId)
 	c.ticker.Stop()
 	// send connection close message
 	msg := messages.Message{
