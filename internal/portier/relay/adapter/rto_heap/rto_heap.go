@@ -108,7 +108,7 @@ func (r *rtoHeap) process() {
 				}
 				if item.Rto.Before(time.Now()) {
 					// resend the message
-					log.Printf("Resending message: %d, timeout: %d ms\n", item.Seq, item.RtoDuration.Abs().Milliseconds())
+					log.Printf("Resending message: %d", item.Seq)
 					// decode the datamessage and update the retransmitted flag
 					dataMsg, err := r.encoder.DecodeDataMessage(item.Msg.Message)
 					if err != nil {
