@@ -78,7 +78,7 @@ type window struct {
 	mutex          *sync.Mutex
 	cond           *sync.Cond
 	uplink         uplink.Uplink
-	stats          rtt.TCPStats
+	stats          *rtt.TCPStats
 	rtoHeap        rto_heap.RtoHeap
 	baseRTTTicker  *time.Ticker
 }
@@ -94,8 +94,8 @@ func NewDefaultWindowOptions() WindowOptions {
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
 		MaxCap:                32768 * 32,
-		WindowDownscaleFactor: 0.5,
-		WindowUpscaleFactor:   1.5,
+		WindowDownscaleFactor: 0.995,
+		WindowUpscaleFactor:   1.0005,
 		RTTHistSize:           10,
 	}
 }
@@ -108,31 +108,32 @@ func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 func newWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink, rtoHeap rto_heap.RtoHeap) Window {
 	mutex := sync.Mutex{}
 
-	stats := rtt.NewTCPStats(options.MinRTTVAR, options.MinRTO, options.MaxRTO, options.InitialRTO, options.RTTFactor, options.EWMAAlpha, options.EWMABeta, options.RTTHistSize)
+	stats := rtt.NewTCPStats(options.InitialRTO, options.MinRTTVAR, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, options.RTTHistSize)
 
-	baseRTTTicker := time.NewTicker(5 * time.Minute)
+	baseRTTTicker := time.NewTicker(1 * time.Minute)
 	window := &window{
 		options:        options,
 		currentSize:    0,
 		currentCap:     options.InitialCap,
-		currentBaseRTT: 0,
+		currentBaseRTT: 100_000_000,
 		queue:          queue.New(),
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          stats,
+		stats:          &stats,
 		rtoHeap:        rtoHeap,
-		baseRTTTicker:  time.NewTicker(5 * time.Minute),
+		baseRTTTicker:  baseRTTTicker,
 	}
 
 	go func() {
 		for {
+			// update the base rtt
+			stats.UpdateHistory()
+			window.currentBaseRTT = stats.GetBaseRTT()
+			log.Printf("updated base rtt: %fms\n", window.currentBaseRTT/1_000_000.0)
 			select {
 			case <-baseRTTTicker.C:
-				// update the base rtt
-				stats.UpdateHistory()
-				window.currentBaseRTT = stats.GetBaseRTT()
-				log.Printf("updated base rtt: %f\n", window.currentBaseRTT/1_000_000.0)
+				continue
 			case <-ctx.Done():
 				return
 			}
@@ -198,10 +199,16 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 		rtt := float64(time.Since(item.Time))
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
-			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
+			newCap := math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
+			if newCap < w.currentCap {
+				w.currentCap = newCap
+			}
 		} else {
-			w.currentCap = math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
-			//fmt.Println("upscale window size to", w.currentCap)
+			newCap := math.Min(w.currentCap*w.options.WindowUpscaleFactor, w.options.MaxCap)
+			if newCap > w.currentCap {
+				w.currentCap = newCap
+			}
+
 		}
 	}
 	// remove all messages from the queue that have been ack'ed

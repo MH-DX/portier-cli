@@ -18,6 +18,7 @@ require (
 )
 
 require (
+	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/eapache/queue.v1 v1.1.0 // indirect

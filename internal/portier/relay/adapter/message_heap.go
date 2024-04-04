@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"errors"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	messages "github.com/marinator86/portier-cli/internal/portier/relay/messages"
 )
 
@@ -50,6 +51,7 @@ type messageHeap struct {
 	options MessageHeapOptions
 	nSeq    uint64
 	queue   PriorityQueue
+	seqSet  mapset.Set[uint64]
 }
 
 func NewDefaultMessageHeapOptions() MessageHeapOptions {
@@ -66,6 +68,7 @@ func NewMessageHeap(options MessageHeapOptions) MessageHeap {
 		options: options,
 		queue:   pq,
 		nSeq:    0,
+		seqSet:  mapset.NewSet[uint64](),
 	}
 }
 
@@ -79,6 +82,7 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 			item := heap.Pop(&messageHeap.queue).(*Item)
 			if item.value.Seq == messageHeap.nSeq {
 				messageHeap.nSeq++
+				messageHeap.seqSet.Remove(item.value.Seq)
 				sequence = append(sequence, item.value)
 			} else if item.value.Seq < messageHeap.nSeq {
 				continue
@@ -92,7 +96,11 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 	} else if msg.Seq < messageHeap.nSeq {
 		// the message is old
 		return nil, errors.New("old_message")
+	} else if messageHeap.seqSet.Contains(msg.Seq) {
+		// the message is a duplicate
+		return nil, errors.New("duplicate_message")
 	}
+
 	// the message is new
 	if len(messageHeap.queue) == messageHeap.options.MaxQueueSize {
 		// the queue is full
@@ -107,6 +115,7 @@ func (messageHeap *messageHeap) Test(msg messages.DataMessage) ([]messages.DataM
 		priority: -msg.Seq,
 	}
 	heap.Push(&messageHeap.queue, item)
+	messageHeap.seqSet.Add(msg.Seq)
 
 	return nil, nil
 }
