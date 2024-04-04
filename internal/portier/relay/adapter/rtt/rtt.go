@@ -15,14 +15,15 @@ type TCPStats struct {
 	minRTO    float64 // Minimum RTO
 	maxRTO    float64 // Maximum RTO
 	K         float64 // Factor to multiply with RTTVAR
+	minRTT    float64 // Minimum RTT
 	hist      SlidingWindowHistogram
 }
 
 // NewTCPStats initializes the TCPStats with the first RTT measurement.
 func NewTCPStats(initialRTO float64, minRTTVAR float64, alpha float64, beta float64, minRTO float64, maxRTO float64, K float64, histSize int) TCPStats {
 	stats := TCPStats{
-		SRTT:      0,
-		RTTVAR:    0,
+		SRTT:      10_000_000,
+		RTTVAR:    minRTTVAR,
 		minRTTVAR: minRTTVAR,
 		alpha:     alpha,
 		beta:      beta,
@@ -30,21 +31,10 @@ func NewTCPStats(initialRTO float64, minRTTVAR float64, alpha float64, beta floa
 		minRTO:    minRTO,
 		maxRTO:    maxRTO,
 		K:         K,
+		minRTT:    10_000_000_000.0,
 		hist:      *NewSlidingWindowHistogram(histSize),
 	}
 	return stats
-}
-
-// IsInitialized returns true if the TCPStats have been initialized with an RTT measurement.
-func (t *TCPStats) IsInitialized() bool {
-	return t.hist.data.Length() > 0
-}
-
-// Init initializes the TCPStats with the first RTT measurement.
-func (t *TCPStats) Init(initialRTT float64) {
-	t.SRTT = initialRTT
-	t.RTTVAR = initialRTT / 3.0
-	t.hist.Add(initialRTT)
 }
 
 // UpdateRTT updates the sRTT and RTTVAR with a new RTT measurement.
@@ -57,7 +47,14 @@ func (t *TCPStats) UpdateRTT(rtt float64) {
 	t.RTTVAR = (1-t.beta)*t.RTTVAR + t.beta*rttdiff
 
 	t.updateRTO()
-	t.hist.Add(rtt)
+	if rtt < t.minRTT {
+		t.minRTT = rtt
+	}
+}
+
+func (t *TCPStats) UpdateHistory() {
+	t.hist.Add(t.minRTT)
+	t.minRTT = 10_000_000_000.0
 }
 
 // GetBaseRTT returns the base RTT.

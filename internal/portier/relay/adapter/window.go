@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"errors"
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -53,12 +54,6 @@ type WindowOptions struct {
 
 	// HistSize is the size of the sliding window histogram
 	RTTHistSize int
-
-	// BaseRTT calculation interval in number of messages
-	BaseRTTInterval uint64
-
-	// BaseRTT initial window size in number of messages
-	BaseRTTInitPhase uint64
 }
 
 type Window interface {
@@ -85,46 +80,38 @@ type window struct {
 	uplink         uplink.Uplink
 	stats          rtt.TCPStats
 	rtoHeap        rto_heap.RtoHeap
+	baseRTTTicker  *time.Ticker
 }
 
 func NewDefaultWindowOptions() WindowOptions {
 	return WindowOptions{
 		InitialCap:            32768 * 4,
-		MinRTTVAR:             5000000.0,
-		MinRTO:                50000000.0,
-		MaxRTO:                500000000.0,
-		InitialRTO:            100000000.0,
+		MinRTTVAR:             5_000_000.0,
+		MinRTO:                50_000_000.0,
+		MaxRTO:                500_000_000.0,
+		InitialRTO:            100_000_000.0,
 		RTTFactor:             10.0,
 		EWMAAlpha:             0.125,
 		EWMABeta:              0.25,
 		MaxCap:                32768 * 32,
 		WindowDownscaleFactor: 0.5,
 		WindowUpscaleFactor:   1.5,
-		RTTHistSize:           200,
-		BaseRTTInterval:       100,
-		BaseRTTInitPhase:      25,
+		RTTHistSize:           10,
 	}
 }
 
 func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink, encoderDecoder encoder.EncoderDecoder, encryption encryption.Encryption) Window {
-	mutex := sync.Mutex{}
-	return &window{
-		options:        options,
-		currentSize:    0,
-		currentCap:     options.InitialCap,
-		currentBaseRTT: 0,
-		queue:          queue.New(),
-		mutex:          &mutex,
-		cond:           sync.NewCond(&mutex),
-		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.MinRTTVAR, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
-		rtoHeap:        rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder, encryption),
-	}
+	rtoHeap := rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder, encryption)
+	return newWindow(ctx, options, uplink, rtoHeap)
 }
 
 func newWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink, rtoHeap rto_heap.RtoHeap) Window {
 	mutex := sync.Mutex{}
-	return &window{
+
+	stats := rtt.NewTCPStats(options.MinRTTVAR, options.MinRTO, options.MaxRTO, options.InitialRTO, options.RTTFactor, options.EWMAAlpha, options.EWMABeta, options.RTTHistSize)
+
+	baseRTTTicker := time.NewTicker(5 * time.Minute)
+	window := &window{
 		options:        options,
 		currentSize:    0,
 		currentCap:     options.InitialCap,
@@ -133,9 +120,26 @@ func newWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink,
 		mutex:          &mutex,
 		cond:           sync.NewCond(&mutex),
 		uplink:         uplink,
-		stats:          rtt.NewTCPStats(options.InitialRTO, options.MinRTTVAR, options.EWMAAlpha, options.EWMABeta, options.MinRTO, options.MaxRTO, options.RTTFactor, 2*options.RTTHistSize),
+		stats:          stats,
 		rtoHeap:        rtoHeap,
+		baseRTTTicker:  time.NewTicker(5 * time.Minute),
 	}
+
+	go func() {
+		for {
+			select {
+			case <-baseRTTTicker.C:
+				// update the base rtt
+				stats.UpdateHistory()
+				window.currentBaseRTT = stats.GetBaseRTT()
+				log.Printf("updated base rtt: %f\n", window.currentBaseRTT/1_000_000.0)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return window
 }
 
 func (w *window) add(msg messages.Message, seq uint64) error {
@@ -189,26 +193,9 @@ func (w *window) ack(seq uint64, retransmitted bool) error {
 	// mark the message as ack'ed
 	item.Acked = true
 	defer func() { w.cond.Signal() }()
-	if retransmitted {
-		// if the message was a retransmission, mark it as such and all messages after it as well
-		item.Retransmitted = true
-		for i := index + 1; i < w.queue.Length(); i++ {
-			// retrieve pointer to message
-			item := w.queue.Get(i).(*windowitem.WindowItem)
-			// mark message as retransmitted
-			item.Retransmitted = true
-		}
-	} else if !item.Retransmitted {
+	item.Retransmitted = retransmitted
+	if !retransmitted {
 		rtt := float64(time.Since(item.Time))
-		if seq < w.options.BaseRTTInitPhase {
-			if !w.stats.IsInitialized() {
-				w.stats.Init(rtt)
-			}
-			w.currentBaseRTT = w.stats.GetBaseRTT()
-		} else if seq%w.options.BaseRTTInterval == 0 {
-			w.currentBaseRTT = w.stats.GetBaseRTT()
-		}
-
 		w.stats.UpdateRTT(rtt)
 		if w.currentBaseRTT < w.stats.SRTT-w.stats.RTTVAR {
 			w.currentCap = math.Max(w.currentCap*w.options.WindowDownscaleFactor, w.options.InitialCap)
