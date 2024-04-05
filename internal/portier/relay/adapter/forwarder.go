@@ -52,28 +52,25 @@ type Forwarder interface {
 
 // NewForwarder creates a new forwarder.
 func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan<- AdapterEvent) Forwarder {
-	context, cancel := context.WithCancel(context.Background())
+	forwarderContext, cancel := context.WithCancel(context.Background())
 	return &forwarder{
 		options:        options,
-		stopped:        false,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		conn:           conn,
 		uplink:         uplink,
 		encryption:     encryption,
 		sendChannel:    make(chan messages.Message, 10000),
 		eventChannel:   eventChannel,
-		window:         NewWindow(context, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
+		window:         NewWindow(forwarderContext, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
 		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
 		cancel:         cancel,
+		context:        forwarderContext,
 	}
 }
 
 type forwarder struct {
 	// options are the forwarder options
 	options ForwarderOptions
-
-	// stopped is true if the forwarder is stopped
-	stopped bool
 
 	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder encoder.EncoderDecoder
@@ -101,6 +98,9 @@ type forwarder struct {
 
 	// cancel is the cancel function for the context to stop the rto heap
 	cancel context.CancelFunc
+
+	// context is the context for the forwarder
+	context context.Context
 }
 
 // Start starts the forwarder, returns a channel to which messages can be sent.
@@ -108,53 +108,55 @@ func (f *forwarder) Start() error {
 	go func() {
 		defer close(f.sendChannel)
 		for {
-			if f.stopped {
-				return
-			}
-			msg := <-f.sendChannel
+			select {
+			case msg, _ := <-f.sendChannel:
+				// decrypt the data
+				msgData, err := f.encryption.Decrypt(msg.Header, msg.Message)
+				if err != nil {
+					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decrypting data. Exiting", err)
+					return
+				}
+				// decode the data
+				dm, err := f.encoderDecoder.DecodeDataMessage(msgData)
+				if err != nil {
+					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decoding data message. Exiting", err)
+					return
+				}
 
-			// decrypt the data
-			msgData, err := f.encryption.Decrypt(msg.Header, msg.Message)
-			if err != nil {
-				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decrypting data. Exiting", err)
-				return
-			}
-			// decode the data
-			dm, err := f.encoderDecoder.DecodeDataMessage(msgData)
-			if err != nil {
-				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decoding data message. Exiting", err)
-				return
-			}
-
-			messages, err := f.messageHeap.Test(dm)
-			if err != nil {
-				if err.Error() == "old_message" {
-					err := f.ackMessage(dm.Seq, dm.Re)
-					if err != nil {
-						f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending ack to uplink. Exiting", err)
-						return
+				messages, err := f.messageHeap.Test(dm)
+				if err != nil {
+					if err.Error() == "old_message" {
+						err := f.ackMessage(dm.Seq, dm.Re)
+						if err != nil {
+							f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending ack to uplink. Exiting", err)
+							return
+						}
+						continue
 					}
+					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error in messageHeap. Exiting", err)
+					return
+				}
+
+				if messages == nil {
 					continue
 				}
-				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error in messageHeap. Exiting", err)
+
+				for _, msg := range messages {
+					_, err = f.conn.Write(msg.Data)
+					if err != nil {
+						f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message: ", err)
+						break
+					}
+					err := f.ackMessage(msg.Seq, msg.Re)
+					if err != nil {
+						f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message: ", err)
+						break
+					}
+				}
+
+			case <-f.context.Done():
+				log.Printf("forwarder stopped downward loop\n")
 				return
-			}
-
-			if messages == nil {
-				continue
-			}
-
-			for _, msg := range messages {
-				_, err = f.conn.Write(msg.Data)
-				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message. Exiting", err)
-					return
-				}
-				err := f.ackMessage(msg.Seq, msg.Re)
-				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error processing message. Exiting", err)
-					return
-				}
 			}
 		}
 	}()
@@ -163,12 +165,13 @@ func (f *forwarder) Start() error {
 		var seq uint64
 
 		for {
-			// exit if the stopped flag is set
-			if f.stopped {
+			// exit if the context is done
+			select {
+			case <-f.context.Done():
+				log.Printf("forwarder stopped upward loop\n")
 				return
+			default:
 			}
-
-			// TODO wait for acks
 
 			// read from the connection
 			buf := make([]byte, f.options.ReadBufferSize)
@@ -244,10 +247,6 @@ func createEvent(eventType EventType, cid messages.ConnectionID, msg string, err
 
 // AsyncSend sends a message asynchronously, returns an error if the send buffer is full.
 func (f *forwarder) SendAsync(msg messages.Message) error {
-	if f.stopped {
-		return fmt.Errorf("forwarder is stopped")
-	}
-
 	select {
 	case f.sendChannel <- msg:
 		return nil
@@ -263,10 +262,13 @@ func (f *forwarder) Ack(seqNo uint64, re bool) error {
 
 // Stop stops the forwarder, and closes the channel and the underlying connection.
 func (f *forwarder) Close() error {
-	if f.stopped {
+	select {
+	case <-f.context.Done():
+		log.Printf("forwarder for %s already stopped\n", f.options.ConnectionID)
 		return nil
+	default:
 	}
-	f.stopped = true
+
 	f.cancel()
 	return f.conn.Close()
 }
