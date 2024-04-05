@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func GenerateApiKey(baseURL, deviceGUID, description, accessToken, home string) 
 // Function to store device credentials
 func StoreCredentials(device Device, apiKey ApiKeyCreation, home string, filename string) error {
 	// Create YAML file
-	file, err := os.Create(fmt.Sprintf("%s/%s", home, filename))
+	file, err := os.Create(filepath.Join(home, filename))
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,7 @@ func StoreCredentials(device Device, apiKey ApiKeyCreation, home string, filenam
 
 // Function to load access token from credentials file
 func LoadAccessToken(home string) (AuthResponse, error) {
-	credentialsFile := fmt.Sprintf("%s/credentials.json", home)
+	credentialsFile := filepath.Join(home, "credentials.yaml")
 	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
 		return AuthResponse{}, fmt.Errorf("credentials file does not exist. Please login")
 	}
