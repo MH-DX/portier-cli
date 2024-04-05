@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -23,11 +24,14 @@ type connectedState struct {
 	// uplink is the uplink
 	uplink uplink.Uplink
 
-	// CR ticker
-	CRticker *time.Ticker
-
 	// eventChannel is the event channel
 	eventChannel chan<- AdapterEvent
+
+	// context is the context
+	context context.Context
+
+	// stop is the context's cancel function
+	stop context.CancelFunc
 }
 
 func (c *connectedState) Start() error {
@@ -37,8 +41,6 @@ func (c *connectedState) Start() error {
 		return err
 	}
 
-	// start CR ticker
-	c.CRticker = time.NewTicker(1000 * time.Millisecond)
 	msg := messages.Message{
 		Header: messages.MessageHeader{
 			From: c.options.LocalDeviceId,
@@ -49,13 +51,10 @@ func (c *connectedState) Start() error {
 		Message: []byte{},
 	}
 
-	err = c.uplink.Send(msg)
-	if err != nil {
-		return err
-	}
+	ticker := time.NewTicker(1000 * time.Millisecond)
 
 	go func() {
-		for range c.CRticker.C {
+		for {
 			err := c.uplink.Send(msg)
 			if err != nil {
 				log.Printf("error sending CR message: %s\n", err)
@@ -65,14 +64,26 @@ func (c *connectedState) Start() error {
 					Message:      fmt.Sprintf("error sending CR message: %s", err),
 				}
 			}
+			select {
+			case <-c.context.Done():
+				log.Printf("CR ticker %s closed\n", c.options.ConnectionId)
+				return
+			case <-ticker.C:
+				continue
+			}
 		}
 	}()
 
 	return nil
 }
 
+func (c *connectedState) Stop() error {
+	c.stop()
+	return nil
+}
+
 func (c *connectedState) Close() error {
-	c.CRticker.Stop()
+	c.stop()
 	// send connection close message
 	msg := messages.Message{
 		Header: messages.MessageHeader{
@@ -90,7 +101,7 @@ func (c *connectedState) Close() error {
 func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
 	// decrypt the data
 	if msg.Header.Type == messages.D {
-		c.CRticker.Stop()
+		c.stop()
 		err := c.forwarder.SendAsync(msg)
 		if err != nil {
 			c.eventChannel <- AdapterEvent{
@@ -102,7 +113,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		}
 		return nil, nil
 	} else if msg.Header.Type == messages.DA {
-		c.CRticker.Stop()
+		c.stop()
 		// encode the data
 		ackMessage, err := c.encoderDecoder.DecodeDataAckMessage(msg.Message)
 		if err != nil {
@@ -114,7 +125,7 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 		}
 		return nil, nil
 	} else if msg.Header.Type == messages.CR {
-		c.CRticker.Stop()
+		c.stop()
 		return nil, nil
 	} else if msg.Header.Type == messages.CA {
 		return nil, nil
@@ -137,11 +148,14 @@ func (c *connectedState) HandleMessage(msg messages.Message) (ConnectionAdapterS
 }
 
 func NewConnectedState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, forwarder Forwarder) ConnectionAdapterState {
+	ctx, stop := context.WithCancel(context.Background())
 	return &connectedState{
 		options:        options,
 		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		forwarder:      forwarder,
+		context:        ctx,
+		stop:           stop,
 	}
 }

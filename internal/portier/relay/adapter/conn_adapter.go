@@ -40,6 +40,8 @@ type ConnectionAdapter interface {
 type ConnectionAdapterState interface {
 	Start() error
 
+	Stop() error
+
 	Close() error
 
 	HandleMessage(msg messages.Message) (ConnectionAdapterState, error)
@@ -167,6 +169,10 @@ func (c *connectionAdapter) Send(msg messages.Message) {
 		return
 	}
 	if newState != nil {
+		err := c.state.Stop()
+		if err != nil {
+			fmt.Printf("error stopping old state: %v\n", err)
+		}
 		c.state = newState
 		err = newState.Start()
 		if err != nil {

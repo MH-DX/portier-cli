@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -25,11 +26,14 @@ type connectingInboundState struct {
 	// uplink is the uplink
 	uplink uplink.Uplink
 
-	// ticker is the ticker
-	ticker *time.Ticker
-
 	// forwarder is the forwarder
 	forwarder Forwarder
+
+	// context is the context
+	context context.Context
+
+	// stop is the context's cancel function
+	stop context.CancelFunc
 }
 
 func (c *connectingInboundState) Start() error {
@@ -81,18 +85,20 @@ func (c *connectingInboundState) Start() error {
 		Message: connectionAcceptMessagePayload,
 	}
 
-	err = c.uplink.Send(msg)
-	if err != nil {
-		return fmt.Errorf("error sending connection accept message: %s", err)
-	}
-
 	// send the message to the uplink using the ticker
-	c.ticker = time.NewTicker(c.options.ResponseInterval)
+	ticker := time.NewTicker(c.options.ResponseInterval)
 	go func() {
-		for range c.ticker.C {
+		for {
 			err := c.uplink.Send(msg)
 			if err != nil {
 				fmt.Printf("error sending connection accept message: %s\n", err)
+			}
+			select {
+			case <-c.context.Done():
+				log.Printf("inbound connection ticker %s closed\n", c.options.ConnectionId)
+				return
+			case <-ticker.C:
+				continue
 			}
 		}
 	}()
@@ -115,9 +121,14 @@ func (c *connectingInboundState) Start() error {
 	return nil
 }
 
+func (c *connectingInboundState) Stop() error {
+	c.stop()
+	return nil
+}
+
 func (c *connectingInboundState) Close() error {
 	log.Println("stopping connecting inbound state for connection id", c.options.ConnectionId)
-	c.ticker.Stop()
+	c.stop()
 	// send connection close message
 	msg := messages.Message{
 		Header: messages.MessageHeader{
@@ -136,8 +147,6 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 
 	if msg.Header.Type == messages.D || msg.Header.Type == messages.CR {
 		// TODO check signature
-
-		c.ticker.Stop()
 		return NewConnectedState(c.options, c.eventChannel, c.uplink, c.forwarder), nil
 	}
 	if msg.Header.Type == messages.CO {
@@ -162,10 +171,13 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 }
 
 func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink) ConnectionAdapterState {
+	ctx, stop := context.WithCancel(context.Background())
 	return &connectingInboundState{
 		options:        options,
 		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
+		context:        ctx,
+		stop:           stop,
 	}
 }

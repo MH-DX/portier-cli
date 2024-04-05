@@ -1,7 +1,9 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -24,11 +26,14 @@ type connectingOutboundState struct {
 	// uplink is the uplink
 	uplink uplink.Uplink
 
-	// ticker is the ticker
-	ticker *time.Ticker
-
 	// conn is the connection
 	conn net.Conn
+
+	// context is the context
+	context context.Context
+
+	// stop is the context's cancel function
+	stop context.CancelFunc
 }
 
 func (c *connectingOutboundState) Start() error {
@@ -51,15 +56,11 @@ func (c *connectingOutboundState) Start() error {
 	}
 
 	// send the message to the uplink using the ticker
-	c.ticker = time.NewTicker(c.options.ResponseInterval)
-
-	err = c.uplink.Send(msg)
-	if err != nil {
-		return err
-	}
+	ticker := time.NewTicker(c.options.ResponseInterval)
 
 	go func() {
-		for range c.ticker.C {
+		defer ticker.Stop()
+		for {
 			err := c.uplink.Send(msg)
 			if err != nil {
 				// send error event
@@ -69,14 +70,26 @@ func (c *connectingOutboundState) Start() error {
 					Message:      err.Error(),
 				}
 			}
+			select {
+			case <-c.context.Done():
+				log.Printf("outbound connection ticker %s closed\n", c.options.ConnectionId)
+				return
+			case <-ticker.C:
+				continue
+			}
 		}
 	}()
 
 	return nil
 }
 
+func (c *connectingOutboundState) Stop() error {
+	c.stop()
+	return nil
+}
+
 func (c *connectingOutboundState) Close() error {
-	c.ticker.Stop()
+	c.stop()
 	// send connection close message
 	msg := messages.Message{
 		Header: messages.MessageHeader{
@@ -95,8 +108,6 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 	// if message is a connection accept message, create encryption and return connected state
 	if msg.Header.Type == messages.CA {
 		// TODO check signature
-
-		c.ticker.Stop()
 		connectionAcceptMessage, err := c.encoderDecoder.DecodeConnectionAcceptMessage(msg.Message)
 		if err != nil {
 			return nil, err
@@ -120,8 +131,6 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		return NewConnectedState(c.options, c.eventChannel, c.uplink, forwarder), nil
 	}
 	if msg.Header.Type == messages.CF {
-		c.ticker.Stop()
-		c.conn.Close()
 		connectionFailedMessage, err := c.encoderDecoder.DecodeConnectionFailedMessage(msg.Message)
 		if err != nil {
 			return nil, err
@@ -135,8 +144,6 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 		return nil, nil
 	}
 	if msg.Header.Type == messages.CC {
-		c.ticker.Stop()
-		c.conn.Close()
 		c.eventChannel <- AdapterEvent{
 			ConnectionId: c.options.ConnectionId,
 			Type:         Closed,
@@ -148,11 +155,14 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 }
 
 func NewConnectingOutboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, conn net.Conn) ConnectionAdapterState {
+	ctx, stop := context.WithCancel(context.Background())
 	return &connectingOutboundState{
 		options:        options,
 		eventChannel:   eventChannel,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
 		conn:           conn,
+		context:        ctx,
+		stop:           stop,
 	}
 }
