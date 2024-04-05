@@ -44,8 +44,6 @@ type ServiceContext struct {
 	packetConn net.PacketConn
 
 	listener net.Listener
-
-	adapter adapter.ConnectionAdapter
 }
 
 type PortierApplication struct {
@@ -196,12 +194,12 @@ func (p *PortierApplication) StartServices() error {
 	return nil
 }
 
-func (p *PortierApplication) handleAccept(context ServiceContext, listener net.Listener) adapter.ConnectionAdapter {
+func (p *PortierApplication) handleAccept(context ServiceContext, listener net.Listener) error {
 	for {
 		conn, err := context.listener.Accept()
 		if err != nil {
 			log.Printf("Error accepting connection: %v", err)
-			continue
+			return err
 		}
 
 		log.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
@@ -257,9 +255,9 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		// print the options to the console in pretty format
 		log.Printf("Connection adapter options: %v\n", options)
 
-		context.adapter = adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.router.EventChannel())
-		p.router.AddConnection(cID, context.adapter)
-		context.adapter.Start()
+		adapter := adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.router.EventChannel())
+		p.router.AddConnection(cID, adapter)
+		adapter.Start()
 
 		log.Printf("Started connection adapter for service: %s\n", context.service.Name)
 	}
@@ -302,12 +300,7 @@ func (p *PortierApplication) handlePacket(context ServiceContext, packetConn net
 func (p *PortierApplication) StopServices() error {
 	errors := []error{}
 	for _, c := range p.contexts {
-		err := c.adapter.Stop()
-		if err != nil {
-			log.Printf("Error stopping adapter: %v", err)
-			errors = append(errors, err)
-		}
-		err = c.listener.Close()
+		err := c.listener.Close()
 		if err != nil {
 			log.Printf("Error closing connection listener: %v", err)
 			errors = append(errors, err)
