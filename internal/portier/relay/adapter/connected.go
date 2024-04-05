@@ -71,7 +71,7 @@ func (c *connectedState) Start() error {
 	return nil
 }
 
-func (c *connectedState) Stop() error {
+func (c *connectedState) Close() error {
 	c.CRticker.Stop()
 	// send connection close message
 	msg := messages.Message{

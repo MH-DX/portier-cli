@@ -75,7 +75,7 @@ func (c *connectingOutboundState) Start() error {
 	return nil
 }
 
-func (c *connectingOutboundState) Stop() error {
+func (c *connectingOutboundState) Close() error {
 	c.ticker.Stop()
 	// send connection close message
 	msg := messages.Message{

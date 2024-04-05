@@ -31,7 +31,7 @@ type ConnectionAdapter interface {
 	Start() error
 
 	// Stop stops the connection
-	Stop() error
+	Close() error
 
 	// Send sends a message to the connection
 	Send(msg messages.Message)
@@ -40,7 +40,7 @@ type ConnectionAdapter interface {
 type ConnectionAdapterState interface {
 	Start() error
 
-	Stop() error
+	Close() error
 
 	HandleMessage(msg messages.Message) (ConnectionAdapterState, error)
 }
@@ -149,9 +149,9 @@ func (c *connectionAdapter) Start() error {
 }
 
 // Stop stops the connection adapter.
-func (c *connectionAdapter) Stop() error {
+func (c *connectionAdapter) Close() error {
 	// stop the connection adapter
-	err := c.state.Stop()
+	err := c.state.Close()
 	if err != nil {
 		return err
 	}

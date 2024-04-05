@@ -69,7 +69,7 @@ func TestInboundConnection(testing *testing.T) {
 	<-connectionChannel // tcp connection established
 	<-acceptedChannel   // connection accepted message sent
 	<-acceptedChannel   // resend connection accepted message sent
-	_ = underTest.Stop()
+	_ = underTest.Close()
 	<-closedChannel // connection closed message sent
 	uplink.AssertExpectations(testing)
 }
@@ -159,7 +159,7 @@ func TestInboundConnectionStop(testing *testing.T) {
 	assert.Nil(testing, err)
 
 	// WHEN
-	err = underTest.Stop()
+	err = underTest.Close()
 
 	// THEN
 	<-closeChannel // connection closed message sent

@@ -123,7 +123,7 @@ func (c *ConnectionAdapterMock) Start() error {
 	return args.Error(0)
 }
 
-func (c *ConnectionAdapterMock) Stop() error {
+func (c *ConnectionAdapterMock) Close() error {
 	args := c.Called()
 	return args.Error(0)
 }

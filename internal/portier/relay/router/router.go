@@ -90,7 +90,7 @@ func (r *router) Start() error {
 			}
 			// if event is close event, close connection
 			if event.Type == adapter.Closed || event.Type == adapter.Error {
-				err := connectionAdapter.Stop()
+				err := connectionAdapter.Close()
 				if err != nil {
 					log.Printf("error stopping connection adapter: %s\n", err)
 				}

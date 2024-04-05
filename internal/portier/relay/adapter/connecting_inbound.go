@@ -115,7 +115,7 @@ func (c *connectingInboundState) Start() error {
 	return nil
 }
 
-func (c *connectingInboundState) Stop() error {
+func (c *connectingInboundState) Close() error {
 	log.Println("stopping connecting inbound state for connection id", c.options.ConnectionId)
 	c.ticker.Stop()
 	// send connection close message
