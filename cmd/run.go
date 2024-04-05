@@ -49,6 +49,9 @@ func newRunCmd() (*cobra.Command, error) {
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE:         o.run,
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
 	}
 
 	cmd.Flags().StringVarP(&o.ConfigFile, "config file", "c", o.ConfigFile, "config file path")
