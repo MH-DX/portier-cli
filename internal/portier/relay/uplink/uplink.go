@@ -224,7 +224,11 @@ func (u *WebsocketUplink) connectWebsocket() error {
 				log.Printf("error decoding message: %v", err)
 				continue
 			}
-			u.recv <- message
+			select {
+			case u.recv <- message:
+			default:
+				log.Println("uplink recv channel full, dropping message")
+			}
 		}
 	}()
 
