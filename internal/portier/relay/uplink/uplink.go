@@ -154,8 +154,7 @@ func (u *WebsocketUplink) Send(message messages.Message) error {
 		}
 		log.Printf("send - websocket disconnected: %v", err)
 		u.connection.Close()
-		time.Sleep(u.calculateBackoff())
-		return u.connectWebsocket()
+		return err
 	}
 	return nil
 }
@@ -174,6 +173,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// Create a header with the API token
 	header := make(http.Header)
 	header.Add("Authorization", u.Options.APIToken)
+	log.Println("Connecting to portier server: ", u.Options.PortierURL)
 
 	// Establish a websocket connection to the portier server
 	connection, resp, err := dialer.Dial(u.Options.PortierURL, header)
@@ -188,6 +188,7 @@ func (u *WebsocketUplink) connectWebsocket() error {
 		time.Sleep(u.calculateBackoff())
 		return u.connectWebsocket()
 	}
+	log.Println("Connected to portier server: ", u.Options.PortierURL)
 	u.events <- Event{
 		State: Connected,
 		Event: "websocket connected",
@@ -215,8 +216,12 @@ func (u *WebsocketUplink) connectWebsocket() error {
 					State: Disconnected,
 					Event: "read - websocket closed after error",
 				}
+
 				time.Sleep(u.calculateBackoff())
-				_ = u.connectWebsocket()
+				err = u.connectWebsocket()
+				if err != nil {
+					panic("error reconnecting to portier server: " + err.Error())
+				}
 				return
 			}
 			message, err := u.encoderDecoder.Decode(frame)
