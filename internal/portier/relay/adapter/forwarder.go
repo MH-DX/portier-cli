@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -59,7 +58,7 @@ func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink,
 		conn:           conn,
 		uplink:         uplink,
 		encryption:     encryption,
-		sendChannel:    make(chan messages.Message, 10000),
+		sendChannel:    make(chan messages.Message, 500),
 		eventChannel:   eventChannel,
 		window:         NewWindow(forwarderContext, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
 		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
@@ -249,10 +248,10 @@ func createEvent(eventType EventType, cid messages.ConnectionID, msg string, err
 func (f *forwarder) SendAsync(msg messages.Message) error {
 	select {
 	case f.sendChannel <- msg:
-		return nil
 	default:
-		return fmt.Errorf("send buffer is full")
+		log.Printf("send buffer for %s full, dropping message\n", f.options.ConnectionID)
 	}
+	return nil
 }
 
 // Ack acknowledges a message.
