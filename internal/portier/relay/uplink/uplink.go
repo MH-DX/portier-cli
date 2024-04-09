@@ -199,8 +199,13 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// setup ping
 	connection.SetPingHandler(func(appData string) error {
 		u.mutex.Lock()
-		_ = connection.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
-		u.mutex.Unlock()
+		defer u.mutex.Unlock()
+		err := connection.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
+		if err != nil {
+			log.Printf("sending pong error - websocket: %v", err)
+			connection.Close()
+			return err
+		}
 		connection.SetReadDeadline(time.Now().Add(10 * time.Second))
 		return nil
 	})
