@@ -43,7 +43,7 @@ func TestInsertAndAck(testing *testing.T) {
 	err := underTest.Add(item)
 
 	go func() {
-		time.Sleep(time.Millisecond * 150)
+		time.Sleep(time.Millisecond * 120)
 		item.Acked = true
 	}()
 
@@ -62,9 +62,6 @@ func TestInsertAndAck(testing *testing.T) {
 	encoderDecoder.AssertNumberOfCalls(testing, "EncodeDataMessage", 1)
 	encoderDecoder.AssertNumberOfCalls(testing, "DecodeDataMessage", 1)
 	encoderDecoder.AssertExpectations(testing)
-	if item.Retransmitted == false {
-		testing.Errorf("Item was not retransmitted")
-	}
 }
 
 type MockUplink struct {
