@@ -269,7 +269,7 @@ func TestForwardingLarge(testing *testing.T) {
 
 	// compare the received message with the sent message
 	if string(buf[:totalBytesRead]) != string(msg) {
-		testing.Errorf("expected %v, got %v", string(msg), string(buf[:totalBytesRead]))
+		testing.Errorf("message mismatch")
 	}
 
 	// close the forwarded connection to provoke a connection close message

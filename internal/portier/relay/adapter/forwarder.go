@@ -124,7 +124,7 @@ func (f *forwarder) Start() error {
 
 				messages, err := f.messageHeap.Test(dm)
 				if err != nil {
-					if err.Error() == "old_message" {
+					if err.Error() == "old_message" || err.Error() == "duplicate_message" {
 						err := f.ackMessage(dm.Seq, dm.Re)
 						if err != nil {
 							f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error sending ack to uplink. Exiting", err)
