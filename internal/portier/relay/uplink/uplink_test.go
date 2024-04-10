@@ -109,6 +109,10 @@ func TestReconnect(testing *testing.T) {
 	}
 	// expect connected event
 	event := <-eventChannel
+	if event.State != Disconnected && event.Event != "connecting to portier server: "+url {
+		testing.Errorf("expected %v, got %v", Disconnected, event.State)
+	}
+	event = <-eventChannel
 	if event.State != Connected {
 		testing.Errorf("expected %v, got %v", Connected, event.State)
 	}
@@ -119,6 +123,10 @@ func TestReconnect(testing *testing.T) {
 	// THEN
 	event = <-eventChannel
 	if event.State != Disconnected {
+		testing.Errorf("expected %v, got %v", Disconnected, event.State)
+	}
+	event = <-eventChannel
+	if event.State != Disconnected && event.Event != "connecting to portier server: "+url {
 		testing.Errorf("expected %v, got %v", Disconnected, event.State)
 	}
 	event = <-eventChannel

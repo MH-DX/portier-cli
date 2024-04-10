@@ -184,13 +184,18 @@ func (p *PortierApplication) StartServices() error {
 		}(c)
 	}
 
-	log.Println("All Services started...")
+	go func() {
+		for event := range uplink.Events() {
+			log.Printf("uplink event received: %v\n", event)
+		}
+	}()
 
 	err = router.Start()
 	if err != nil {
 		return err
 	}
 
+	log.Println("All Services started...")
 	return nil
 }
 

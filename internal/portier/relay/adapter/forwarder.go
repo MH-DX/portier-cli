@@ -289,5 +289,6 @@ func (f *forwarder) ackMessage(seq uint64, re bool) error {
 		Message: ackMsgBytes,
 	}
 
-	return f.uplink.Send(msg)
+	_ = f.uplink.Send(msg)
+	return nil
 }

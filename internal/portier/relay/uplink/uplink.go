@@ -1,6 +1,7 @@
 package uplink
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
@@ -81,14 +82,20 @@ type WebsocketUplink struct {
 	// recv is the channel to receive messages from the portier server
 	recv chan messages.Message
 
-	// mutex is the mutex to lock the connection
-	mutex sync.Mutex
+	// send is the channel to send messages to the portier server
+	send chan []byte
 
 	// events is the channel to receive events from the uplink
 	events chan Event
 
 	// encoderdecoder is the encoder / decoder for the uplink
 	encoderDecoder encoder.EncoderDecoder
+
+	// context is the context to close the uplink
+	context context.Context
+
+	// cancel is the cancel function to close the uplink
+	cancel context.CancelFunc
 }
 
 func defaultOptions() Options {
@@ -123,6 +130,7 @@ func NewWebsocketUplink(options Options, encoderDecoder encoder.EncoderDecoder) 
 	return &WebsocketUplink{
 		Options:        options,
 		recv:           make(chan messages.Message, 1000),
+		send:           make(chan []byte),
 		events:         make(chan Event, 100),
 		encoderDecoder: encoderDecoder,
 	}
@@ -131,6 +139,7 @@ func NewWebsocketUplink(options Options, encoderDecoder encoder.EncoderDecoder) 
 // Connect connects to the portier server return recv channel to receive messages from the portier server.
 func (u *WebsocketUplink) Connect() (<-chan messages.Message, error) {
 	// Connect to the portier server
+
 	err := u.connectWebsocket()
 	if err != nil {
 		return nil, err
@@ -140,27 +149,19 @@ func (u *WebsocketUplink) Connect() (<-chan messages.Message, error) {
 
 // Send enqueues a message to the portier server.
 func (u *WebsocketUplink) Send(message messages.Message) error {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
 	payload, err := u.encoderDecoder.Encode(message)
 	if err != nil {
 		return err
 	}
-	err = u.connection.WriteMessage(websocket.BinaryMessage, payload)
-	if err != nil {
-		u.events <- Event{
-			State: Disconnected,
-			Event: "send - websocket disconnected",
-		}
-		log.Printf("send - websocket disconnected: %v", err)
-		u.connection.Close()
-		return err
-	}
+	u.send <- payload
 	return nil
 }
 
 // Close closes the uplink, the connection to the portier server and expects the uplink to close the recv channel.
 func (u *WebsocketUplink) Close() error {
+	if u.cancel == nil {
+		u.cancel()
+	}
 	u.connection.Close()
 	return nil
 }
@@ -173,53 +174,54 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	// Create a header with the API token
 	header := make(http.Header)
 	header.Add("Authorization", u.Options.APIToken)
-	log.Println("Connecting to portier server: ", u.Options.PortierURL)
+	u.events <- Event{
+		State: Disconnected,
+		Event: "connecting to portier server: " + u.Options.PortierURL,
+	}
 
 	// Establish a websocket connection to the portier server
-	connection, resp, err := dialer.Dial(u.Options.PortierURL, header)
+	connection, _, err := dialer.Dial(u.Options.PortierURL, header)
 	if err != nil {
-		fmt.Println("Error connecting to portier server: ", err)
+		u.events <- Event{
+			State: Disconnected,
+			Event: "error connecting to portier server: " + err.Error(),
+		}
 		if u.retries < u.Options.ReconnectRetries || u.Options.ReconnectRetries == 0 {
 			u.retries++
 		} else {
-			log.Println(resp)
+			u.events <- Event{
+				State: Disconnected,
+				Event: "maximum number of retries reached",
+			}
 			return fmt.Errorf("maximum number of retries reached after: %v", err)
 		}
 		time.Sleep(u.calculateBackoff())
 		return u.connectWebsocket()
 	}
-	log.Println("Connected to portier server: ", u.Options.PortierURL)
 	u.events <- Event{
 		State: Connected,
-		Event: "websocket connected",
+		Event: fmt.Sprintf("Connected to portier server: %s", u.Options.PortierURL),
 	}
 
 	u.retries = 0
-
-	// setup ping
-	connection.SetPingHandler(func(appData string) error {
-		u.mutex.Lock()
-		defer u.mutex.Unlock()
-		err := connection.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
-		if err != nil {
-			log.Printf("sending pong error - websocket: %v", err)
-			connection.Close()
-			return err
-		}
-		connection.SetReadDeadline(time.Now().Add(10 * time.Second))
-		return nil
-	})
+	u.context, u.cancel = context.WithCancel(context.Background())
 
 	// receive messages from the portier server and forward them to the recv channel
 	go func() {
 		for {
+			select {
+			case <-u.context.Done():
+				return
+			default:
+			}
+
 			_, frame, err := connection.ReadMessage()
 			if err != nil {
-				log.Printf("read - websocket: %v", err)
-				u.connection.Close()
+				connection.Close()
+				u.cancel()
 				u.events <- Event{
 					State: Disconnected,
-					Event: "read - websocket closed after error",
+					Event: fmt.Sprintf("read - websocket closed after error: %v\n", err),
 				}
 
 				time.Sleep(u.calculateBackoff())
@@ -231,16 +233,63 @@ func (u *WebsocketUplink) connectWebsocket() error {
 			}
 			message, err := u.encoderDecoder.Decode(frame)
 			if err != nil {
-				log.Printf("error decoding message: %v", err)
+				u.events <- Event{
+					State: Connected,
+					Event: fmt.Sprintf("error decoding message: %v", err),
+				}
 				continue
 			}
 			select {
 			case u.recv <- message:
 			default:
-				log.Println("uplink recv channel full, dropping message")
+				u.events <- Event{
+					State: Connected,
+					Event: "recv channel full, dropping message",
+				}
 			}
 		}
 	}()
+
+	mutex := &sync.Mutex{}
+
+	// send messages to the portier server
+	go func() {
+		for {
+			select {
+			case payload := <-u.send:
+				mutex.Lock()
+				connection.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				err = connection.WriteMessage(websocket.BinaryMessage, payload)
+				if err != nil {
+					u.events <- Event{
+						State: Disconnected,
+						Event: fmt.Sprintf("send - websocket error: %v", err),
+					}
+					mutex.Unlock()
+					return
+				}
+				mutex.Unlock()
+			case <-u.context.Done():
+				return
+			}
+		}
+	}()
+
+	// setup ping
+	connection.SetPingHandler(func(appData string) error {
+		mutex.Lock()
+		defer mutex.Unlock()
+		err := connection.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
+		if err != nil {
+			u.events <- Event{
+				State: Disconnected,
+				Event: fmt.Sprintf("ping - websocket error: %v", err),
+			}
+			return err
+		}
+		connection.SetReadDeadline(time.Now().Add(10 * time.Second))
+		return nil
+	})
 
 	u.connection = connection
 	return nil
