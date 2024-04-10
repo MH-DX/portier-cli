@@ -28,7 +28,7 @@ func TestInboundConnection(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id1",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
@@ -84,7 +84,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + strconv.Itoa(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id2",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
@@ -134,7 +134,7 @@ func TestInboundConnectionStop(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id3",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",

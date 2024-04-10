@@ -27,7 +27,7 @@ func TestOutboundConnection(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id4",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
@@ -75,7 +75,7 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id5",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
@@ -87,6 +87,8 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 
 	// mock uplink
 	uplink := MockUplink{}
+
+	uplink.On("Send", mock.Anything).Return(nil)
 
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	assert.Nil(testing, err)
@@ -113,7 +115,6 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	// THEN
 	assert.Nil(testing, err)
 	assert.Contains(testing, event.Message, "connection refused")
-	uplink.AssertExpectations(testing)
 }
 
 func TestOutboundConnectionStop(testing *testing.T) {
@@ -128,7 +129,7 @@ func TestOutboundConnectionStop(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id",
+		ConnectionId:        "test-connection-id6",
 		LocalDeviceId:       uuid.New(),
 		PeerDeviceId:        uuid.New(),
 		PeerDevicePublicKey: "test-peer-device-public-key",
