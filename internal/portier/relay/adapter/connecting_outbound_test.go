@@ -88,8 +88,6 @@ func TestOutboundConnectionWithError(testing *testing.T) {
 	// mock uplink
 	uplink := MockUplink{}
 
-	uplink.On("Send", mock.Anything).Return(nil)
-
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	assert.Nil(testing, err)
 
