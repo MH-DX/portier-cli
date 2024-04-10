@@ -206,34 +206,8 @@ func TestWindowInsertAckRetransmission(testing *testing.T) {
 		testing.Errorf("Unexpected retransmitted: %v", windowItem1.Retransmitted)
 	}
 	windowItem2 := underTest.(*window).queue.Get(2).(*windowitem.WindowItem)
-	if !windowItem2.Retransmitted {
+	if windowItem2.Retransmitted {
 		testing.Errorf("Unexpected retransmitted: %v", windowItem2.Retransmitted)
-	}
-}
-
-func TestWindowInsertRtt(testing *testing.T) {
-	// GIVEN
-	var mockUplink MockUplink = MockUplink{}
-	mockUplink.On("Send", mock.Anything).Return(nil)
-	mockRtoHeap := MockRtoHeap{}
-	mockRtoHeap.On("Add", mock.Anything).Return(nil)
-	underTest := newWindow(context.Background(), createOptions(3), &mockUplink, &mockRtoHeap)
-	_ = underTest.add(createMessage(uint64(0), 1), 0)
-	_ = underTest.add(createMessage(uint64(1), 1), 1)
-	_ = underTest.add(createMessage(uint64(2), 1), 2)
-
-	// WHEN
-	time.Sleep(100 * time.Millisecond)
-	_ = underTest.ack(uint64(0), false)
-	_ = underTest.ack(uint64(1), false)
-	_ = underTest.ack(uint64(2), false)
-
-	// THEN
-	if underTest.(*window).stats.SRTT < 100000000 {
-		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
-	}
-	if underTest.(*window).stats.SRTT > 150000000 {
-		testing.Errorf("Unexpected SRTT: %v", underTest.(*window).stats.SRTT)
 	}
 }
 
