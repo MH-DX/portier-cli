@@ -10,7 +10,7 @@ import (
 	"github.com/marinator86/portier-cli/cmd"
 )
 
-var version = ""
+var version = "0.0.1"
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var memprofile = flag.String("memprofile", "", "write memory profile to this file")
 
