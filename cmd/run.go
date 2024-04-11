@@ -45,7 +45,7 @@ func newRunCmd() (*cobra.Command, error) {
 
 	cmd := &cobra.Command{
 		Use:          "run",
-		Short:        "starts the forwarding for all services defined",
+		Short:        "Starts the forwarding for all services defined",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE:         o.run,

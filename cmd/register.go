@@ -36,7 +36,7 @@ func newRegisterCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:          "register",
-		Short:        "registers a new device in portier.dev and downloads the device's API key",
+		Short:        "Registers a new device in portier.dev and downloads the device's API key",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(3),
 		RunE:         o.run,

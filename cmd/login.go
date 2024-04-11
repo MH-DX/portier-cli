@@ -20,7 +20,7 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:          "login",
-		Short:        "login subcommand which logs in to the portier service using PKCE flow. Needs a browser to complete the login flow.",
+		Short:        "Login to the portier service using PKCE flow. Needs a browser to complete",
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(0),
 		RunE:         o.run,
