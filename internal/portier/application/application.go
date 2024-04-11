@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
@@ -40,8 +39,6 @@ type DeviceCredentials struct {
 
 type ServiceContext struct {
 	service relay.Service
-
-	packetConn net.PacketConn
 
 	listener net.Listener
 }
@@ -178,8 +175,6 @@ func (p *PortierApplication) StartServices() error {
 		go func(context ServiceContext) {
 			if context.listener != nil {
 				p.handleAccept(context, context.listener)
-			} else {
-				p.handlePacket(context, context.packetConn)
 			}
 		}(c)
 	}
@@ -268,40 +263,6 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 	}
 }
 
-func (p *PortierApplication) handlePacket(context ServiceContext, packetConn net.PacketConn) {
-	for {
-		buffer := make([]byte, 4096)
-		n, addr, err := packetConn.ReadFrom(buffer)
-		if err != nil {
-			log.Printf("Error reading from packet connection: %v", err)
-			continue
-		}
-
-		datagram := messages.DatagramMessage{
-			Source: addr.String(),
-			Target: context.service.Options.URLRemote.String(),
-			Data:   buffer[:n],
-		}
-
-		datagramEncoded, err := encoder.NewEncoderDecoder().EncodeDatagramMessage(datagram) // TODO avoid creating a new encoder/decoder for each message
-		if err != nil {
-			log.Printf("Error encoding datagram message: %v", err)
-			continue
-		}
-
-		// send the packet to the portier server via the uplink
-		p.uplink.Send(messages.Message{
-			Header: messages.MessageHeader{
-				From: p.deviceCredentials.DeviceID,
-				To:   context.service.Options.PeerDeviceID,
-				Type: messages.DG,
-				CID:  p.config.DefaultDatagramConnectionID,
-			},
-			Message: datagramEncoded, // TODO encrypt the message
-		})
-	}
-}
-
 func (p *PortierApplication) StopServices() error {
 	errors := []error{}
 	for _, c := range p.contexts {
@@ -322,17 +283,6 @@ func (p *PortierApplication) startListeners() error {
 	for _, service := range p.config.Services {
 		log.Printf("Starting service: %s\n", service.Name)
 		switch service.Options.URLLocal.Scheme {
-		case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":
-			log.Printf("Starting gram listener on %s\n", service.Options.URLLocal.Host)
-			conn, err := net.ListenPacket(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
-			if err != nil {
-				return err
-			}
-			p.contexts = append(p.contexts, ServiceContext{
-				service:    service,
-				packetConn: conn,
-			})
-			continue
 		case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
 			log.Printf("Starting listener for service: %v\n", service)
 			listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
@@ -344,8 +294,10 @@ func (p *PortierApplication) startListeners() error {
 				listener: listener,
 			})
 			continue
+		case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":
+			return fmt.Errorf("scheme yet unsupported: %s. Contact contact@portier.dev", service.Options.URLLocal.Scheme)
 		default:
-			return fmt.Errorf("unsupported scheme: %s", service.Options.URLLocal.Scheme)
+			return fmt.Errorf("unrecognized scheme: %s", service.Options.URLLocal.Scheme)
 		}
 	}
 	return nil
