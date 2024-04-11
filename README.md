@@ -1,16 +1,31 @@
 # portier-cli
 
 <div align="center">
-A general purpose project template for golang CLI applications
+Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit www.portier.dev !
 <br>
 <br>
-This template serves as a starting point for golang commandline applications it is based on golang projects that I consider high quality and various other useful blog posts that helped me understanding golang better.
+
+## Forget networking, we love the web.
+
+If complex network setup blocked you - search no more. Portier offers you remote connectivity with literally zero network setup. Use your machine from home, no matter how it accesses the public internet. Web-access to portier.dev (HTTP and Websockets) is the only requirement to use our services.
+
+## Robust, reliable and lean.
+
+With its automatic reconnect and advanced retransmission algorithms, your remote access works free from connection drops. Portier turns these things into a bit of latency, and then everything continues smoothly.
+Portier-cli, our client application written in golang, requires roughly 10MB of RAM to run, but is also capable of scaling up to handle thousands of parallel connections - if you need it.
+
+## Secure, (don’t) trust us.
+
+Portier uses a TLS to secure your connections. And there’s no need to trust us: Portier-cli encrypts connections end to end (under development). Your data remains private.
+
+## Low-latency, high throughput servers.
+
+Portier uses a cloud infrastructure to forward messages between clients that handles high throughput with millisecond latencies. Working with rdp or ssh? Don’t worry about it, your clicks and key strokes will have a swift and fast response, just like you’re used to.
+
 <br>
 <br>
 <img src="https://github.com/marinator86/portier-cli/actions/workflows/test.yml/badge.svg" alt="drawing"/>
-<img src="https://github.com/marinator86/portier-cli/actions/workflows/lint.yml/badge.svg" alt="drawing"/>
 <img src="https://pkg.go.dev/badge/github.com/marinator86/portier-cli.svg" alt="drawing"/>
-<img src="https://codecov.io/gh/marinator86/portier-cli/branch/main/graph/badge.svg" alt="drawing"/>
 <img src="https://img.shields.io/github/v/release/marinator86/portier-cli" alt="drawing"/>
 <img src="https://img.shields.io/docker/pulls/marinator86/portier-cli" alt="drawing"/>
 <img src="https://img.shields.io/github/downloads/marinator86/portier-cli/total.svg" alt="drawing"/>
@@ -19,27 +34,9 @@ This template serves as a starting point for golang commandline applications it 
 # Table of Contents
 <!--ts-->
    * [portier-cli](#portier-cli)
-   * [Features](#features)
    * [Project Layout](#project-layout)
-   * [How to use this template](#how-to-use-this-template)
-   * [Demo Application](#demo-application)
    * [Makefile Targets](#makefile-targets)
    * [Contribute](#contribute)
-
-<!-- Added by: morelly_t1, at: Tue 10 Aug 2021 08:54:24 AM CEST -->
-
-<!--te-->
-
-# Features
-- [goreleaser](https://goreleaser.com/) with `deb.` and `.rpm` packer and container (`docker.hub` and `ghcr.io`) releasing including `manpages` and `shell completions` and grouped Changelog generation.
-- [golangci-lint](https://golangci-lint.run/) for linting and formatting
-- [Github Actions](.github/worflows) Stages (Lint, Test (`windows`, `linux`, `mac-os`), Build, Release) 
-- [Gitlab CI](.gitlab-ci.yml) Configuration (Lint, Test, Build, Release)
-- [cobra](https://cobra.dev/) example setup including tests
-- [Makefile](Makefile) - with various useful targets and documentation (see Makefile Targets)
-- [Github Pages](_config.yml) using [jekyll-theme-minimal](https://github.com/pages-themes/minimal) (checkout [https://marinator86.github.io/portier-cli/](https://marinator86.github.io/portier-cli/))
-- Useful `README.md` badges
-- [pre-commit-hooks](https://pre-commit.com/) for formatting and validating code before committing
 
 # Project Layout
 * [assets/](https://pkg.go.dev/github.com/marinator86/portier-cli/assets) => docs, images, etc
@@ -49,45 +46,6 @@ This template serves as a starting point for golang commandline applications it 
 - [`tools/`](tools/) => for automatically shipping all required dependencies when running `go get` (or `make bootstrap`) such as `golang-ci-lint` (see: https://github.com/golang/go/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module)
 )
 - [`scripts/`](scripts/) => build scripts 
-
-# How to use this template
-```sh
-bash <(curl -s https://raw.githubusercontent.com/marinator86/portier-cli/master/install.sh)
-```
-
-In order to make the CI work you will need to have the following Secrets in your repository defined:
-
-Repository  -> Settings -> Secrets & variables -> `CODECOV_TOKEN`, `DOCKERHUB_TOKEN` & `DOCKERHUB_USERNAME`
-
-# Demo Application
-
-```sh
-$> portier-cli -h
-golang-cli project template demo application
-
-Usage:
-  portier-cli [flags]
-  portier-cli [command]
-
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  example     example subcommand which adds or multiplies two given integers
-  help        Help about any command
-  version     portier-cli version
-
-Flags:
-  -h, --help   help for portier-cli
-
-Use "portier-cli [command] --help" for more information about a command.
-```
-
-```sh
-$> portier-cli example 2 5 --add
-7
-
-$> portier-cli example 2 5 --multiply
-10
-```
 
 # Makefile Targets
 ```sh
