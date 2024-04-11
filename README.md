@@ -16,7 +16,7 @@ Portier-cli, our client application written in golang, requires roughly 10MB of 
 
 ## Secure, (don’t) trust us.
 
-Portier uses a TLS to secure your connections. And there’s no need to trust us: Portier-cli encrypts connections end to end (under development). Your data remains private.
+Portier uses TLS to secure your connections. And there’s no need to trust us: Portier-cli encrypts connections end to end (under development). Your data remains private.
 
 ## Low-latency, high throughput servers.
 
