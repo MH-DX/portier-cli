@@ -214,5 +214,6 @@ func Register(name string, baseURL string, home string, credentialsFileName stri
 	}
 
 	fmt.Println("Device registered and credentials stored successfully.")
+	fmt.Printf("Device ID: \t%s\nAPI Key: \t%s\n", device.GUID, apiKey.ApiKey)
 	return nil
 }

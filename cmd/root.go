@@ -9,7 +9,7 @@ import (
 func newRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "portier-cli",
-		Short: "golang-cli project template demo application",
+		Short: "Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -19,13 +19,6 @@ func newRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(NewManCmd().Cmd)        // man subcommand
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newRegisterCmd())
-
-	startCmd, err := newStartCmd()
-	if err != nil {
-		panic(err)
-	}
-	cmd.AddCommand(startCmd)
-
 	runCmd, err := newRunCmd()
 	if err != nil {
 		panic(err)

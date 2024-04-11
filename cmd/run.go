@@ -45,7 +45,7 @@ func newRunCmd() (*cobra.Command, error) {
 
 	cmd := &cobra.Command{
 		Use:          "run",
-		Short:        "run the relay, i.e. all local services defined for this device (requires registration)",
+		Short:        "starts the forwarding for all services defined",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE:         o.run,
@@ -54,9 +54,8 @@ func newRunCmd() (*cobra.Command, error) {
 		},
 	}
 
-	cmd.Flags().StringVarP(&o.ConfigFile, "config file", "c", o.ConfigFile, "config file path")
-	cmd.Flags().StringVarP(&o.ApiTokenFile, "apiToken file", "t", o.ApiTokenFile, "apiToken file path")
-	cmd.Flags().StringVarP(&o.Output, "output", "o", o.Output, "output format (yaml | json)")
+	cmd.Flags().StringVarP(&o.ConfigFile, "config file", "c", o.ConfigFile, "custom config file path")
+	cmd.Flags().StringVarP(&o.ApiTokenFile, "apiToken file", "t", o.ApiTokenFile, "custom apiToken file path")
 
 	return cmd, nil
 }
@@ -97,11 +96,6 @@ func (o *runOptions) parseArgs(cmd *cobra.Command, _ []string) error {
 	apiTokenFile, err := cmd.Flags().GetString("apiToken")
 	if err == nil {
 		o.ApiTokenFile = apiTokenFile
-	}
-
-	output, err := cmd.Flags().GetString("output")
-	if err == nil {
-		o.Output = output
 	}
 
 	return nil

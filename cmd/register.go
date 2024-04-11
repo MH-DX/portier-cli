@@ -42,7 +42,6 @@ func newRegisterCmd() *cobra.Command {
 		RunE:         o.run,
 	}
 
-	cmd.Flags().StringVarP(&o.Output, "output", "o", o.Output, "output format (yaml | json)")
 	cmd.Flags().StringVarP(&o.Name, "name", "n", o.Name, "name of the device")
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
@@ -70,13 +69,6 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 }
 
 func (o *registerOptions) parseArgs(cmd *cobra.Command, _ []string) error {
-	output, err := cmd.Flags().GetString("output")
-	if err != nil {
-		log.Fatalf("could not get output flag: %v", err)
-		return err
-	}
-	o.Output = output
-
 	name, err := cmd.Flags().GetString("name")
 	if err != nil {
 		log.Fatalf("could not get name flag: %v", err)
