@@ -73,7 +73,10 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 
 	application.LoadConfig(o.ConfigFile)
 
-	application.LoadApiToken(o.ApiTokenFile)
+	err = application.LoadApiToken(o.ApiTokenFile)
+	if err != nil {
+		return err
+	}
 
 	application.StartServices()
 

@@ -86,48 +86,51 @@ func defaultPortierConfig() *PortierConfig {
 // LoadConfig loads the config from the given file path.
 func (p *PortierApplication) LoadConfig(filePath string) error {
 	stat, err := os.Stat(filePath)
+	hasConfigFile := true
 	if err != nil {
-		log.Printf("Error getting file info: %v", err)
-		return err
-	}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Printf("Error opening file: %v", err)
-		return err
-	}
-	defer file.Close()
-
-	fileContent := make([]byte, stat.Size())
-	_, err = file.Read(fileContent)
-	if err != nil {
-		log.Printf("Error reading file: %v", err)
+		log.Printf("Error getting file info: %v. Using default config only.", err)
+		hasConfigFile = false
 		return err
 	}
 
 	config := defaultPortierConfig()
 
-	err = yaml.Unmarshal(fileContent, &config)
-	if err != nil {
-		log.Printf("Error unmarshalling yaml: %v", err)
-		return err
+	if hasConfigFile {
+		file, err := os.Open(filePath)
+		if err != nil {
+			log.Printf("Error opening file: %v", err)
+			return err
+		}
+		defer file.Close()
+
+		fileContent := make([]byte, stat.Size())
+		_, err = file.Read(fileContent)
+		if err != nil {
+			log.Printf("Error reading file: %v", err)
+			return err
+		}
+
+		err = yaml.Unmarshal(fileContent, &config)
+		if err != nil {
+			log.Printf("Error unmarshalling yaml: %v", err)
+			return err
+		}
 	}
 
 	p.config = config
-
 	return nil
 }
 
 func (p *PortierApplication) LoadApiToken(filePath string) error {
 	stat, err := os.Stat(filePath)
 	if err != nil {
-		log.Printf("Error getting file info: %v", err)
+		log.Printf("Error getting file info: %v. Exiting", err)
 		return err
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Printf("Error opening file: %v", err)
+		log.Printf("Error opening file: %v. Exiting", err)
 		return err
 	}
 	defer file.Close()
@@ -135,7 +138,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 	fileContent := make([]byte, stat.Size())
 	_, err = file.Read(fileContent)
 	if err != nil {
-		log.Printf("Error reading file: %v", err)
+		log.Printf("Error reading file: %v. Exiting", err)
 		return err
 	}
 
@@ -143,7 +146,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 
 	err = yaml.Unmarshal(fileContent, &credentials)
 	if err != nil {
-		log.Printf("Error unmarshalling yaml: %v", err)
+		log.Printf("Error unmarshalling yaml: %v. Exiting", err)
 		return err
 	}
 
