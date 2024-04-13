@@ -11,7 +11,7 @@ If complex network setup blocked you - search no more. Portier offers you remote
 ## Robust, reliable and lean.
 
 With its automatic reconnect and advanced retransmission algorithms, your remote access works free from connection drops. Portier turns these events into a bit of latency, and then everything continues smoothly.
-Portier-cli, our client application written in golang, requires roughly 10MB of RAM to run, but is also capable of scaling up to handle thousands of parallel connections - if you need it.
+Portier-cli requires roughly 10MB of RAM to run, but is also capable of scaling up to handle thousands of parallel connections - if you need it.
 
 ## Secure, (don’t) trust us.
 
@@ -146,7 +146,7 @@ This will display a one-time login link.
 2024/04/12 21:08:29 Starting Portier CLI...
 Logging in...
 Open the following link in your browser:
-https://portier-spider.eu.auth0.com/authorize?client_id=jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb&redirect_uri=http://localhost:5555/callback&scope=openid+email+offline_access&state=portier-cli&nonce=portier-cli&code_challenge=ga0Y72etcz44HssMGoj_-fBeaRpvTQwoN70wu5KP1nE&code_challenge_method=S256&response_type=code
+https://portier-spider.eu.auth0.com/authorize?client_id=jE4nxZ6minkxAiHqb&redirect_uri=http://localhost:5555/callback&scope=openid+email+offline_access&state=portier-cli&nonce=portier-cli&code_challenge=ga0Y72et..70wu5KP1nE&code_challenge_method=S256&response_type=code
 ```
 In some shells, you can click the link directly, on others you have to copy the link and open it in your browser. Complete the login, after which you'll see a message in the browser:
 ```
