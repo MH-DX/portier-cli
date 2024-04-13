@@ -67,7 +67,8 @@ func defaultPortierConfig() *PortierConfig {
 		PortierURL: utils.YAMLURL{
 			URL: &url.URL{
 				Scheme: "wss",
-				Host:   "api.portier.dev/spider",
+				Host:   "api.portier.dev",
+				Path:   "/spider",
 			},
 		},
 		Services:                    []relay.Service{},
@@ -302,6 +303,9 @@ func (p *PortierApplication) startListeners() error {
 }
 
 func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (router.Router, uplink.Uplink, error) {
+	log.Printf("Creating relay for device: %s\n", deviceID)
+	log.Printf("Portier URL: %s\n", portierUrl.String())
+
 	uplinkOptions := uplink.Options{
 		APIToken:   apiToken,
 		PortierURL: portierUrl.String(),
