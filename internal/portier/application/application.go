@@ -86,38 +86,33 @@ func defaultPortierConfig() *PortierConfig {
 // LoadConfig loads the config from the given file path.
 func (p *PortierApplication) LoadConfig(filePath string) error {
 	stat, err := os.Stat(filePath)
-	hasConfigFile := true
+	p.config = defaultPortierConfig()
+
 	if err != nil {
 		log.Printf("Error getting file info: %v. Using default config only.", err)
-		hasConfigFile = false
 		return err
 	}
 
-	config := defaultPortierConfig()
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("Error opening file: %v", err)
+		return err
+	}
+	defer file.Close()
 
-	if hasConfigFile {
-		file, err := os.Open(filePath)
-		if err != nil {
-			log.Printf("Error opening file: %v", err)
-			return err
-		}
-		defer file.Close()
-
-		fileContent := make([]byte, stat.Size())
-		_, err = file.Read(fileContent)
-		if err != nil {
-			log.Printf("Error reading file: %v", err)
-			return err
-		}
-
-		err = yaml.Unmarshal(fileContent, &config)
-		if err != nil {
-			log.Printf("Error unmarshalling yaml: %v", err)
-			return err
-		}
+	fileContent := make([]byte, stat.Size())
+	_, err = file.Read(fileContent)
+	if err != nil {
+		log.Printf("Error reading file: %v", err)
+		return err
 	}
 
-	p.config = config
+	err = yaml.Unmarshal(fileContent, p.config)
+	if err != nil {
+		log.Printf("Error unmarshalling yaml: %v", err)
+		return err
+	}
+
 	return nil
 }
 
