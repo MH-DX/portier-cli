@@ -188,7 +188,7 @@ starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mar
 
 In this example, myDevice1 can be accessed remotely by other portier devices belonging to your account. Note that myDevice1 doesn't forward any remote port itself, it is just waiting for incoming connections. Read the next chapter to learn how you can setup a second portier device to access myDevice1.
 
-## Setting Up a Remote Service (WIP)
+## Setting Up a Remote Service
 
 Assume you need to access myDevice1's via ssh, where the ssh server on myDevice1 is running on port 22. Let's call your home machine `myHome`.
 
