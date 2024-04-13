@@ -190,12 +190,38 @@ In this example, myDevice1 can be accessed remotely by other portier devices bel
 
 ## Setting Up a Remote Service (WIP)
 
-Assume you need to access myDevice1's ssh port from your home machine, let's call this device myHome.
+Assume you need to access myDevice1's via ssh, where the ssh server on myDevice1 is running on port 22. Let's call your home machine `myHome`.
 
-First, repeat the previous steps to install and register portier-cli on your home machine. Then, add a service:
+First, repeat the previous steps to install and register portier-cli on your home machine. Then, create the portier config.yaml in your home folder, (under `~/.portier/config.yaml`), and add the following lines:
 ```
-TBD
+services:
+  - name: ssh
+    options: 
+      urlLocal: "tcp://localhost:22222"                      # the local URL on myHome, where the remote port will be forwarded to
+      urlRemote: "tcp://localhost:22"                        # the URL that portier-cli on myDevice1 will connect to
+      peerDeviceID: "cd9b0785-5f26-405f-beed-b2568a2d9efe"   # the device id of myDevice1
+      ReadBufferSize: 32768                                  # optional TCP read buffer size (set to 32KB to accomodate scp)
 ```
+
+Now, start portier-cli on myHome, and note the additional output about the started service ssh:
+```
+% ./portier-cli run          
+2024/04/13 21:04:53 Starting Portier CLI...
+starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mario/.portier/credentials_device.yaml, out json
+2024/04/13 21:04:53 Creating relay...
+2024/04/13 21:04:53 Starting services...
+2024/04/13 21:04:53 Starting service: ssh
+2024/04/13 21:04:53 Starting listener for service: {ssh {tcp://localhost:4356 tcp://localhost:22 34d34526-9d00-4f17-90e9-5c87b8e01703      0s 0s 0 0}}
+...
+2024/04/13 21:04:53 All Services started...
+```
+
+Now, you're ready to access myDevice1 from myHome:
+```
+ssh -p 22222 root@localhost
+```
+
+Congratulations! You successfully forwarded a port using portier.
 
 # Project Layout
 * [assets/](https://pkg.go.dev/github.com/marinator86/portier-cli/assets) => docs, images, etc
