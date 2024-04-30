@@ -52,40 +52,46 @@ For macOS, download the appropriate binary for your architecture:
 
 - **Intel (x64):**
   ```bash
-  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_darwin_amd64.tar.gz | tar xz
+  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_amd64.tar.gz | tar xz
   sudo mv portier-cli /usr/local/bin
   ```
 
 - **Apple Silicon (ARM64):**
   ```bash
-  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_darwin_arm64.tar.gz | tar xz
+  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_arm64.tar.gz | tar xz
   sudo mv portier-cli /usr/local/bin
   ```
 
 ### Linux
 
-For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choose the one appropriate for your system and architecture.
+For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choose the one appropriate for your system and architecture. Replace `<ARCH>` with your architecture, such as `amd64`, `arm64`, or `armv6`.
 
 - **Debian-based systems (e.g., Ubuntu)**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<ARCH>.deb
+  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.deb
+  ```
+  ```bash
   sudo dpkg -i portier-cli_<ARCH>.deb
   ```
 
 - **Red Hat-based systems (e.g., Fedora, CentOS)**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<ARCH>.rpm
+  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.rpm
+  ```
+  ```bash
   sudo rpm -i portier-cli_<ARCH>.rpm
   ```
 
 - **Tarball (any Linux):**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<ARCH>.tar.gz
+  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.tar.gz
+  ```
+  ```bash
   tar -xzf portier-cli_<ARCH>.tar.gz
+  ```
+  ```bash
   sudo mv portier-cli /usr/local/bin
   ```
-
-Replace `<ARCH>` with your architecture, such as `amd64`, `arm64`, or `armv6`.
 
 ### Windows
 
@@ -93,13 +99,13 @@ For Windows, download the `.zip` file and extract it:
 
 - **64-bit:**
   ```cmd
-  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_windows_amd64.zip
+  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_amd64.zip
   unzip portier-cli_windows_amd64.zip -d portier-cli
   ```
 
 - **ARM64:**
   ```cmd
-  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_windows_arm64.zip
+  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_arm64.zip
   unzip portier-cli_windows_arm64.zip -d portier-cli
   ```
 
