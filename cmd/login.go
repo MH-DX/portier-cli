@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	portier "github.com/marinator86/portier-cli/internal/portier/api"
 	"github.com/spf13/cobra"
 )
@@ -30,6 +28,5 @@ func newLoginCmd() *cobra.Command {
 }
 
 func (o *loginOptions) run(cmd *cobra.Command, _ []string) error {
-	fmt.Fprintf(cmd.OutOrStdout(), "Logging in...\n")
 	return portier.Login()
 }
