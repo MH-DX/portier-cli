@@ -2,9 +2,6 @@ package portier
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,124 +17,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Verifier struct {
-	// The verifier is a random string that is used to generate the challenge
-	// It is a url-safe base64 encoded string
-	// See https://tools.ietf.org/html/rfc7636#section-4.1
-	Verifier  string
-	Challenge string
-}
-
-type AuthRequest struct {
-	// The authorization URL is the URL that the user is redirected to
-	AuthURL string
-	// The client ID is a random string that is used to identify the client
-	ClientID string
-	// The redirect URI is the URI that the user is redirected to after login
-	RedirectURI string
-	// The scope is a list of scopes that the client requests
-	Scope string
-	// The state is a random string that is used to prevent CSRF attacks
-	State string
-	// The nonce is a random string that is used to prevent replay attacks
-	Nonce string
-	// The code challenge is a hash of the verifier
-	Verifier Verifier
-	// The code challenge method is the method that is used to generate the code challenge
-	CodeChallengeMethod string
-}
-
 type AuthResponse struct {
 	AccessToken  string
 	RefreshToken string
 }
 
-func NewVerifier() (Verifier, error) {
-	// create a new random url-safe base64 encoded string
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
+// Login uses device flow to log the user in. It uses a file to store the user's jwt token in ~/.portier/credentials.json
+// Device flow is a way to authenticate users on devices that do not have a browser.
+// See https://tools.ietf.org/html/rfc8628
+func Login() error {
+	home, err := utils.Home()
 	if err != nil {
-		return Verifier{}, err
+		return err
 	}
-	verifier := base64.RawURLEncoding.EncodeToString(b)
-	s256 := sha256.New()
-	s256.Write([]byte(verifier))
-	hash := s256.Sum(nil)
 
-	codeChallenge := base64.RawURLEncoding.EncodeToString(hash)
-	return Verifier{
-		Verifier:  verifier,
-		Challenge: codeChallenge,
-	}, nil
-}
-
-func NewAuthRequest(verifier Verifier) (AuthRequest, error) {
-	// create a new auth request
-	// url encode the verifier
-	authRequest := AuthRequest{
-		AuthURL:             "https://portier-spider.eu.auth0.com/authorize",
-		ClientID:            "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb",
-		RedirectURI:         "http://localhost:5555/callback",
-		Scope:               url.QueryEscape("openid email offline_access"),
-		State:               url.QueryEscape("portier-cli"),
-		Nonce:               url.QueryEscape("portier-cli"),
-		Verifier:            verifier,
-		CodeChallengeMethod: "S256",
-	}
-	return authRequest, nil
-}
-
-func CreateAuthUrl(authRequest AuthRequest) string {
-	return fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&scope=%s&state=%s&nonce=%s&code_challenge=%s&code_challenge_method=%s&response_type=code", authRequest.AuthURL, authRequest.ClientID, authRequest.RedirectURI, authRequest.Scope, authRequest.State, authRequest.Nonce, authRequest.Verifier.Challenge, authRequest.CodeChallengeMethod)
-}
-
-func WaitForAuthCode(authRequest AuthRequest) (string, error) {
-	// start a http server on localhost:5555
-	// wait for the user to login
-	// return the authorization code
-	var server http.Server
-	var code string
-
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		// This is where you would handle the callback and extract the code
-		// For now, we'll just print the entire request URL
-		fmt.Fprintf(w, "Thanks for using portier.dev! You can now close this window.")
-
-		// You can get individual query parameters like this:
-		code = r.URL.Query().Get("code")
-		// Stop the server after handling the callback
-		go func() {
-			<-time.After(100 * time.Millisecond) // delay to allow the HTTP response
-			if err := server.Shutdown(context.Background()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-	})
-
-	server = http.Server{Addr: ":5555"}
-
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatal(err)
-	}
-	return code, nil
-}
-
-func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, error) {
 	// define the endpoint
-	tokenURL := "https://portier-spider.eu.auth0.com/oauth/token"
+	deviceURL := "https://portier-spider.eu.auth0.com/oauth/device/code"
 
 	// define the data
 	data := url.Values{}
-	data.Set("grant_type", "authorization_code")
-	data.Set("client_id", authRequest.ClientID)
-	data.Set("code_verifier", authRequest.Verifier.Verifier)
-	data.Set("code", authCode)
-	data.Set("redirect_uri", authRequest.RedirectURI)
+	data.Set("client_id", "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb")
+	data.Set("scope", "openid email offline_access")
 
 	// create the request
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, deviceURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return AuthResponse{}, err
+		return err
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
@@ -145,114 +50,139 @@ func ExchangeAuthCode(authRequest AuthRequest, authCode string) (AuthResponse, e
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return AuthResponse{}, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	// parse the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return AuthResponse{}, err
+		return err
 	}
 
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return AuthResponse{}, err
+		return err
 	}
 
-	// TODO check the nonce in the id token
+	// check the response code
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("error: %s", result["error_description"])
+	}
 
-	// extract the access token and refresh token
-	accessToken, ok := result["access_token"].(string)
+	// extract the device code and user code
+	deviceCode, ok := result["device_code"].(string)
 	if !ok {
-		return AuthResponse{}, fmt.Errorf("access_token not found in response")
+		return fmt.Errorf("device_code not found in response")
 	}
-	refreshToken, ok := result["refresh_token"].(string)
+	userCode, ok := result["user_code"].(string)
 	if !ok {
-		return AuthResponse{}, fmt.Errorf("refresh_token not found in response")
+		return fmt.Errorf("user_code not found in response")
 	}
+	verificationURL, _ := result["verification_uri"].(string)
+	verificationURLComplete, _ := result["verification_uri_complete"].(string)
+	pollingInterval, _ := result["interval"].(float64)
 
-	return AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
-}
+	// log a nice multiline message to the user repeating the instructions
+	// to log in
+	log.Println(`
 
-func StoreAccessToken(authResponse AuthResponse, home string) error {
-	// store the access token in ~/.portier/credentials.json
-	// create the file if it does not exist
-	credentialsFile := filepath.Join(home, "credentials.yaml")
-	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
-		// create the file
-		_, err := os.Create(credentialsFile)
+Logging in to portier.dev
+-------------------------
+Steps:
+
+1. Open the following link in your browser to authenticate:
+` + verificationURLComplete + `
+
+2. Alternatively, open ` + verificationURL + ` in your browser and enter the code ` + userCode + `
+
+Waiting for user to log in...
+`)
+
+	// poll the token endpoint until the user has logged in
+	for {
+		// define the endpoint
+		tokenURL := "https://portier-spider.eu.auth0.com/oauth/token"
+
+		// define the data
+		data := url.Values{}
+		data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
+		data.Set("client_id", "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb")
+		data.Set("device_code", deviceCode)
+
+		// create the request
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 		if err != nil {
 			return err
 		}
-	}
-	// store  the authResponse in the file as yaml
-	credentials := map[string]string{
-		"stored_at":     time.Now().Format(time.RFC3339),
-		"access_token":  authResponse.AccessToken,
-		"refresh_token": authResponse.RefreshToken,
-	}
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	yamlCredentials, err := yaml.Marshal(credentials)
-	if err != nil {
-		return err
-	}
-	// write the yaml to the file
-	err = os.WriteFile(credentialsFile, yamlCredentials, 0o644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+		// perform the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
 
-// login is a function that logs the user in. It uses a file to store the user's jwt token in ~/.portier/credentials.json
-// As interactive login we offer Authorization Code Flow with Proof Key for Code Exchange (PKCE).
-// This is the recommended way to authenticate users.
-// See https://tools.ietf.org/html/rfc7636
-func Login() error {
-	home, err := utils.Home()
-	if err != nil {
-		return err
+		// parse the response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		var result map[string]interface{}
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			return err
+		}
+
+		// check if the user has not logged in yet, if so wait
+		if resp.StatusCode != 200 {
+			error := result["error"].(string)
+			if error == "authorization_pending" {
+				time.Sleep(time.Duration(pollingInterval) * time.Second)
+				continue
+			}
+			if error == "slow_down" {
+				pollingInterval = pollingInterval + 1
+				time.Sleep(time.Duration(pollingInterval) * time.Second)
+				continue
+			}
+			return fmt.Errorf("%s", result["error_description"])
+		}
+
+		// extract the access token and refresh token
+		log.Printf("Log in successful, storing access token in ~/.portier/credentials.yaml")
+		accessToken, ok := result["access_token"].(string)
+		if !ok {
+			return fmt.Errorf("access_token not found in response")
+		}
+		refreshToken, ok := result["refresh_token"].(string)
+		if !ok {
+			return fmt.Errorf("refresh_token not found in response")
+		}
+
+		// store the access token in the credentials file
+		credentials := map[string]string{
+			"stored_at":     time.Now().Format(time.RFC3339),
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+		}
+
+		yamlCredentials, err := yaml.Marshal(credentials)
+		if err != nil {
+			return err
+		}
+		// write the yaml to the file
+		credentialsFile := filepath.Join(home, "credentials.yaml")
+		err = os.WriteFile(credentialsFile, yamlCredentials, 0o644)
+		if err != nil {
+			return err
+		}
+
+		log.Println("Login successful.")
+		return nil
 	}
-
-	// Create a new PKCE verifier and challenge
-	verifier, err := NewVerifier()
-	if err != nil {
-		return err
-	}
-
-	// Create a new authorization request
-	authRequest, err := NewAuthRequest(verifier)
-	if err != nil {
-		return err
-	}
-
-	// Open the browser and let the user login
-	url := CreateAuthUrl(authRequest)
-	fmt.Printf("Open the following link in your browser:\n%s\n", url)
-
-	// Wait for the user to login and get the authorization code
-	authCode, err := WaitForAuthCode(authRequest)
-	if err != nil {
-		return err
-	}
-
-	// Exchange the authorization code for an access token
-	authResponse, err := ExchangeAuthCode(authRequest, authCode)
-	if err != nil {
-		return err
-	}
-
-	// Store the access token in the credentials file
-	err = StoreAccessToken(authResponse, home)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("You are now logged in.")
-	return nil
 }

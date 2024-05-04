@@ -149,16 +149,26 @@ portier-cli login
 ```
 This will display a one-time login link.
 ```
-2024/04/12 21:08:29 Starting Portier CLI...
-Logging in...
-Open the following link in your browser:
-https://portier-spider.eu.auth0.com/authorize?client_id=jE4nxZ6minkxAiHqb&redirect_uri=http://localhost:5555/callback&scope=openid+email+offline_access&state=portier-cli&nonce=portier-cli&code_challenge=ga0Y72et..70wu5KP1nE&code_challenge_method=S256&response_type=code
+2024/05/04 20:11:26 Starting Portier CLI...
+2024/05/04 20:11:26 
+
+Logging in to portier.dev
+-------------------------
+Steps:
+
+1. Open the following link in your browser to authenticate:
+https://portier-spider.eu.auth0.com/activate?user_code=MXXG-ZXXG
+
+2. Alternatively, open https://portier-spider.eu.auth0.com/activate in your browser and enter the code MXXG-ZXXG
+
+Waiting for user to log in...
 ```
-In some shells, you can click the link directly, on others you have to copy the link and open it in your browser. Complete the login, after which you'll see a message in the browser:
+In some shells, you can click the link directly, on others you have to copy the link and open it in your browser. Complete the login in your browser. After a short while, portier-cli will also display a success message:
+
 ```
-Thanks for using portier.dev! You can now close this window.
+2024/05/04 20:11:23 Log in successful, storing access token in ~/.portier/credentials.yaml
+2024/05/04 20:11:23 Login successful.
 ```
-Now you are logged in.
 
 ## Register a device
 
