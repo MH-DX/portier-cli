@@ -71,7 +71,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
   wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.deb
   ```
   ```bash
-  sudo dpkg -i portier-cli_<ARCH>.deb
+  sudo dpkg -i portier-cli_<VERSION>_linux_<ARCH>.deb
   ```
 
 - **Red Hat-based systems (e.g., Fedora, CentOS)**
@@ -79,7 +79,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
   wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.rpm
   ```
   ```bash
-  sudo rpm -i portier-cli_<ARCH>.rpm
+  sudo rpm -i portier-cli_<VERSION>_linux_<ARCH>.rpm
   ```
 
 - **Tarball (any Linux):**
@@ -87,7 +87,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
   wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.tar.gz
   ```
   ```bash
-  tar -xzf portier-cli_<ARCH>.tar.gz
+  tar -xzf portier-cli_<VERSION>_linux_<ARCH>.tar.gz
   ```
   ```bash
   sudo mv portier-cli /usr/local/bin
@@ -100,13 +100,13 @@ For Windows, download the `.zip` file and extract it:
 - **64-bit:**
   ```cmd
   curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_amd64.zip
-  unzip portier-cli_windows_amd64.zip -d portier-cli
+  unzip portier-cli_<VERSION>_windows_amd64.zip -d portier-cli
   ```
 
 - **ARM64:**
   ```cmd
   curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_arm64.zip
-  unzip portier-cli_windows_arm64.zip -d portier-cli
+  unzip portier-cli_<VERSION>_windows_arm64.zip -d portier-cli
   ```
 
 Add the folder to your PATH to run `portier-cli` from the command line.
@@ -174,7 +174,7 @@ In some shells, you can click the link directly, on others you have to copy the 
 
 Now it's time to register this machine as a device:
 ```
-% portier-cli register --name myDevice1
+portier-cli register --name myDevice1
 ```
 This will connect to the portier API to register the device and download an API key:
 ```
@@ -186,6 +186,8 @@ Device registered and credentials stored successfully.
 Device ID: 	cd9b0785-5f26-405f-beed-b2568a2d9efe
 API Key: 	  ***
 ```
+
+Take a note of your Device ID (in this case `cd9b0785-5f26-405f-beed-b2568a2d9efe`). We'll need it later when configuring a service.
 
 ## Start Portier
 
@@ -215,7 +217,7 @@ services:
     options: 
       urlLocal: "tcp://localhost:22222"                      # the local URL on myHome, where the remote port will be forwarded to
       urlRemote: "tcp://localhost:22"                        # the URL that portier-cli on myDevice1 will connect to
-      peerDeviceID: "cd9b0785-5f26-405f-beed-b2568a2d9efe"   # the device id of myDevice1
+      peerDeviceID: <Device ID>                              # the device id we noted in chapter "Register a device"
       ReadBufferSize: 32768                                  # optional TCP read buffer size (set to 32KB to accomodate scp)
 ```
 
