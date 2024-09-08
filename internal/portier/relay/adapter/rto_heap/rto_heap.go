@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
@@ -35,7 +34,6 @@ type priorityQueue []*item
 type rtoHeap struct {
 	uplink        uplink.Uplink
 	encoder       encoder.EncoderDecoder
-	encryption    encryption.Encryption
 	options       RtoHeapOptions
 	queue         priorityQueue
 	ticker        *time.Ticker
@@ -50,14 +48,13 @@ func NewDefaultRtoHeapOptions() RtoHeapOptions {
 	}
 }
 
-func NewRtoHeap(ctx context.Context, options RtoHeapOptions, uplink uplink.Uplink, encoder encoder.EncoderDecoder, encryption encryption.Encryption) RtoHeap {
+func NewRtoHeap(ctx context.Context, options RtoHeapOptions, uplink uplink.Uplink, encoder encoder.EncoderDecoder) RtoHeap {
 	pq := make(priorityQueue, 0)
 	heap.Init(&pq)
 
 	rtoHeap := &rtoHeap{
 		uplink:        uplink,
 		encoder:       encoder,
-		encryption:    encryption,
 		options:       options,
 		queue:         pq,
 		ticker:        time.NewTicker(time.Millisecond * 20),
@@ -122,16 +119,10 @@ func (r *rtoHeap) process() {
 						log.Println("Error encoding data message")
 						continue
 					}
-					// encrypt the data
-					encrypted, err := r.encryption.Encrypt(item.Msg.Header, dmBytes)
-					if err != nil {
-						log.Printf("error encrypting data: %s\n", err)
-						continue
-					}
 					// wrap the data in a message
 					msg := messages.Message{
 						Header:  item.Msg.Header,
-						Message: encrypted,
+						Message: dmBytes,
 					}
 
 					err = r.uplink.Send(msg)

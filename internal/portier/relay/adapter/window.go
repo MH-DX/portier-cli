@@ -11,7 +11,6 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter/rto_heap"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter/rtt"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
@@ -100,8 +99,8 @@ func NewDefaultWindowOptions() WindowOptions {
 	}
 }
 
-func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink, encoderDecoder encoder.EncoderDecoder, encryption encryption.Encryption) Window {
-	rtoHeap := rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder, encryption)
+func NewWindow(ctx context.Context, options WindowOptions, uplink uplink.Uplink, encoderDecoder encoder.EncoderDecoder) Window {
+	rtoHeap := rto_heap.NewRtoHeap(ctx, rto_heap.NewDefaultRtoHeapOptions(), uplink, encoderDecoder)
 	return newWindow(ctx, options, uplink, rtoHeap)
 }
 

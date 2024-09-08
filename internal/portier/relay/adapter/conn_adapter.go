@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
@@ -57,17 +56,8 @@ type ConnectionAdapterOptions struct {
 	// PeerDeviceId is the id of the peer device that this connection is bridged to/from
 	PeerDeviceId uuid.UUID
 
-	// PeerDevicePublicKey is the public key of the peer device that this connection is bridged to/from
-	PeerDevicePublicKey string
-
 	// BridgeOptions are the bridge options
 	BridgeOptions messages.BridgeOptions
-
-	// LocalPublicKey is the public key of the local device
-	LocalPublicKey string
-
-	// LocalPrivateKey is the private key of the local device
-	LocalPrivateKey string
 
 	// ResponseInterval is the interval in which the connection accept/failed message is sent
 	ResponseInterval time.Duration
@@ -87,9 +77,6 @@ type connectionAdapter struct {
 
 	// encoderDecoder is the encoder/decoder for msgpack
 	encoderDecoder encoder.EncoderDecoder
-
-	// encryption is the encryptor/decryptor for this connection
-	encryption encryption.Encryption
 
 	// uplink is the uplink
 	uplink uplink.Uplink
@@ -120,7 +107,6 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
-		encryption:     nil,
 		state:          NewConnectingOutboundState(options, eventChannel, uplink, connection),
 		mode:           Outbound,
 		eventChannel:   eventChannel,
@@ -133,7 +119,6 @@ func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
-		encryption:     nil,
 		state:          NewConnectingInboundState(options, eventChannel, uplink),
 		mode:           Inbound,
 		eventChannel:   eventChannel,

@@ -58,14 +58,12 @@ func TestConnectionOpen(testing *testing.T) {
 
 	underTest := NewRouter(uplinkMock, msg, events)
 
-	pcKey := "test-pc-key"
 	remoteUrl, _ := url.Parse("tcp://" + forwarded.Addr().String())
 	bridgeOptions := messages.BridgeOptions{
 		URLRemote: *remoteUrl,
 	}
 	connectionOpenMessage := messages.ConnectionOpenMessage{
 		BridgeOptions: bridgeOptions,
-		PCKey:         pcKey,
 	}
 	encoderDecoder := encoder.NewEncoderDecoder()
 	connectionOpenMessagePayload, _ := encoderDecoder.EncodeConnectionOpenMessage(connectionOpenMessage)

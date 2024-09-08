@@ -39,10 +39,7 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	uplink := MockUplink{}
 	uplink.On("Send", mock.Anything).Return(nil)
 
-	// mock encryption
-	encryption := MockEncryption{}
-
-	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
+	underTest := NewForwarder(options, conn, &uplink, eventChannel)
 
 	err = underTest.Start()
 	assert.Nil(testing, err)
@@ -53,7 +50,6 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	}
 
 	dmEncoded, _ := encoder.NewEncoderDecoder().EncodeDataMessage(dm)
-	encryption.On("Decrypt", mock.Anything, mock.Anything).Return(dmEncoded, nil)
 
 	// WHEN
 	// send a message to the send channel and check if it is received by the conn
@@ -76,7 +72,6 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	underTest.Close()
 	uplink.AssertExpectations(testing)
-	encryption.AssertExpectations(testing)
 }
 
 func TestForwardingToUplink(testing *testing.T) {
@@ -116,27 +111,7 @@ func TestForwardingToUplink(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	// mock encryption
-	encryption := MockEncryption{}
-
-	dm1 := messages.DataMessage{
-		Seq:  0,
-		Data: []byte("test1"),
-	}
-
-	dm2 := messages.DataMessage{
-		Seq:  1,
-		Data: []byte("test2"),
-	}
-
-	dmEncoded1, _ := encoder.NewEncoderDecoder().EncodeDataMessage(dm1)
-	dmEncoded2, _ := encoder.NewEncoderDecoder().EncodeDataMessage(dm2)
-
-	// make Encryption.Encrypt return the same data
-	encryption.On("Encrypt", mock.Anything, dmEncoded1).Return([]byte("test1"), nil)
-	encryption.On("Encrypt", mock.Anything, dmEncoded2).Return([]byte("test2"), nil)
-
-	underTest := NewForwarder(options, conn, &uplink, &encryption, eventChannel)
+	underTest := NewForwarder(options, conn, &uplink, eventChannel)
 
 	err = underTest.Start()
 	assert.Nil(testing, err)
@@ -149,9 +124,13 @@ func TestForwardingToUplink(testing *testing.T) {
 	assert.Nil(testing, err)
 	received2 := <-msgChannel
 
+	decoder := encoder.NewEncoderDecoder()
+	decoded1, _ := decoder.DecodeDataMessage(received1.Message)
+	decoded2, _ := decoder.DecodeDataMessage(received2.Message)
+
 	// THEN
-	assert.Equal(testing, []byte("test1"), received1.Message)
-	assert.Equal(testing, []byte("test2"), received2.Message)
+	assert.Equal(testing, []byte("test1"), decoded1.Data)
+	assert.Equal(testing, []byte("test2"), decoded2.Data)
 
 	underTest.Close()
 	uplink.AssertExpectations(testing)

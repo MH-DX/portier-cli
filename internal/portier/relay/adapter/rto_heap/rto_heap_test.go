@@ -15,13 +15,11 @@ import (
 func TestInsertAndAck(testing *testing.T) {
 	// GIVEN
 	header := messages.MessageHeader{}
-	encryptedData := []byte("encrypted")
+	data := []byte("dataMsg")
 	expectedMessage := messages.Message{
 		Header:  header,
-		Message: encryptedData,
+		Message: data,
 	}
-	mockEncryption := new(MockEncryption)
-	mockEncryption.On("Encrypt", mock.Anything, mock.Anything).Return(encryptedData, nil)
 	encoderDecoder := new(encoder.MockEncoderDecoder)
 	encoderDecoder.On("EncodeDataMessage", mock.Anything).Return([]byte("dataMsg"), nil)
 	encoderDecoder.On("DecodeDataMessage", mock.Anything).Return(messages.DataMessage{}, nil)
@@ -30,7 +28,7 @@ func TestInsertAndAck(testing *testing.T) {
 	}
 	mockUplink := new(MockUplink)
 	mockUplink.On("Send", expectedMessage).Return(nil)
-	underTest := NewRtoHeap(context.Background(), options, mockUplink, encoderDecoder, mockEncryption)
+	underTest := NewRtoHeap(context.Background(), options, mockUplink, encoderDecoder)
 	item := &windowitem.WindowItem{
 		Msg: messages.Message{
 			Header: header,
@@ -57,8 +55,6 @@ func TestInsertAndAck(testing *testing.T) {
 	}
 	mockUplink.AssertNumberOfCalls(testing, "Send", 1)
 	mockUplink.AssertExpectations(testing)
-	mockEncryption.AssertNumberOfCalls(testing, "Encrypt", 1)
-	mockEncryption.AssertExpectations(testing)
 	encoderDecoder.AssertNumberOfCalls(testing, "EncodeDataMessage", 1)
 	encoderDecoder.AssertNumberOfCalls(testing, "DecodeDataMessage", 1)
 	encoderDecoder.AssertExpectations(testing)
@@ -86,18 +82,4 @@ func (m *MockUplink) Close() error {
 func (m *MockUplink) Events() <-chan uplink.Event {
 	m.Called()
 	return nil
-}
-
-type MockEncryption struct {
-	mock.Mock
-}
-
-func (m *MockEncryption) Decrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
-	args := m.Called(header, data)
-	return args.Get(0).([]byte), args.Error(1)
-}
-
-func (m *MockEncryption) Encrypt(header messages.MessageHeader, data []byte) ([]byte, error) {
-	args := m.Called(header, data)
-	return args.Get(0).([]byte), args.Error(1)
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
@@ -39,7 +38,6 @@ type connectingOutboundState struct {
 func (c *connectingOutboundState) Start() error {
 	// send connection open message
 	connectionOpenMessagePayload, err := c.encoderDecoder.EncodeConnectionOpenMessage(messages.ConnectionOpenMessage{
-		PCKey:         c.options.LocalPublicKey,
 		BridgeOptions: c.options.BridgeOptions,
 	})
 	if err != nil {
@@ -105,18 +103,13 @@ func (c *connectingOutboundState) Close() error {
 }
 
 func (c *connectingOutboundState) HandleMessage(msg messages.Message) (ConnectionAdapterState, error) {
-	// if message is a connection accept message, create encryption and return connected state
+	// if message is a connection accept message return connected state
 	if msg.Header.Type == messages.CA {
-		// TODO check signature
 		connectionAcceptMessage, err := c.encoderDecoder.DecodeConnectionAcceptMessage(msg.Message)
 		if err != nil {
 			return nil, err
 		}
-
-		peerDevicePubKey := connectionAcceptMessage.PCKey
-		cipher := encryption.Cipher(c.options.BridgeOptions.Cipher)
-		curve := encryption.Curve(c.options.BridgeOptions.Curve)
-		encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
+		log.Printf("connection accept message received: %v\n", connectionAcceptMessage)
 
 		forwarderOptions := ForwarderOptions{
 			Throughput:     c.options.ThroughputLimit,
@@ -126,7 +119,7 @@ func (c *connectingOutboundState) HandleMessage(msg messages.Message) (Connectio
 			ReadTimeout:    c.options.ConnectionReadTimeout,
 			ReadBufferSize: c.options.ReadBufferSize,
 		}
-		forwarder := NewForwarder(forwarderOptions, c.conn, c.uplink, encryption, c.eventChannel)
+		forwarder := NewForwarder(forwarderOptions, c.conn, c.uplink, c.eventChannel)
 
 		return NewConnectedState(c.options, c.eventChannel, c.uplink, forwarder), nil
 	}

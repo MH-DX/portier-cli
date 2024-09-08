@@ -48,12 +48,6 @@ type BridgeOptions struct {
 
 	// The remote URL
 	URLRemote url.URL
-
-	// Cipher is the cipher that is used to encrypt the data
-	Cipher string
-
-	// Curve is the canonical name of the curve that is used to generate the keys
-	Curve string
 }
 
 type MessageHeader struct {
@@ -83,14 +77,9 @@ type Message struct {
 type ConnectionOpenMessage struct {
 	// BridgeOptions defines the options for the bridge, which are shared
 	BridgeOptions BridgeOptions
-
-	// PCKey is the ephemeral public connection key, used to encrypt&sign the data for this connection
-	PCKey string
 }
 
 type ConnectionAcceptMessage struct {
-	// PCKey is the ephemeral public connection key, used to encrypt&sign the data for this connection
-	PCKey string
 }
 
 // ConnectionFailedMessage is a message that is sent when a connection open attempt failed.

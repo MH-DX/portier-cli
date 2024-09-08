@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
@@ -71,9 +70,7 @@ func (c *connectingInboundState) Start() error {
 		return mainError
 	}
 
-	connectionAcceptMessagePayload, _ := c.encoderDecoder.EncodeConnectionAcceptMessage(messages.ConnectionAcceptMessage{
-		PCKey: c.options.LocalPublicKey,
-	})
+	connectionAcceptMessagePayload, _ := c.encoderDecoder.EncodeConnectionAcceptMessage(messages.ConnectionAcceptMessage{})
 
 	msg := messages.Message{
 		Header: messages.MessageHeader{
@@ -103,11 +100,6 @@ func (c *connectingInboundState) Start() error {
 		}
 	}()
 
-	peerDevicePubKey := c.options.PeerDevicePublicKey
-	cipher := encryption.Cipher(c.options.BridgeOptions.Cipher)
-	curve := encryption.Curve(c.options.BridgeOptions.Curve)
-	encryption := encryption.NewEncryption(c.options.LocalPublicKey, c.options.LocalPrivateKey, peerDevicePubKey, cipher, curve)
-
 	forwarderOptions := ForwarderOptions{
 		Throughput:     c.options.ThroughputLimit,
 		LocalDeviceID:  c.options.LocalDeviceId,
@@ -116,7 +108,7 @@ func (c *connectingInboundState) Start() error {
 		ReadTimeout:    c.options.ConnectionReadTimeout,
 		ReadBufferSize: c.options.ReadBufferSize,
 	}
-	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, encryption, c.eventChannel)
+	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, c.eventChannel)
 
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encryption"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 )
@@ -50,17 +49,16 @@ type Forwarder interface {
 }
 
 // NewForwarder creates a new forwarder.
-func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, encryption encryption.Encryption, eventChannel chan<- AdapterEvent) Forwarder {
+func NewForwarder(options ForwarderOptions, conn net.Conn, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) Forwarder {
 	forwarderContext, cancel := context.WithCancel(context.Background())
 	return &forwarder{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		conn:           conn,
 		uplink:         uplink,
-		encryption:     encryption,
 		sendChannel:    make(chan messages.Message, 500),
 		eventChannel:   eventChannel,
-		window:         NewWindow(forwarderContext, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder(), encryption),
+		window:         NewWindow(forwarderContext, NewDefaultWindowOptions(), uplink, encoder.NewEncoderDecoder()),
 		messageHeap:    NewMessageHeap(NewDefaultMessageHeapOptions()),
 		cancel:         cancel,
 		context:        forwarderContext,
@@ -79,9 +77,6 @@ type forwarder struct {
 
 	// uplink is the uplink
 	uplink uplink.Uplink
-
-	// encryption is the encryptor/decryptor for this connection
-	encryption encryption.Encryption
 
 	// sendChannel is the channel to send messages to the forwarder
 	sendChannel chan messages.Message
@@ -109,14 +104,8 @@ func (f *forwarder) Start() error {
 		for {
 			select {
 			case msg, _ := <-f.sendChannel:
-				// decrypt the data
-				msgData, err := f.encryption.Decrypt(msg.Header, msg.Message)
-				if err != nil {
-					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decrypting data. Exiting", err)
-					return
-				}
 				// decode the data
-				dm, err := f.encoderDecoder.DecodeDataMessage(msgData)
+				dm, err := f.encoderDecoder.DecodeDataMessage(msg.Message)
 				if err != nil {
 					f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error decoding data message. Exiting", err)
 					return
@@ -211,16 +200,10 @@ func (f *forwarder) Start() error {
 				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encoding data message. Exiting", err)
 				return
 			}
-			encrypted, err := f.encryption.Encrypt(header, dmBytes)
-			if err != nil {
-				log.Printf("error encrypting data: %s\n", err)
-				f.eventChannel <- createEvent(Error, f.options.ConnectionID, "error encrypting data. Exiting", err)
-				return
-			}
 			// wrap the data in a message
 			msg := messages.Message{
 				Header:  header,
-				Message: encrypted,
+				Message: dmBytes,
 			}
 			// send the data to the window
 			err = f.window.add(msg, dm.Seq)

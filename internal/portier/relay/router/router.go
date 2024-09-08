@@ -128,7 +128,7 @@ func (r *router) HandleMessage(msg messages.Message) {
 			log.Printf("message: %v\n", msg)
 			return
 		}
-		r.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions, connectionOpenMessage.PCKey)
+		r.CreateInboundConnection(msg.Header, connectionOpenMessage.BridgeOptions)
 		return
 	}
 
@@ -166,13 +166,12 @@ func (r *router) RemoveConnection(connectionId messages.ConnectionID) {
 }
 
 // CreateInboundConnection creates an inbound connection.
-func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOptions messages.BridgeOptions, pcKey string) {
+func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOptions messages.BridgeOptions) {
 	// create a new inbound connection adapter
 	connectionAdapter := adapter.NewInboundConnectionAdapter(adapter.ConnectionAdapterOptions{
 		ConnectionId:          header.CID,
 		LocalDeviceId:         header.To,
 		PeerDeviceId:          header.From,
-		PeerDevicePublicKey:   pcKey,
 		BridgeOptions:         bridgeOptions,
 		ResponseInterval:      1000 * time.Millisecond,
 		ConnectionReadTimeout: 1000 * time.Millisecond,

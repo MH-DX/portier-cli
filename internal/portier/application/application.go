@@ -21,10 +21,6 @@ import (
 type PortierConfig struct {
 	PortierURL                  utils.YAMLURL         `yaml:"portierUrl"`
 	Services                    []relay.Service       `yaml:"services"`
-	DefaultLocalPublicKey       string                `yaml:"defaultLocalPublicKey"`
-	DefaultLocalPrivateKey      string                `yaml:"defaultLocalPrivateKey"`
-	DefaultCipher               string                `yaml:"defaultCipher"`
-	DefaultCurve                string                `yaml:"defaultCurve"`
 	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval"`
 	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout"`
 	DefaultThroughputLimit      int                   `yaml:"defaultThroughputLimit"`
@@ -72,10 +68,6 @@ func defaultPortierConfig() *PortierConfig {
 			},
 		},
 		Services:                    []relay.Service{},
-		DefaultLocalPublicKey:       "not-implemented-yet",
-		DefaultLocalPrivateKey:      "not-implemented-yet",
-		DefaultCipher:               "aes-256-gcm",
-		DefaultCurve:                "curve25519",
 		DefaultResponseInterval:     1 * time.Second,
 		DefaultReadTimeout:          1 * time.Second,
 		DefaultThroughputLimit:      0,
@@ -208,35 +200,17 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 
 		cID := messages.ConnectionID(uuid.New().String())
 		options := adapter.ConnectionAdapterOptions{
-			ConnectionId:        cID,
-			LocalDeviceId:       p.deviceCredentials.DeviceID,
-			PeerDeviceId:        context.service.Options.PeerDeviceID,
-			PeerDevicePublicKey: context.service.Options.PeerDevicePublicKey,
+			ConnectionId:  cID,
+			LocalDeviceId: p.deviceCredentials.DeviceID,
+			PeerDeviceId:  context.service.Options.PeerDeviceID,
 			BridgeOptions: messages.BridgeOptions{
 				Timestamp: time.Now(),
 				URLRemote: *context.service.Options.URLRemote.URL,
-				Cipher:    context.service.Options.Cipher,
-				Curve:     context.service.Options.Curve,
 			},
-			LocalPublicKey:        context.service.Options.LocalPublicKey,
-			LocalPrivateKey:       context.service.Options.LocalPrivateKey,
 			ResponseInterval:      context.service.Options.ResponseInterval,
 			ConnectionReadTimeout: context.service.Options.ConnectionReadTimeout,
 			ThroughputLimit:       context.service.Options.ThroughputLimit,
 			ReadBufferSize:        context.service.Options.ReadBufferSize,
-		}
-
-		if options.LocalPublicKey == "" {
-			options.LocalPublicKey = p.config.DefaultLocalPublicKey
-		}
-		if options.LocalPrivateKey == "" {
-			options.LocalPrivateKey = p.config.DefaultLocalPrivateKey
-		}
-		if options.BridgeOptions.Cipher == "" {
-			options.BridgeOptions.Cipher = p.config.DefaultCipher
-		}
-		if options.BridgeOptions.Curve == "" {
-			options.BridgeOptions.Curve = p.config.DefaultCurve
 		}
 		if options.ResponseInterval == 0 {
 			options.ResponseInterval = p.config.DefaultResponseInterval

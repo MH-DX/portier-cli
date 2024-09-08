@@ -28,11 +28,10 @@ func TestInboundConnection(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id1",
-		LocalDeviceId:       uuid.New(),
-		PeerDeviceId:        uuid.New(),
-		PeerDevicePublicKey: "test-peer-device-public-key",
-		ResponseInterval:    1000 * time.Millisecond,
+		ConnectionId:     "test-connection-id1",
+		LocalDeviceId:    uuid.New(),
+		PeerDeviceId:     uuid.New(),
+		ResponseInterval: 1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -84,11 +83,10 @@ func TestInboundConnectionWithError(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + strconv.Itoa(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id2",
-		LocalDeviceId:       uuid.New(),
-		PeerDeviceId:        uuid.New(),
-		PeerDevicePublicKey: "test-peer-device-public-key",
-		ResponseInterval:    1000 * time.Millisecond,
+		ConnectionId:     "test-connection-id2",
+		LocalDeviceId:    uuid.New(),
+		PeerDeviceId:     uuid.New(),
+		ResponseInterval: 1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
@@ -134,11 +132,10 @@ func TestInboundConnectionStop(testing *testing.T) {
 
 	urlRemote, _ := url.Parse("tcp://localhost:" + fmt.Sprint(port))
 	options := ConnectionAdapterOptions{
-		ConnectionId:        "test-connection-id3",
-		LocalDeviceId:       uuid.New(),
-		PeerDeviceId:        uuid.New(),
-		PeerDevicePublicKey: "test-peer-device-public-key",
-		ResponseInterval:    1000 * time.Millisecond,
+		ConnectionId:     "test-connection-id3",
+		LocalDeviceId:    uuid.New(),
+		PeerDeviceId:     uuid.New(),
+		ResponseInterval: 1000 * time.Millisecond,
 		BridgeOptions: messages.BridgeOptions{
 			URLRemote: *urlRemote,
 		},
