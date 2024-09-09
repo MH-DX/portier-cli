@@ -18,20 +18,11 @@ type ServiceOptions struct {
 	// The remote device id
 	PeerDeviceID uuid.UUID `yaml:"peerDeviceID" validate:"required,uuid"`
 
-	// The remote device public key
-	PeerDevicePublicKey string
+	// IsSecure indicates whether the connection is secured with TLS
+	IsSecure bool `yaml:"isSecure"`
 
-	// The Cipher that is used to encrypt the data
-	Cipher string
-
-	// The Curve that is used to generate the keys
-	Curve string
-
-	// The local public key
-	LocalPublicKey string
-
-	// The local private key
-	LocalPrivateKey string
+	// The fingerprint of the peer device's certificate, for certificate verification
+	PeerDeviceCertFingerprint string `yaml:"peerDeviceCertFingerprint"`
 
 	// The connection adapter's response interval for re-transmitting control messages
 	ResponseInterval time.Duration

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/config"
+	"github.com/marinator86/portier-cli/internal/portier/ptls"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
@@ -18,33 +20,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type PortierConfig struct {
-	PortierURL                  utils.YAMLURL         `yaml:"portierUrl"`
-	Services                    []relay.Service       `yaml:"services"`
-	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval"`
-	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout"`
-	DefaultThroughputLimit      int                   `yaml:"defaultThroughputLimit"`
-	DefaultReadBufferSize       int                   `yaml:"defaultReadBufferSize"`
-	DefaultDatagramConnectionID messages.ConnectionID `yaml:"defaultDatagramConnectionId"`
-}
-
-type DeviceCredentials struct {
-	DeviceID uuid.UUID `yaml:"deviceID"`
-	ApiToken string    `yaml:"APIKey"`
-}
-
-type ServiceContext struct {
-	service relay.Service
-
-	listener net.Listener
-}
-
 type PortierApplication struct {
-	config *PortierConfig
+	config *config.PortierConfig
 
-	deviceCredentials *DeviceCredentials
+	deviceCredentials *config.DeviceCredentials
 
-	contexts []ServiceContext
+	contexts []config.ServiceContext
 
 	router router.Router
 
@@ -54,12 +35,12 @@ type PortierApplication struct {
 func NewPortierApplication() *PortierApplication {
 
 	return &PortierApplication{
-		contexts: []ServiceContext{},
+		contexts: []config.ServiceContext{},
 	}
 }
 
-func defaultPortierConfig() *PortierConfig {
-	return &PortierConfig{
+func defaultPortierConfig() *config.PortierConfig {
+	return &config.PortierConfig{
 		PortierURL: utils.YAMLURL{
 			URL: &url.URL{
 				Scheme: "wss",
@@ -130,7 +111,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 		return err
 	}
 
-	credentials := DeviceCredentials{}
+	credentials := config.DeviceCredentials{}
 
 	err = yaml.Unmarshal(fileContent, &credentials)
 	if err != nil {
@@ -163,9 +144,9 @@ func (p *PortierApplication) StartServices() error {
 	}
 
 	for _, c := range p.contexts {
-		go func(context ServiceContext) {
-			if context.listener != nil {
-				p.handleAccept(context, context.listener)
+		go func(context config.ServiceContext) {
+			if context.Listener != nil {
+				p.handleAccept(context, context.Listener)
 			}
 		}(c)
 	}
@@ -185,15 +166,22 @@ func (p *PortierApplication) StartServices() error {
 	return nil
 }
 
-func (p *PortierApplication) handleAccept(context ServiceContext, listener net.Listener) error {
+func (p *PortierApplication) handleAccept(context config.ServiceContext, listener net.Listener) error {
 	for {
-		conn, err := context.listener.Accept()
+		conn, err := context.Listener.Accept()
 		if err != nil {
 			log.Printf("Error accepting connection: %v", err)
 			return err
 		}
 
 		log.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
+
+		// If encryption is enabled, we need to create a pipe
+		conn, err = ptls.CreateClientAndBridge(conn, *p.config, context)
+		if err != nil {
+			log.Printf("Error in TLS handshake: %v", err)
+			return err
+		}
 
 		// Now we create a new connection adapter for the outbound connection
 		// First, we define the options for the connection adapter
@@ -202,15 +190,15 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		options := adapter.ConnectionAdapterOptions{
 			ConnectionId:  cID,
 			LocalDeviceId: p.deviceCredentials.DeviceID,
-			PeerDeviceId:  context.service.Options.PeerDeviceID,
+			PeerDeviceId:  context.Service.Options.PeerDeviceID,
 			BridgeOptions: messages.BridgeOptions{
 				Timestamp: time.Now(),
-				URLRemote: *context.service.Options.URLRemote.URL,
+				URLRemote: *context.Service.Options.URLRemote.URL,
 			},
-			ResponseInterval:      context.service.Options.ResponseInterval,
-			ConnectionReadTimeout: context.service.Options.ConnectionReadTimeout,
-			ThroughputLimit:       context.service.Options.ThroughputLimit,
-			ReadBufferSize:        context.service.Options.ReadBufferSize,
+			ResponseInterval:      context.Service.Options.ResponseInterval,
+			ConnectionReadTimeout: context.Service.Options.ConnectionReadTimeout,
+			ThroughputLimit:       context.Service.Options.ThroughputLimit,
+			ReadBufferSize:        context.Service.Options.ReadBufferSize,
 		}
 		if options.ResponseInterval == 0 {
 			options.ResponseInterval = p.config.DefaultResponseInterval
@@ -232,14 +220,14 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		p.router.AddConnection(cID, adapter)
 		adapter.Start()
 
-		log.Printf("Started connection adapter for service: %s\n", context.service.Name)
+		log.Printf("Started connection adapter for service: %s\n", context.Service.Name)
 	}
 }
 
 func (p *PortierApplication) StopServices() error {
 	errors := []error{}
 	for _, c := range p.contexts {
-		err := c.listener.Close()
+		err := c.Listener.Close()
 		if err != nil {
 			log.Printf("Error closing connection listener: %v", err)
 			errors = append(errors, err)
@@ -254,17 +242,19 @@ func (p *PortierApplication) StopServices() error {
 
 func (p *PortierApplication) startListeners() error {
 	for _, service := range p.config.Services {
+		// log separator
+		log.Printf("--------------------------------------------------\n")
 		log.Printf("Starting service: %s\n", service.Name)
+		log.Println(utils.PrettyPrint(service))
 		switch service.Options.URLLocal.Scheme {
 		case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
-			log.Printf("Starting listener for service: %v\n", service)
 			listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
 			if err != nil {
 				return err
 			}
-			p.contexts = append(p.contexts, ServiceContext{
-				service:  service,
-				listener: listener,
+			p.contexts = append(p.contexts, config.ServiceContext{
+				Service:  service,
+				Listener: listener,
 			})
 			continue
 		case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":

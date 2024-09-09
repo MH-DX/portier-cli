@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"net/url"
 	"os"
 )
@@ -46,4 +47,9 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	url, err := url.Parse(s)
 	j.URL = url
 	return err
+}
+
+func PrettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	return string(s)
 }
