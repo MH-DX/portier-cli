@@ -19,10 +19,7 @@ type ServiceOptions struct {
 	PeerDeviceID uuid.UUID `yaml:"peerDeviceID" validate:"required,uuid"`
 
 	// IsSecure indicates whether the connection is secured with TLS
-	IsSecure bool `yaml:"isSecure"`
-
-	// The fingerprint of the peer device's certificate, for certificate verification
-	PeerDeviceCertFingerprint string `yaml:"peerDeviceCertFingerprint"`
+	TLSDisabled bool `yaml:"isSecure"`
 
 	// The connection adapter's response interval for re-transmitting control messages
 	ResponseInterval time.Duration

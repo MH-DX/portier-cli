@@ -49,6 +49,10 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
+func (j YAMLURL) MarshalYAML() (interface{}, error) {
+	return j.String(), nil
+}
+
 func PrettyPrint(i interface{}) string {
 	s, _ := json.MarshalIndent(i, "", "\t")
 	return string(s)

@@ -49,6 +49,7 @@ func defaultPortierConfig() *config.PortierConfig {
 			},
 		},
 		Services:                    []relay.Service{},
+		TLSDisabled:                 false,
 		DefaultResponseInterval:     1 * time.Second,
 		DefaultReadTimeout:          1 * time.Second,
 		DefaultThroughputLimit:      0,
@@ -176,11 +177,13 @@ func (p *PortierApplication) handleAccept(context config.ServiceContext, listene
 
 		log.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
 
-		// If encryption is enabled, we need to create a pipe
-		conn, err = ptls.CreateClientAndBridge(conn, *p.config, context)
-		if err != nil {
-			log.Printf("Error in TLS handshake: %v", err)
-			return err
+		// If encryption is enabled globally and for this service, we need to create a TLS client
+		if !p.config.TLSDisabled && !context.Service.Options.TLSDisabled {
+			conn, err = ptls.CreateClientAndBridge(conn, p.config, &context)
+			if err != nil {
+				log.Printf("Error in TLS handshake: %v", err)
+				return err
+			}
 		}
 
 		// Now we create a new connection adapter for the outbound connection

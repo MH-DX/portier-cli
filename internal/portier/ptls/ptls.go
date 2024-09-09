@@ -7,7 +7,7 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/config"
 )
 
-func CreateClientAndBridge(conn net.Conn, config config.PortierConfig, serviceContext config.ServiceContext) (net.Conn, error) {
+func CreateClientAndBridge(conn net.Conn, config *config.PortierConfig, serviceContext *config.ServiceContext) (net.Conn, error) {
 
 	conn1, conn2 := net.Pipe()
 
@@ -29,7 +29,7 @@ func CreateClientAndBridge(conn net.Conn, config config.PortierConfig, serviceCo
 	return conn2, nil
 }
 
-func decorateTLS(conn net.Conn, config config.PortierConfig, serviceContext config.ServiceContext) (net.Conn, error) {
+func decorateTLS(conn net.Conn, config *config.PortierConfig, serviceContext *config.ServiceContext) (net.Conn, error) {
 	// TODO: Implement this function
 	return conn, nil
 }

@@ -12,76 +12,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
+	"github.com/marinator86/portier-cli/internal/utils"
 )
-
-var spider = Spider{
-	channels: make(map[uuid.UUID]chan messages.Message),
-	encoder:  encoder.NewEncoderDecoder(),
-}
-
-type Spider struct {
-	// map from device id to channels
-	channels map[uuid.UUID]chan messages.Message
-
-	// encoder
-	encoder encoder.EncoderDecoder
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-func echoWithLoss(n int) func(w http.ResponseWriter, r *http.Request) {
-	result := func(w http.ResponseWriter, r *http.Request) {
-		i := 0
-		c, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		// create channels
-		outChannel := make(chan messages.Message)
-		// get device id from Authorization header
-		header := r.Header.Get("Authorization")
-		deviceId := uuid.MustParse(header)
-
-		spider.channels[deviceId] = outChannel
-
-		// start goroutine to read from in channel and write to target device channel
-		go func() {
-			for {
-				_, message, _ := c.ReadMessage()
-				i++
-				if n != 0 && i%n == 0 {
-					// fmt.Printf("Dropping message: %s\n", message)
-					continue
-				}
-
-				msg, _ := spider.encoder.Decode(message)
-				toDeviceId := msg.Header.To
-				toChannel := spider.channels[toDeviceId]
-				toChannel <- msg
-			}
-		}()
-
-		// start goroutine to read from out channel and write to websocket
-		go func() {
-			for {
-				msg := <-outChannel
-				encoded, _ := spider.encoder.Encode(msg)
-				_ = c.WriteMessage(websocket.BinaryMessage, encoded)
-			}
-		}()
-	}
-	return result
-}
 
 func createUplink(deviceId string, url string) uplink.Uplink {
 	options := uplink.Options{
@@ -94,7 +30,7 @@ func createUplink(deviceId string, url string) uplink.Uplink {
 
 func TestConnectAndBridging(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
+	server := httptest.NewServer(http.HandlerFunc(utils.EchoWithLoss(0)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -125,7 +61,7 @@ func TestConnectAndBridging(testing *testing.T) {
 
 func TestForwarding(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(0)))
+	server := httptest.NewServer(http.HandlerFunc(utils.EchoWithLoss(0)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -186,7 +122,7 @@ func TestForwarding(testing *testing.T) {
 
 func TestForwardingLarge(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(1204)))
+	server := httptest.NewServer(http.HandlerFunc(utils.EchoWithLoss(1204)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
@@ -282,7 +218,7 @@ func TestForwardingLarge(testing *testing.T) {
 
 func TestConnOpenUnderStress(testing *testing.T) {
 	// GIVEN
-	server := httptest.NewServer(http.HandlerFunc(echoWithLoss(5)))
+	server := httptest.NewServer(http.HandlerFunc(utils.EchoWithLoss(5)))
 
 	device1, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	device2, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")

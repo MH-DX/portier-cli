@@ -12,6 +12,7 @@ import (
 
 type PortierConfig struct {
 	PortierURL                  utils.YAMLURL         `yaml:"portierUrl"`
+	TLSDisabled                 bool                  `yaml:"tlsDisabled"`
 	Services                    []relay.Service       `yaml:"services"`
 	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval"`
 	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout"`
