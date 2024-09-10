@@ -1,6 +1,7 @@
 package application
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -22,8 +23,10 @@ func TestApplicationStartupAndForwarding(t *testing.T) {
 
 	local, _ := uuid.Parse("00000000-0000-0000-0000-000000000001")
 	peer, _ := uuid.Parse("00000000-0000-0000-0000-000000000002")
-	localURL, _ := url.Parse("tcp://localhost:21113")
-	remoteURL, _ := url.Parse("tcp://localhost:21114")
+
+	// get free port
+	localURL, _ := url.Parse("tcp://localhost:" + fmt.Sprintf("%d", GetFreePort()))
+	remoteURL, _ := url.Parse("tcp://localhost:" + fmt.Sprintf("%d", GetFreePort()))
 	defer server.Close()
 	// Replace "http" with "ws" in our URL.
 	ws_url := "ws" + server.URL[4:]
@@ -43,6 +46,7 @@ func TestApplicationStartupAndForwarding(t *testing.T) {
 	appRemote := createApp(ws_url, peer, []relay.Service{})
 	// listen at remote URL
 	remoteListener, _ := net.Listen("tcp", remoteURL.Host)
+	defer remoteListener.Close()
 
 	// WHEN
 	appLocal.StartServices()
@@ -51,14 +55,16 @@ func TestApplicationStartupAndForwarding(t *testing.T) {
 	// THEN
 	// connect to local URL
 	localConn, _ := net.Dial("tcp", localURL.Host)
+	defer localConn.Close()
 	// accept connection
 	remoteConn, err := remoteListener.Accept()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+	defer remoteConn.Close()
 
-	// create message with 1000 bytes
-	msg := make([]byte, 10000)
+	// create message with X bytes
+	msg := make([]byte, 100000)
 
 	n, err := localConn.Write(msg)
 	if err != nil {
@@ -118,22 +124,31 @@ func createApp(ws_url string, deviceID uuid.UUID, services []relay.Service) *Por
 	return app
 }
 
-func readUntil(remoteConn net.Conn, length int) (int, error) {
+func readUntil(conn net.Conn, totalBytes int) (int, error) {
+	totalRead := 0
 	buf := make([]byte, 100000)
-	total := 0
-	// read until EOF
-	for {
-		n, err := remoteConn.Read(buf[total:])
-		if err == io.EOF {
-			break
-		}
+	for totalRead < totalBytes {
+		n, err := conn.Read(buf)
 		if err != nil {
-			return total, err
+			if err == io.EOF {
+				fmt.Printf("Reached EOF after reading %d bytes\n", totalRead)
+				break
+			}
+			return totalRead, err
 		}
-		total += n
-		if total == length {
-			break
+		totalRead += n
+		fmt.Printf("Read %d bytes, total read: %d\n", n, totalRead)
+	}
+	return totalRead, nil
+}
+
+func GetFreePort() int {
+	if a, err := net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
+		var l *net.TCPListener
+		if l, err = net.ListenTCP("tcp", a); err == nil {
+			defer l.Close()
+			return l.Addr().(*net.TCPAddr).Port
 		}
 	}
-	return total, nil
+	panic("no free ports")
 }
