@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
@@ -35,7 +36,7 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 		ConnectionID:  "test-connection-id",
 	}
 
-	// mock uplink
+	// mock uplink for sending an ack
 	uplink := MockUplink{}
 	uplink.On("Send", mock.Anything).Return(nil)
 
@@ -65,6 +66,13 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 	})
 
 	// THEN
+
+	// wait for uplink.Send to be called with a DA message
+	for len(uplink.Calls) == 0 {
+		// wait
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	buf := make([]byte, 1024)
 	n, err := s_conn.Read(buf)
 	assert.Nil(testing, err)
