@@ -56,8 +56,8 @@ func TestForwardingToConnectionServer(testing *testing.T) {
 
 	_ = underTest.SendAsync(messages.Message{
 		Header: messages.MessageHeader{
-			From: localDeviceId,
-			To:   peerDeviceId,
+			From: peerDeviceId,
+			To:   localDeviceId,
 			Type: messages.D,
 			CID:  "test-connection-id",
 		},
