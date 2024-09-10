@@ -14,6 +14,7 @@ import (
 
 func TestInsertAndAck(testing *testing.T) {
 	// GIVEN
+	rtoDuration := time.Millisecond * 500
 	header := messages.MessageHeader{}
 	data := []byte("dataMsg")
 	expectedMessage := messages.Message{
@@ -34,25 +35,49 @@ func TestInsertAndAck(testing *testing.T) {
 			Header: header,
 		},
 		Seq:         0,
-		RtoDuration: time.Millisecond * 100,
+		RtoDuration: rtoDuration,
+		Rto:         time.Now().Add(rtoDuration),
 	}
+	added := time.Now()
+	resentChannel := make(chan time.Time)
 
 	// WHEN
+	// measure the time it takes to insert an item and ack it
 	err := underTest.Add(item)
-
-	go func() {
-		time.Sleep(time.Millisecond * 120)
-		item.Acked = true
-	}()
-
-	for len(underTest.(*rtoHeap).queue) > 0 {
-		time.Sleep(time.Millisecond * 10)
-	}
-
-	// THEN
 	if err != nil {
 		testing.Errorf("Unexpected error: %v", err)
 	}
+
+	// THEN
+	// wait until send is called, then ack the item
+	go func() {
+		for len(mockUplink.Calls) == 0 {
+			time.Sleep(time.Millisecond * 50)
+		}
+		if mockUplink.Calls[0].Method != "Send" {
+			panic("Send not called")
+		}
+		resentChannel <- time.Now()
+	}()
+
+	resent := <-resentChannel
+	item.Acked = true
+
+	// wait until the item is removed from the queue
+	for len(underTest.(*rtoHeap).queue) > 0 {
+		time.Sleep(time.Millisecond * 50)
+	}
+
+	timeTillResent := resent.Sub(added)
+
+	if timeTillResent < rtoDuration {
+		testing.Errorf("Item was resent too early: %v", resent.Sub(added))
+	}
+
+	if timeTillResent > rtoDuration*2 {
+		testing.Errorf("Item was resent too late: %v", resent.Sub(added))
+	}
+
 	mockUplink.AssertNumberOfCalls(testing, "Send", 1)
 	mockUplink.AssertExpectations(testing)
 	encoderDecoder.AssertNumberOfCalls(testing, "EncodeDataMessage", 1)
