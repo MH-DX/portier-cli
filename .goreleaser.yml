@@ -14,9 +14,11 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+      - arm
 
 archives:
   -
@@ -25,18 +27,14 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-    replacements:
-      darwin: Darwin
-      linux: Linux
-      amd64: x86_64
 
 nfpms:
   - builds:
       - portier-cli
     vendor: marinator86
     homepage:  https://github.com/marinator86/portier-cli
-    maintainer: "Tom Morelly <tommorelly@gmail.com>"
-    description: "A general purpose golang CLI template for Github and Gitlab"
+    maintainer: "Mario Hammer <contact@portier.dev>"
+    description: "Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
     license: GPL-3.0
     formats:
       - apk
@@ -70,9 +68,9 @@ dockers:
   build_flag_templates:
   - "--pull"
   - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/README.md"
-  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Tom Morelly\",\"email\":\"tommorelly@gmail.com\"}]"
+  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Mario Hammer\",\"email\":\"contact@portier.dev\"}]"
   - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A general purpose golang CLI template for Github and Gitlab"
+  - "--label=org.opencontainers.image.description=Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
   - "--label=org.opencontainers.image.created={{.Date}}"
   - "--label=org.opencontainers.image.name={{.ProjectName}}"
   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -88,9 +86,9 @@ dockers:
   - "--pull"
   - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/README.md"
   - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/www/static/images/logo.png"
-  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Tom Morelly\",\"email\":\"tommorelly@gmail.com\"}]"
+  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Mario Hammer\",\"email\":\"contact@portier.dev\"}]"
   - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A general purpose golang CLI template for Github and Gitlab"
+  - "--label=org.opencontainers.image.description=Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
   - "--label=org.opencontainers.image.created={{.Date}}"
   - "--label=org.opencontainers.image.name={{.ProjectName}}"
   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -119,31 +117,3 @@ docker_manifests:
 
 checksum:
   name_template: "checksums.txt"
-
-changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-    - '^test:'
-    - '^chore'
-    - 'merge conflict'
-    - Merge pull request
-    - Merge remote-tracking branch
-    - Merge branch
-    - go mod tidy
-  groups:
-    - title: Dependency updates
-      regexp: '^.*?(feat|fix)\(deps\)!?:.+$'
-      order: 300
-    - title: 'New Features'
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 100
-    - title: 'Bug fixes'
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 200
-    - title: 'Documentation updates'
-      regexp: ^.*?doc(\([[:word:]]+\))??!?:.+$
-      order: 400
-    - title: Other work
-      order: 9999

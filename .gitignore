@@ -5,3 +5,7 @@ coverage.out
 .envrc
 manpages/
 dist/
+
+.idea/
+
+kubeconfig
