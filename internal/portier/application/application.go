@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/config"
 	"github.com/marinator86/portier-cli/internal/portier/ptls"
 	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
@@ -21,11 +20,11 @@ import (
 )
 
 type PortierApplication struct {
-	config *config.PortierConfig
+	config *PortierConfig
 
-	deviceCredentials *config.DeviceCredentials
+	deviceCredentials *DeviceCredentials
 
-	contexts []config.ServiceContext
+	contexts []ServiceContext
 
 	router router.Router
 
@@ -35,12 +34,12 @@ type PortierApplication struct {
 func NewPortierApplication() *PortierApplication {
 
 	return &PortierApplication{
-		contexts: []config.ServiceContext{},
+		contexts: []ServiceContext{},
 	}
 }
 
-func defaultPortierConfig() *config.PortierConfig {
-	return &config.PortierConfig{
+func defaultPortierConfig() *PortierConfig {
+	return &PortierConfig{
 		PortierURL: utils.YAMLURL{
 			URL: &url.URL{
 				Scheme: "wss",
@@ -112,7 +111,7 @@ func (p *PortierApplication) LoadApiToken(filePath string) error {
 		return err
 	}
 
-	credentials := config.DeviceCredentials{}
+	credentials := DeviceCredentials{}
 
 	err = yaml.Unmarshal(fileContent, &credentials)
 	if err != nil {
@@ -145,7 +144,7 @@ func (p *PortierApplication) StartServices() error {
 	}
 
 	for _, c := range p.contexts {
-		go func(context config.ServiceContext) {
+		go func(context ServiceContext) {
 			if context.Listener != nil {
 				p.handleAccept(context, context.Listener)
 			}
@@ -167,7 +166,7 @@ func (p *PortierApplication) StartServices() error {
 	return nil
 }
 
-func (p *PortierApplication) handleAccept(context config.ServiceContext, listener net.Listener) error {
+func (p *PortierApplication) handleAccept(context ServiceContext, listener net.Listener) error {
 	for {
 		conn, err := context.Listener.Accept()
 		if err != nil {
@@ -176,15 +175,6 @@ func (p *PortierApplication) handleAccept(context config.ServiceContext, listene
 		}
 
 		log.Printf("Accepted connection from: %s\n", conn.RemoteAddr().String())
-
-		// If encryption is enabled globally and for this service, we need to create a TLS client
-		if !p.config.TLSDisabled && !context.Service.Options.TLSDisabled {
-			conn, err = ptls.CreateClientAndBridge(conn, p.config, &context)
-			if err != nil {
-				log.Printf("Error in TLS handshake: %v", err)
-				return err
-			}
-		}
 
 		// Now we create a new connection adapter for the outbound connection
 		// First, we define the options for the connection adapter
@@ -216,12 +206,37 @@ func (p *PortierApplication) handleAccept(context config.ServiceContext, listene
 			options.ReadBufferSize = p.config.DefaultReadBufferSize
 		}
 
-		// print the options to the console in pretty format
-		log.Printf("Connection adapter options: %v\n", options)
+		log.Println(utils.PrettyPrint(options))
+
+		// If encryption is enabled globally and for this service, we need to create a TLS client
+		var tlsHandshaker func() error = nil
+		if !p.config.TLSDisabled && !context.Service.Options.TLSDisabled {
+			ptlsConfig := ptls.PTLSConfig{
+				PeerDeviceID: p.deviceCredentials.DeviceID,
+			}
+
+			tlsConn, handshaker, err := ptls.CreateClientAndBridge(conn, ptlsConfig)
+			if err != nil {
+				log.Printf("Error in TLS handshake: %v", err)
+				return err
+			}
+			conn = tlsConn
+			tlsHandshaker = handshaker
+		}
 
 		adapter := adapter.NewOutboundConnectionAdapter(options, conn, p.uplink, p.router.EventChannel())
 		p.router.AddConnection(cID, adapter)
 		adapter.Start()
+
+		// If we have a handshaker, we need to call it now
+		if tlsHandshaker != nil {
+			err := tlsHandshaker()
+			if err != nil {
+				log.Printf("Error in TLS handshake: %v", err)
+				adapter.Close()
+				return err
+			}
+		}
 
 		log.Printf("Started connection adapter for service: %s\n", context.Service.Name)
 	}
@@ -255,7 +270,7 @@ func (p *PortierApplication) startListeners() error {
 			if err != nil {
 				return err
 			}
-			p.contexts = append(p.contexts, config.ServiceContext{
+			p.contexts = append(p.contexts, ServiceContext{
 				Service:  service,
 				Listener: listener,
 			})
