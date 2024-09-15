@@ -6,12 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 type RegistrationRequest struct {
@@ -141,49 +137,6 @@ func GenerateApiKey(baseURL, deviceGUID, description, accessToken, home string) 
 	return apiKey, nil
 }
 
-// Function to store device credentials
-func StoreCredentials(device Device, apiKey ApiKeyCreation, home string, filename string) error {
-	// Create YAML file
-	file, err := os.Create(filepath.Join(home, filename))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Write credentials to file
-	_, err = fmt.Fprintf(file, "deviceID: %s\nname: %s\nAPIKey: %s\n", device.GUID, device.Name, apiKey.ApiKey)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Function to load access token from credentials file
-func LoadAccessToken(home string) (AuthResponse, error) {
-	credentialsFile := filepath.Join(home, "credentials.yaml")
-	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
-		return AuthResponse{}, fmt.Errorf("credentials file does not exist. Please login")
-	}
-
-	// Read the file
-	fileContent, err := os.ReadFile(credentialsFile)
-	if err != nil {
-		return AuthResponse{}, err
-	}
-
-	// Unmarshal YAML
-	var credentials map[string]string
-	if err := yaml.Unmarshal(fileContent, &credentials); err != nil {
-		return AuthResponse{}, err
-	}
-
-	return AuthResponse{
-		AccessToken:  credentials["access_token"],
-		RefreshToken: credentials["refresh_token"],
-	}, nil
-}
-
 func Register(name string, baseURL string, home string, credentialsFileName string) error {
 	// Attempt to load access token from credentials file
 	authResponse, err := LoadAccessToken(home)
@@ -207,7 +160,7 @@ func Register(name string, baseURL string, home string, credentialsFileName stri
 		return err
 	}
 
-	err = StoreCredentials(device, apiKey, home, credentialsFileName)
+	err = StoreDeviceCredentials(device.GUID, apiKey.ApiKey, home, credentialsFileName)
 	if err != nil {
 		fmt.Println("Error storing credentials:", err)
 		return err

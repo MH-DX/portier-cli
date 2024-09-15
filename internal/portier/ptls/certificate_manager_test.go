@@ -7,7 +7,7 @@ import (
 
 func TestCreateCert(t *testing.T) {
 	// GIVEN
-	underTest := NewPTLSCertificateManager(nil)
+	underTest := NewPTLSCertificateManager()
 
 	// WHEN
 	cert, priv, err := underTest.CreateCertificate("00000000-0000-0000-0000-000000000001")

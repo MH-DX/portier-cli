@@ -17,11 +17,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type AuthResponse struct {
-	AccessToken  string
-	RefreshToken string
-}
-
 // Login uses device flow to log the user in. It uses a file to store the user's jwt token in ~/.portier/credentials.json
 // Device flow is a way to authenticate users on devices that do not have a browser.
 // See https://tools.ietf.org/html/rfc8628
