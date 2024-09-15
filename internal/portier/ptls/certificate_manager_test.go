@@ -7,21 +7,18 @@ import (
 
 func TestCreateCert(t *testing.T) {
 	// GIVEN
-	underTest := NewPTLSCertificateManager()
+	underTest := NewPTLSCertificateManager(nil)
 
 	// WHEN
-	cert, err := underTest.CreateCertificate("00000000-0000-0000-0000-000000000001")
+	cert, priv, err := underTest.CreateCertificate("00000000-0000-0000-0000-000000000001")
 
 	// THEN
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cert.PrivateKey == nil {
-		t.Errorf("expected private key to be non-nil")
-	}
 
 	// print the cert in PEM format
-	certPEM, keyPEM, err := underTest.ConvertCertificateToPEM(cert)
+	certPEM, keyPEM, err := underTest.ConvertCertificateToPEM(cert, priv)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
