@@ -1,7 +1,6 @@
 package ptls
 
 import (
-	"context"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -96,8 +95,4 @@ func (p *ptlsCertMan) ConvertCertificateToPEM(cert *x509.Certificate, privateKey
 func (p *ptlsCertMan) GetFingerprint(cert *x509.Certificate) (fingerprint string, err error) {
 	fp := sha256.Sum256(cert.Raw)
 	return fmt.Sprintf("%x", fp), nil
-}
-
-func (p *ptlsCertMan) UploadFingerprint(ctx context.Context, fingerprint string) error {
-	return nil
 }

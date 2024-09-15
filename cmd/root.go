@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-
+	ptls_cmd "github.com/marinator86/portier-cli/cmd/ptls"
+	ptls_create_cmd "github.com/marinator86/portier-cli/cmd/ptls/create"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +19,9 @@ func newRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(NewManCmd().Cmd)        // man subcommand
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newRegisterCmd())
+	tlsCmd := ptls_cmd.NewTLScmd()
+	tlsCmd.AddCommand(ptls_create_cmd.NewCreatecmd())
+	cmd.AddCommand(tlsCmd)
 	runCmd, err := newRunCmd()
 	if err != nil {
 		panic(err)
@@ -31,7 +34,7 @@ func newRootCmd(version string) *cobra.Command {
 // Execute invokes the command.
 func Execute(version string) error {
 	if err := newRootCmd(version).Execute(); err != nil {
-		return fmt.Errorf("error executing root command: %w", err)
+		return err
 	}
 
 	return nil

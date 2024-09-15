@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -15,7 +14,6 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var memprofile = flag.String("memprofile", "", "write memory profile to this file")
 
 func main() {
-	log.Println("Starting Portier CLI...")
 	flag.Parse()
 	if *cpuprofile != "" {
 		log.Println("Profiling CPU...")
@@ -26,9 +24,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	if err := cmd.Execute(version); err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-	}
+	runErr := cmd.Execute(version)
 	if *memprofile != "" {
 		log.Println("Profiling memory...")
 		f, err := os.Create(*memprofile)
@@ -38,5 +34,8 @@ func main() {
 		pprof.WriteHeapProfile(f)
 		f.Close()
 		return
+	}
+	if runErr != nil {
+		os.Exit(1)
 	}
 }
