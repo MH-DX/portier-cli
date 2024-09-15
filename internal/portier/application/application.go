@@ -4,31 +4,36 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/config"
 	"github.com/marinator86/portier-cli/internal/portier/ptls"
-	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"github.com/marinator86/portier-cli/internal/utils"
-	"gopkg.in/yaml.v3"
 )
 
-type PortierApplication struct {
-	config *PortierConfig
+type ServiceContext struct {
+	Service  config.Service
+	Listener net.Listener
+}
 
-	deviceCredentials *DeviceCredentials
+type PortierApplication struct {
+	config *config.PortierConfig
+
+	deviceCredentials *config.DeviceCredentials
 
 	contexts []ServiceContext
 
 	router router.Router
 
 	uplink uplink.Uplink
+
+	ptls ptls.PTLS
 }
 
 func NewPortierApplication() *PortierApplication {
@@ -38,97 +43,15 @@ func NewPortierApplication() *PortierApplication {
 	}
 }
 
-func defaultPortierConfig() *PortierConfig {
-	return &PortierConfig{
-		PortierURL: utils.YAMLURL{
-			URL: &url.URL{
-				Scheme: "wss",
-				Host:   "api.portier.dev",
-				Path:   "/spider",
-			},
-		},
-		Services:                    []relay.Service{},
-		TLSDisabled:                 false,
-		DefaultResponseInterval:     1 * time.Second,
-		DefaultReadTimeout:          1 * time.Second,
-		DefaultThroughputLimit:      0,
-		DefaultReadBufferSize:       4096,
-		DefaultDatagramConnectionID: messages.ConnectionID("00000000-1111-0000-0000-000000000000"),
-	}
-}
-
-// LoadConfig loads the config from the given file path.
-func (p *PortierApplication) LoadConfig(filePath string) error {
-	stat, err := os.Stat(filePath)
-	p.config = defaultPortierConfig()
-
-	if err != nil {
-		log.Printf("Error getting file info: %v. Using default config only.", err)
-		return err
-	}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Printf("Error opening file: %v", err)
-		return err
-	}
-	defer file.Close()
-
-	fileContent := make([]byte, stat.Size())
-	_, err = file.Read(fileContent)
-	if err != nil {
-		log.Printf("Error reading file: %v", err)
-		return err
-	}
-
-	err = yaml.Unmarshal(fileContent, p.config)
-	if err != nil {
-		log.Printf("Error unmarshalling yaml: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func (p *PortierApplication) LoadApiToken(filePath string) error {
-	stat, err := os.Stat(filePath)
-	if err != nil {
-		log.Printf("Error getting file info: %v. Exiting", err)
-		return err
-	}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Printf("Error opening file: %v. Exiting", err)
-		return err
-	}
-	defer file.Close()
-
-	fileContent := make([]byte, stat.Size())
-	_, err = file.Read(fileContent)
-	if err != nil {
-		log.Printf("Error reading file: %v. Exiting", err)
-		return err
-	}
-
-	credentials := DeviceCredentials{}
-
-	err = yaml.Unmarshal(fileContent, &credentials)
-	if err != nil {
-		log.Printf("Error unmarshalling yaml: %v. Exiting", err)
-		return err
-	}
-
-	p.deviceCredentials = &credentials
-
-	return nil
-}
-
-func (p *PortierApplication) StartServices() error {
+func (p *PortierApplication) StartServices(portierConfig *config.PortierConfig, creds *config.DeviceCredentials) error {
 
 	log.Println("Creating relay...")
+	p.config = portierConfig
+	p.deviceCredentials = creds
 
-	router, uplink, err := createRelay(p.deviceCredentials.DeviceID, *p.config.PortierURL.URL, p.deviceCredentials.ApiToken)
+	p.ptls = ptls.NewPTLS(p.config.TLSEnabled, p.config.PTLSConfig.CertFile, p.config.PTLSConfig.KeyFile, p.config.PTLSConfig.CAFile, p.config.PTLSConfig.KnownHostsFile, nil)
+
+	router, uplink, err := p.createRelay()
 	if err != nil {
 		log.Printf("Error creating outbound relay: %v", err)
 		os.Exit(1)
@@ -188,9 +111,7 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 				Timestamp: time.Now(),
 				URLRemote: *context.Service.Options.URLRemote.URL,
 			},
-			ResponseInterval:      context.Service.Options.ResponseInterval,
 			ConnectionReadTimeout: context.Service.Options.ConnectionReadTimeout,
-			ThroughputLimit:       context.Service.Options.ThroughputLimit,
 			ReadBufferSize:        context.Service.Options.ReadBufferSize,
 		}
 		if options.ResponseInterval == 0 {
@@ -210,12 +131,8 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 
 		// If encryption is enabled globally and for this service, we need to create a TLS client
 		var tlsHandshaker func() error = nil
-		if !p.config.TLSDisabled && !context.Service.Options.TLSDisabled {
-			ptlsConfig := ptls.PTLSConfig{
-				PeerDeviceID: p.deviceCredentials.DeviceID,
-			}
-
-			tlsConn, handshaker, err := ptls.CreateClientAndBridge(conn, ptlsConfig)
+		if p.config.TLSEnabled && context.Service.Options.TLSEnabled {
+			tlsConn, handshaker, err := p.ptls.CreateClientAndBridge(conn, context.Service.Options.PeerDeviceID)
 			if err != nil {
 				log.Printf("Error in TLS handshake: %v", err)
 				return err
@@ -284,13 +201,13 @@ func (p *PortierApplication) startListeners() error {
 	return nil
 }
 
-func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (router.Router, uplink.Uplink, error) {
-	log.Printf("Creating relay for device: %s\n", deviceID)
-	log.Printf("Portier URL: %s\n", portierUrl.String())
+func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error) {
+	log.Printf("Creating relay for device: %s\n", p.deviceCredentials.DeviceID)
+	log.Printf("Portier URL: %s\n", p.config.PortierURL.String())
 
 	uplinkOptions := uplink.Options{
-		APIToken:   apiToken,
-		PortierURL: portierUrl.String(),
+		APIToken:   p.deviceCredentials.ApiToken,
+		PortierURL: p.config.PortierURL.String(),
 	}
 	uplink := uplink.NewWebsocketUplink(uplinkOptions, nil)
 	messageChannel, err := uplink.Connect()
@@ -300,7 +217,7 @@ func createRelay(deviceID uuid.UUID, portierUrl url.URL, apiToken string) (route
 	}
 
 	events := make(chan adapter.AdapterEvent, 100)
-	router := router.NewRouter(uplink, messageChannel, events)
+	router := router.NewRouter(uplink, messageChannel, events, p.ptls)
 
 	return router, uplink, nil
 }

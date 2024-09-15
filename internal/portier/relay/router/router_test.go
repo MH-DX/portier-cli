@@ -21,7 +21,8 @@ func TestRouting(testing *testing.T) {
 	msg := make(chan messages.Message, 10)
 	events := make(chan adapter.AdapterEvent, 10)
 	uplinkMock := &MockUplink{}
-	underTest := NewRouter(uplinkMock, msg, events)
+	ptls := &MockPTLS{}
+	underTest := NewRouter(uplinkMock, msg, events, ptls)
 	underTest.AddConnection(connectionId, connectionAdapterMock)
 	connectionAdapterMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.CID == connectionId
@@ -55,8 +56,10 @@ func TestConnectionOpen(testing *testing.T) {
 	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return true
 	})).Return(nil)
+	ptls := &MockPTLS{}
+	ptls.On("TestEndpointURL", mock.Anything).Return(false)
 
-	underTest := NewRouter(uplinkMock, msg, events)
+	underTest := NewRouter(uplinkMock, msg, events, ptls)
 
 	remoteUrl, _ := url.Parse("tcp://" + forwarded.Addr().String())
 	bridgeOptions := messages.BridgeOptions{
@@ -95,7 +98,8 @@ func TestConnectionNotFound(testing *testing.T) {
 	uplinkMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.Type == messages.NF
 	})).Return(nil)
-	underTest := NewRouter(uplinkMock, msg, events)
+	ptls := &MockPTLS{}
+	underTest := NewRouter(uplinkMock, msg, events, ptls)
 
 	// WHEN
 	underTest.HandleMessage(messages.Message{
@@ -152,4 +156,23 @@ func (m *MockUplink) Close() error {
 func (m *MockUplink) Events() <-chan uplink.Event {
 	m.Called()
 	return nil
+}
+
+type MockPTLS struct {
+	mock.Mock
+}
+
+func (m *MockPTLS) TestEndpointURL(endpoint url.URL) bool {
+	args := m.Called(endpoint)
+	return args.Bool(0)
+}
+
+func (m *MockPTLS) CreateClientAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error) {
+	args := m.Called(conn, peerDeviceID)
+	return args.Get(0).(net.Conn), args.Get(1).(func() error), args.Error(2)
+}
+
+func (m *MockPTLS) CreateServerAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, error) {
+	args := m.Called(conn, peerDeviceID)
+	return args.Get(0).(net.Conn), args.Error(1)
 }

@@ -37,9 +37,8 @@ func TestInboundConnection(testing *testing.T) {
 		},
 	}
 
-	// mock uplink
+	// mocks
 	uplink := MockUplink{}
-
 	uplink.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		if msg.Header.Type == messages.CA {
 			acceptedChannel <- true
@@ -50,7 +49,11 @@ func TestInboundConnection(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
+	ptls := MockPTLS{}
+	ptls.On("TestEndpointURL", mock.Anything).Return(false)
+	ptls.On("CreateServerAndBridge", mock.Anything, mock.Anything).Return(listener, nil)
+
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink, &ptls)
 
 	go func() {
 		conn, err := listener.Accept()
@@ -92,8 +95,9 @@ func TestInboundConnectionWithError(testing *testing.T) {
 		},
 	}
 
-	// mock uplink
+	// mocks
 	uplink := MockUplink{}
+	ptls := MockPTLS{}
 
 	uplink.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		if msg.Header.Type == messages.CF {
@@ -106,7 +110,7 @@ func TestInboundConnectionWithError(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink, &ptls)
 
 	// WHEN
 	err := underTest.Start()
@@ -141,9 +145,8 @@ func TestInboundConnectionStop(testing *testing.T) {
 		},
 	}
 
-	// mock uplink
+	// mocks
 	uplink := MockUplink{}
-
 	uplink.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		if msg.Header.Type == messages.CC {
 			closeChannel <- true
@@ -151,7 +154,11 @@ func TestInboundConnectionStop(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
+	ptls := MockPTLS{}
+	ptls.On("TestEndpointURL", mock.Anything).Return(false)
+	ptls.On("CreateServerAndBridge", mock.Anything, mock.Anything).Return(listener, nil)
+
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink, &ptls)
 	err := underTest.Start()
 	assert.Nil(testing, err)
 

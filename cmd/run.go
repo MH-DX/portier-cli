@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/marinator86/portier-cli/internal/portier/application"
+	"github.com/marinator86/portier-cli/internal/portier/config"
 	"github.com/marinator86/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -71,14 +72,17 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 
 	application := application.NewPortierApplication()
 
-	application.LoadConfig(o.ConfigFile)
-
-	err = application.LoadApiToken(o.ApiTokenFile)
+	portierConfig, err := config.LoadConfig(o.ConfigFile)
 	if err != nil {
 		return err
 	}
 
-	application.StartServices()
+	deviceCredentials, err := config.LoadApiToken(o.ApiTokenFile)
+	if err != nil {
+		return err
+	}
+
+	application.StartServices(portierConfig, deviceCredentials)
 
 	// wait until process is killed
 	sigs := make(chan os.Signal, 1)

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marinator86/portier-cli/internal/portier/ptls"
 	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
@@ -48,10 +49,13 @@ type router struct {
 
 	// mutex to protect the services map
 	mutex sync.Mutex
+
+	// ptls is the ptls instance
+	ptls ptls.PTLS
 }
 
 // NewRouter creates a new router.
-func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan adapter.AdapterEvent) Router {
+func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan adapter.AdapterEvent, ptls ptls.PTLS) Router {
 	return &router{
 		connections:    make(map[messages.ConnectionID]adapter.ConnectionAdapter),
 		encoderDecoder: encoder.NewEncoderDecoder(),
@@ -59,6 +63,7 @@ func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan ad
 		messages:       msg,
 		events:         events,
 		mutex:          sync.Mutex{},
+		ptls:           ptls,
 	}
 }
 
@@ -177,7 +182,7 @@ func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOp
 		ConnectionReadTimeout: 1000 * time.Millisecond,
 		ReadBufferSize:        1024,
 		// TODO create a default config
-	}, r.uplink, r.events)
+	}, r.uplink, r.events, r.ptls)
 
 	// start the connection adapter
 	err := connectionAdapter.Start()

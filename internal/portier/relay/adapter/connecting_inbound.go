@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/marinator86/portier-cli/internal/portier/ptls"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
@@ -33,6 +34,9 @@ type connectingInboundState struct {
 
 	// stop is the context's cancel function
 	stop context.CancelFunc
+
+	// ptls is the ptls instance
+	ptls ptls.PTLS
 }
 
 func (c *connectingInboundState) Start() error {
@@ -108,6 +112,14 @@ func (c *connectingInboundState) Start() error {
 		ReadTimeout:    c.options.ConnectionReadTimeout,
 		ReadBufferSize: c.options.ReadBufferSize,
 	}
+
+	if c.ptls.TestEndpointURL(url) {
+		conn, err = c.ptls.CreateServerAndBridge(conn, c.options.PeerDeviceId)
+		if err != nil {
+			return fmt.Errorf("error creating TLS server and bridge: %s", err)
+		}
+	}
+
 	c.forwarder = NewForwarder(forwarderOptions, conn, c.uplink, c.eventChannel)
 
 	return nil
@@ -162,7 +174,7 @@ func (c *connectingInboundState) HandleMessage(msg messages.Message) (Connection
 	return nil, fmt.Errorf(message)
 }
 
-func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink) ConnectionAdapterState {
+func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel chan<- AdapterEvent, uplink uplink.Uplink, ptls ptls.PTLS) ConnectionAdapterState {
 	ctx, stop := context.WithCancel(context.Background())
 	return &connectingInboundState{
 		options:        options,
@@ -171,5 +183,6 @@ func NewConnectingInboundState(options ConnectionAdapterOptions, eventChannel ch
 		uplink:         uplink,
 		context:        ctx,
 		stop:           stop,
+		ptls:           ptls,
 	}
 }

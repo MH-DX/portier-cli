@@ -136,8 +136,10 @@ func TestOutboundConnectionStop(testing *testing.T) {
 		},
 	}
 
-	// mock uplink
+	// mocks
 	uplink := MockUplink{}
+	ptls := MockPTLS{}
+	ptls.On("TestEndpointURL", mock.Anything).Return(false)
 
 	uplink.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		if msg.Header.Type == messages.CC {
@@ -146,7 +148,7 @@ func TestOutboundConnectionStop(testing *testing.T) {
 		return true
 	})).Return(nil)
 
-	underTest := NewConnectingInboundState(options, eventChannel, &uplink)
+	underTest := NewConnectingInboundState(options, eventChannel, &uplink, &ptls)
 	err := underTest.Start()
 	assert.Nil(testing, err)
 

@@ -17,16 +17,8 @@ import (
 	"github.com/marinator86/portier-cli/internal/portier/relay/router"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
 	"github.com/marinator86/portier-cli/internal/utils"
+	"github.com/stretchr/testify/mock"
 )
-
-func createUplink(deviceId string, url string) uplink.Uplink {
-	options := uplink.Options{
-		APIToken:   deviceId,
-		PortierURL: url,
-	}
-
-	return uplink.NewWebsocketUplink(options, nil)
-}
 
 func TestConnectAndBridging(testing *testing.T) {
 	// GIVEN
@@ -81,10 +73,10 @@ func TestForwarding(testing *testing.T) {
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
 
-	router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2, _ := createRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
 
-	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 	_ = router1.Start()
 	router1.AddConnection(cid, adapter1)
@@ -142,10 +134,10 @@ func TestForwardingLarge(testing *testing.T) {
 	inboundEvents := make(chan adapter.AdapterEvent)
 	outboundEvents := make(chan adapter.AdapterEvent)
 
-	router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2, _ := createRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
 
-	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createRelay(device1, ws_url, outboundEvents)
 	adapter1, listenerConn := createOutboundAdapter(uplink, fromOptions, outboundEvents, ln)
 	_ = router1.Start()
 	router1.AddConnection(cid, adapter1)
@@ -237,10 +229,10 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	fAddr := fmt.Sprintf("%s://%s", forwarded.Addr().Network(), forwarded.Addr().String())
 	defer forwarded.Close()
 
-	router2 := createInboundRelay(device2, ws_url, inboundEvents)
+	router2, _ := createRelay(device2, ws_url, inboundEvents)
 	_ = router2.Start()
 
-	router1, uplink := createOutboundRelay(device1, ws_url, outboundEvents)
+	router1, uplink := createRelay(device1, ws_url, outboundEvents)
 	_ = router1.Start()
 
 	for i := 0; i < 20; i++ {
@@ -264,10 +256,12 @@ func TestConnOpenUnderStress(testing *testing.T) {
 	}
 }
 
-func createOutboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (router.Router, uplink.Uplink) {
+func createRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) (router.Router, uplink.Uplink) {
 	uplink := createUplink(deviceId.String(), url)
 	messageChannel, _ := uplink.Connect()
-	router := router.NewRouter(uplink, messageChannel, events)
+	pTLS := &MockPTLS{}
+	pTLS.On("TestEndpointURL", mock.Anything).Return(false)
+	router := router.NewRouter(uplink, messageChannel, events, pTLS)
 
 	return router, uplink
 }
@@ -279,13 +273,6 @@ func createOutboundAdapter(uplink uplink.Uplink, opts adapter.ConnectionAdapterO
 
 	adapter := adapter.NewOutboundConnectionAdapter(opts, sConn, uplink, events)
 	return adapter, cConn
-}
-
-func createInboundRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEvent) router.Router {
-	uplink := createUplink(deviceId.String(), url)
-	messageChannel, _ := uplink.Connect()
-	router := router.NewRouter(uplink, messageChannel, events)
-	return router
 }
 
 func createConnectionAdapterOptions(cid messages.ConnectionID, from uuid.UUID, to uuid.UUID, rawUrl string) adapter.ConnectionAdapterOptions {
@@ -301,4 +288,32 @@ func createConnectionAdapterOptions(cid messages.ConnectionID, from uuid.UUID, t
 		ConnectionReadTimeout: time.Millisecond * 1000,
 		ReadBufferSize:        1024,
 	}
+}
+
+func createUplink(deviceId string, url string) uplink.Uplink {
+	options := uplink.Options{
+		APIToken:   deviceId,
+		PortierURL: url,
+	}
+
+	return uplink.NewWebsocketUplink(options, nil)
+}
+
+type MockPTLS struct {
+	mock.Mock
+}
+
+func (m *MockPTLS) TestEndpointURL(endpoint url.URL) bool {
+	args := m.Called(endpoint)
+	return args.Bool(0)
+}
+
+func (m *MockPTLS) CreateClientAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error) {
+	args := m.Called(conn, peerDeviceID)
+	return args.Get(0).(net.Conn), args.Get(1).(func() error), args.Error(2)
+}
+
+func (m *MockPTLS) CreateServerAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, error) {
+	args := m.Called(conn, peerDeviceID)
+	return args.Get(0).(net.Conn), args.Error(1)
 }

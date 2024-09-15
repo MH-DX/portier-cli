@@ -7,17 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/marinator86/portier-cli/internal/portier/config"
-	"github.com/marinator86/portier-cli/internal/portier/relay"
 	"github.com/marinator86/portier-cli/internal/utils"
-	"gopkg.in/yaml.v2"
 )
 
-func TestApplicationStartupAndForwarding(t *testing.T) {
+func TestApplicationStartupAndForwardingWithTLS(t *testing.T) {
 	// GIVEN
 	server := httptest.NewServer(http.HandlerFunc(utils.EchoWithLoss(5)))
 
@@ -31,26 +28,28 @@ func TestApplicationStartupAndForwarding(t *testing.T) {
 	// Replace "http" with "ws" in our URL.
 	ws_url := "ws" + server.URL[4:]
 
-	localServices := []relay.Service{
+	localServices := []config.Service{
 		{
 			Name: "service1",
-			Options: relay.ServiceOptions{
+			Options: config.ServiceOptions{
 				URLLocal:     utils.YAMLURL{URL: localURL},
 				URLRemote:    utils.YAMLURL{URL: remoteURL},
 				PeerDeviceID: peer,
-				TLSDisabled:  false,
+				TLSEnabled:   true,
 			},
 		},
 	}
-	appLocal := createApp(ws_url, local, localServices)
-	appRemote := createApp(ws_url, peer, []relay.Service{})
+	configLocal, credsLocal := createConfigs(ws_url, local, localServices, "local")
+	configPeer, credsPeer := createConfigs(ws_url, peer, []config.Service{}, "peer")
+	appLocal := NewPortierApplication()
+	appRemote := NewPortierApplication()
 	// listen at remote URL
 	remoteListener, _ := net.Listen("tcp", remoteURL.Host)
 	defer remoteListener.Close()
 
 	// WHEN
-	appLocal.StartServices()
-	appRemote.StartServices()
+	appLocal.StartServices(configLocal, credsLocal)
+	appRemote.StartServices(configPeer, credsPeer)
 
 	// THEN
 	// connect to local URL
@@ -86,42 +85,28 @@ func TestApplicationStartupAndForwarding(t *testing.T) {
 	}
 }
 
-func createApp(ws_url string, deviceID uuid.UUID, services []relay.Service) *PortierApplication {
-	configPath := "config.yaml"
-	credentialsPath := "credentials.yaml"
-	defer func() {
-		// delete config.yaml and credentials.yaml
-		os.Remove(configPath)
-		os.Remove(credentialsPath)
-	}()
-
-	// create config
-	portierConfig := defaultPortierConfig()
+func createConfigs(ws_url string, deviceID uuid.UUID, services []config.Service, suffix string) (*config.PortierConfig, *config.DeviceCredentials) {
+	portierConfig, err := config.DefaultPortierConfig()
+	if err != nil {
+		panic(err)
+	}
 	portierURL, _ := url.Parse(ws_url)
+	portierConfig.TLSEnabled = true
+	portierConfig.PTLSConfig = config.PTLSConfig{
+		CertFile:       fmt.Sprintf("testdata/cert%s.pem", suffix),
+		KeyFile:        fmt.Sprintf("testdata/key%s.pem", suffix),
+		KnownHostsFile: fmt.Sprintf("testdata/known_hosts.%s", suffix),
+	}
 
 	portierConfig.PortierURL.URL = portierURL
 	portierConfig.Services = services
-
-	// write config to file
-	configFile, _ := os.Create(configPath)
-	encoder := yaml.NewEncoder(configFile)
-	encoder.Encode(portierConfig)
 
 	credentials := &config.DeviceCredentials{
 		DeviceID: deviceID,
 		ApiToken: deviceID.String(),
 	}
-	// write credentials to file
-	credentialsFile, _ := os.Create(credentialsPath)
-	encoder = yaml.NewEncoder(credentialsFile)
-	encoder.Encode(credentials)
 
-	app := NewPortierApplication()
-
-	app.LoadConfig(configPath)
-	app.LoadApiToken(credentialsPath)
-
-	return app
+	return portierConfig, credentials
 }
 
 func readUntil(conn net.Conn, totalBytes int) (int, error) {

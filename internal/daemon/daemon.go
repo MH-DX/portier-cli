@@ -29,7 +29,7 @@ func (p *program) run() {
 
 	//application.LoadApiToken(p.apiTokenFilePath)
 
-	application.StartServices()
+	// application.StartServices()
 
 	// wait for exit
 	<-p.exit

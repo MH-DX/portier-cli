@@ -1,83 +1,93 @@
 package ptls
 
 import (
-	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/utils"
 	"gopkg.in/yaml.v2"
 )
 
-type PTLSConfig struct {
-	// PeerDeviceID is the deviceID of the peer device.
-	// Required
-	PeerDeviceID uuid.UUID
-
-	// cert file path, containing this device's certificate
-	// default: "{home}/cert.pem"
-	CertFile func() ([]byte, error)
-
-	// key file path, containing this device's private key
-	// default: "{home}/key.pem"
-	KeyFile func() ([]byte, error)
-
-	// CA cert file path, to verify the peer's certificate
-	// If set, server and client will verify the peer's certificate.
-	// If not set, server and client will try the KnownHosts file to verify the peer's certificate.
-	// default: not set
-	CAFile func() ([]byte, error)
-
-	// KnownHosts is a local file containing a map of known certificate fingerprints to deviceID, for
-	// verifying the peer's certificate. Only used if CAFile is not set.
-	// default: {home}/known_hosts
-	KnownHostsFile func() ([]byte, error)
+type PTLS interface {
+	TestEndpointURL(endpoint url.URL) bool
+	CreateClientAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error)
+	CreateServerAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, error)
 }
 
-func defaultPTLSConfig() (*PTLSConfig, error) {
-	home, err := utils.Home()
-	if err != nil {
-		return nil, err
-	}
+type ptls struct {
 
-	result := PTLSConfig{
-		CertFile:       FileProvider(fmt.Sprintf("%s/cert.pem", home)),
-		KeyFile:        FileProvider(fmt.Sprintf("%s/key.pem", home)),
-		CAFile:         nil,
-		KnownHostsFile: FileProvider(fmt.Sprintf("%s/known_hosts", home)),
-	}
+	// enabled indicates whether PTLS is enabled
+	Enabled bool
 
-	return &result, nil
+	// The path to the certificate file
+	CertFile string
+
+	// The path to the key file
+	KeyFile string
+
+	// The path to the CA file
+	CAFile string
+
+	// The path to the known hosts file
+	KnownHostsFile string
+
+	// Repository is the repository
+	Repo func(string) ([]byte, error)
 }
 
-func FileProvider(file string) func() ([]byte, error) {
-	return func() ([]byte, error) {
-		file, err := os.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		return file, nil
+type FileLoader func(string) ([]byte, error)
+
+// NewPTLS creates a new PTLS instance
+func NewPTLS(enabled bool, certFile, keyFile, caFile, knownHostsFile string, repo FileLoader) PTLS {
+
+	if repo == nil {
+		repo = loadFile
 	}
+
+	return &ptls{
+		Enabled:        enabled,
+		CertFile:       certFile,
+		KeyFile:        keyFile,
+		CAFile:         caFile,
+		KnownHostsFile: knownHostsFile,
+		Repo:           repo,
+	}
+}
+
+func (p *ptls) TestEndpointURL(endpoint url.URL) bool {
+	// look at config and determine from the endpoint configs if this endpoint must be secured with TLS
+	// also determine if TLS is globally enabled
+
+	// TODO: implement this function
+	return p.Enabled
 }
 
 // CreateClientAndBridge creates a new TLS client and decorates the connection with it.
 // Returns a new connection and a TLS handshaker function.
-func CreateClientAndBridge(conn net.Conn, config PTLSConfig) (net.Conn, func() error, error) {
+func (p *ptls) CreateClientAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error) {
+	return p.decorateAndBridge(conn, peerDeviceID, p.decorateTLSClient)
+}
+
+// CreateServerAndBridge creates a new TLS server and decorates the connection with it.
+// Returns a new connection.
+func (p *ptls) CreateServerAndBridge(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, error) {
+	conn, _, err := p.decorateAndBridge(conn, peerDeviceID, p.decorateTLSServer)
+	return conn, err
+}
+
+func (p *ptls) decorateAndBridge(conn net.Conn, peerDeviceID uuid.UUID, decorator func(net.Conn, uuid.UUID) (net.Conn, func() error, error)) (net.Conn, func() error, error) {
 
 	conn1, conn2 := net.Pipe()
 
-	completedConfig, err := completeConfig(config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	conn1, handshaker, err := decorateTLSClient(conn1, completedConfig)
+	conn1, handshaker, err := decorator(conn1, peerDeviceID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -95,98 +105,74 @@ func CreateClientAndBridge(conn net.Conn, config PTLSConfig) (net.Conn, func() e
 	return conn2, handshaker, nil
 }
 
-func completeConfig(config PTLSConfig) (PTLSConfig, error) {
-	defaultPTLSConfig, err := defaultPTLSConfig()
-	if err != nil {
-		return config, err
-	}
-
-	if config.PeerDeviceID == uuid.Nil {
-		return config, fmt.Errorf("PeerDeviceID is required")
-	}
-
-	if config.CertFile == nil {
-		config.CertFile = defaultPTLSConfig.CertFile
-	}
-
-	if config.KeyFile == nil {
-		config.KeyFile = defaultPTLSConfig.KeyFile
-	}
-
-	if config.KnownHostsFile == nil {
-		config.KnownHostsFile = defaultPTLSConfig.KnownHostsFile
-	}
-
-	return config, nil
-}
-
-func decorateTLSClient(conn net.Conn, config PTLSConfig) (net.Conn, func() error, error) {
+func (p *ptls) decorateTLSClient(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error) {
 
 	// create a new TLS client
 
 	// load the client's certificate and private key
-	cert, err := config.CertFile()
+	cert, err := p.Repo(p.CertFile)
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err := config.KeyFile()
+	key, err := p.Repo(p.KeyFile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// create a new TLS client
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{
-			{
-				Certificate: [][]byte{cert},
-				PrivateKey:  key,
-			},
-		},
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{tlsCert},
 	}
 
-	if config.CAFile != nil {
-		tlsConfig.InsecureSkipVerify = false
-		tlsConfig.ServerName = config.PeerDeviceID.String()
+	cacert, err := p.Repo(p.CAFile)
 
-		// load the CA certificate
-		caCert, err := config.CAFile()
-		if err != nil {
-			return nil, nil, err
-		}
+	if err == nil {
+		tlsConfig.InsecureSkipVerify = false
+		tlsConfig.ServerName = peerDeviceID.String()
 
 		// add the CA certificate to the TLS client
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+		caCertPool.AppendCertsFromPEM(cacert)
 		tlsConfig.RootCAs = caCertPool
 	} else {
 		tlsConfig.InsecureSkipVerify = true
 
 		// load the known hosts file
-		knownHosts, err := config.KnownHostsFile()
+		knownHosts, err := p.Repo(p.KnownHostsFile)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		// add the known hosts to the TLS client
 		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			peerCert := verifiedChains[0][0]
-			peerDeviceID := peerCert.Subject.CommonName
-			peerCertFingerprint := sha256.Sum256(peerCert.Raw)
-			if peerDeviceID != config.PeerDeviceID.String() {
-				return fmt.Errorf("common name %s does not match expected peer device %s", peerDeviceID, config.PeerDeviceID)
+			peerCertRaw := rawCerts[0]
+			peerCert, err := x509.ParseCertificate(peerCertRaw)
+			if err != nil {
+				return err
+			}
+			cName := peerCert.Subject.CommonName
+			peerCertFingerprint := fmt.Sprintf("%x", sha256.Sum256(peerCert.Raw))
+			if cName != peerDeviceID.String() {
+				return fmt.Errorf("common name %s does not match expected peer device %s", cName, peerDeviceID)
 			}
 
-			knownHostsMap := make(map[string][]byte)
-			err := yaml.Unmarshal(knownHosts, knownHostsMap)
+			knownHostsMap := make(map[string]string)
+			err = yaml.Unmarshal(knownHosts, knownHostsMap)
 			if err != nil {
 				return err
 			}
 
-			if knownHostsMap[peerDeviceID] == nil {
+			if knownHostsMap[cName] == "" {
 				return fmt.Errorf("unknown peer device: %s", peerDeviceID)
 			}
 
-			if !bytes.Equal(knownHostsMap[peerDeviceID], peerCertFingerprint[:]) {
+			if knownHostsMap[cName] != peerCertFingerprint {
 				return fmt.Errorf("peer device %s has an unknown certificate", peerDeviceID)
 			}
 
@@ -199,7 +185,8 @@ func decorateTLSClient(conn net.Conn, config PTLSConfig) (net.Conn, func() error
 
 	// create the TLS handshaker
 	handshaker := func() error {
-		err = tlsConn.Handshake()
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*3600)
+		err = tlsConn.HandshakeContext(ctx)
 		if err != nil {
 			return err
 		}
@@ -207,4 +194,93 @@ func decorateTLSClient(conn net.Conn, config PTLSConfig) (net.Conn, func() error
 	}
 
 	return tlsConn, handshaker, nil
+}
+
+func (p *ptls) decorateTLSServer(conn net.Conn, peerDeviceID uuid.UUID) (net.Conn, func() error, error) {
+
+	// create a new TLS server
+
+	// load the server's certificate and private key
+	cert, err := p.Repo(p.CertFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	key, err := p.Repo(p.KeyFile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// create a new TLS server
+	tlsConfig := &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{tlsCert},
+	}
+
+	cacert, err := p.Repo(p.CAFile)
+
+	if err == nil {
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+
+		// add the CA certificate to the TLS server
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(cacert)
+		tlsConfig.ClientCAs = caCertPool
+	} else {
+		tlsConfig.ClientAuth = tls.RequireAnyClientCert
+		tlsConfig.InsecureSkipVerify = true
+
+		// load the known hosts file
+		knownHosts, err := p.Repo(p.KnownHostsFile)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// add the known hosts to the TLS server
+		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			peerCertRaw := rawCerts[0]
+			peerCert, err := x509.ParseCertificate(peerCertRaw)
+			if err != nil {
+				return err
+			}
+			cName := peerCert.Subject.CommonName
+			peerCertFingerprint := fmt.Sprintf("%x", sha256.Sum256(peerCert.Raw))
+			if cName != peerDeviceID.String() {
+				return fmt.Errorf("common name %s does not match expected peer device %s", cName, peerDeviceID)
+			}
+
+			knownHostsMap := make(map[string]string)
+			err = yaml.Unmarshal(knownHosts, knownHostsMap)
+			if err != nil {
+				return err
+			}
+
+			if knownHostsMap[cName] == "" {
+				return fmt.Errorf("unknown peer device: %s", peerDeviceID)
+			}
+
+			if knownHostsMap[cName] != peerCertFingerprint {
+				return fmt.Errorf("peer device %s has an unknown certificate", peerDeviceID)
+			}
+
+			return nil
+		}
+	}
+
+	// create a new TLS server
+	tlsConn := tls.Server(conn, tlsConfig)
+
+	return tlsConn, nil, nil
+}
+
+func loadFile(path string) ([]byte, error) {
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/marinator86/portier-cli/internal/portier/ptls"
 	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
 	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
 	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
@@ -114,12 +115,12 @@ func NewOutboundConnectionAdapter(options ConnectionAdapterOptions, connection n
 }
 
 // NewConnectionAdapter creates a new connection adapter for an inbound connection.
-func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan<- AdapterEvent) ConnectionAdapter {
+func NewInboundConnectionAdapter(options ConnectionAdapterOptions, uplink uplink.Uplink, eventChannel chan<- AdapterEvent, ptls ptls.PTLS) ConnectionAdapter {
 	return &connectionAdapter{
 		options:        options,
 		encoderDecoder: encoder.NewEncoderDecoder(),
 		uplink:         uplink,
-		state:          NewConnectingInboundState(options, eventChannel, uplink),
+		state:          NewConnectingInboundState(options, eventChannel, uplink, ptls),
 		mode:           Inbound,
 		eventChannel:   eventChannel,
 	}
