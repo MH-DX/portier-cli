@@ -12,7 +12,7 @@ import (
 )
 
 type tlsTrustOptions struct {
-	DeviceIDs           []string
+	DeviceIDs           *[]string
 	HomeFolderPath      string
 	CredentialsFileName string
 	KnownHostsFilePath  string
@@ -43,7 +43,7 @@ func NewTrustcmd() *cobra.Command {
 		RunE:         o.run,
 	}
 
-	cmd.Flags().StringArrayP("deviceIDs", "d", o.DeviceIDs, "device ID of the device to trust. If not provided, will trust all devices that have uploaded their fingerprints")
+	o.DeviceIDs = cmd.Flags().StringSliceP("ids", "i", []string{}, "device ID of the device to trust. If not provided, will trust all devices that have uploaded their fingerprints")
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
 	cmd.Flags().StringVarP(&o.KnownHostsFilePath, "knownHosts", "f", o.KnownHostsFilePath, "path to the known_hosts file")
@@ -54,7 +54,7 @@ func NewTrustcmd() *cobra.Command {
 
 func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 
-	fingerprints, err := api.GetFingerprint(o.HomeFolderPath, o.ApiURL, o.DeviceIDs)
+	fingerprints, err := api.GetFingerprint(o.HomeFolderPath, o.ApiURL, *o.DeviceIDs)
 	if err != nil {
 		return err
 	}
