@@ -3,6 +3,7 @@ package cmd
 import (
 	ptls_cmd "github.com/marinator86/portier-cli/cmd/ptls"
 	ptls_create_cmd "github.com/marinator86/portier-cli/cmd/ptls/create"
+	ptls_trust_cmd "github.com/marinator86/portier-cli/cmd/ptls/trust"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +22,7 @@ func newRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(newRegisterCmd())
 	tlsCmd := ptls_cmd.NewTLScmd()
 	tlsCmd.AddCommand(ptls_create_cmd.NewCreatecmd())
+	tlsCmd.AddCommand(ptls_trust_cmd.NewTrustcmd())
 	cmd.AddCommand(tlsCmd)
 	runCmd, err := newRunCmd()
 	if err != nil {
