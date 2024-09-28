@@ -241,6 +241,17 @@ ssh -p 22222 root@localhost
 
 Congratulations! You successfully forwarded a port using portier.
 
+# End-to-End Encryption
+
+portier connections can optionally be end-to-end encrypted using TLS 1.3. With encryption enabled, even simple plain-text protocols like http can only be read by the communicating devices. Not even portier.dev is able to decrypt the traffic. To use encryption, two simple steps are needed for each device taking part in an encrypted connection:
+
+1. Creation of a TLS certificate and upload of its public fingerprint to portier.dev via the `portier-cli tls create` command
+2. Download of the peer devices's fingerprint from portier.dev via the `portier-cli tls trust` command
+
+## Creation
+
+## Trusting a Peer Device
+
 # Project Layout
 * [assets/](https://pkg.go.dev/github.com/marinator86/portier-cli/assets) => docs, images, etc
 * [cmd/](https://pkg.go.dev/github.com/marinator86/portier-cli/cmd)  => commandline configurartions (flags, subcommands)
