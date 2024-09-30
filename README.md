@@ -223,7 +223,7 @@ services:
 
 Now, start portier-cli on myHome, and note the additional output about the started service ssh:
 ```
-% ./portier-cli run          
+portier-cli run          
 2024/04/13 21:04:53 Starting Portier CLI...
 starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mario/.portier/credentials_device.yaml, out json
 2024/04/13 21:04:53 Creating relay...
@@ -248,9 +248,80 @@ portier connections can optionally be end-to-end encrypted using TLS 1.3. With e
 1. Creation of a TLS certificate and upload of its public fingerprint to portier.dev via the `portier-cli tls create` command
 2. Download of the peer devices's fingerprint from portier.dev via the `portier-cli tls trust` command
 
-## Creation
+## Creation of a Certificate
+With portier, you don't need to manage TLS certificates with an own PKI (if you don't want to). Instead, portier offers a simple and fast way to create a locally stored, self-signed certificate using the command:
+```sh
+portier-cli tls create
+```
+This will create and store the certificate and then return some important information to you:
+```
+Self-signed certificate created:
+
+CommonName:     CN=43ac2dba-7f06-4a64-bda8-3947b7ac7c76
+NotBefore:      2024-09-30 17:25:19 +0000 UTC
+NotAfter:       2044-09-30 17:25:19 +0000 UTC
+SerialNumber:   56808435758539553054931241365276972925
+Algorithm:      Ed25519
+
+Certificate written to  /home/mario/.portier/cert.pem
+Private key written to  /home/mario/.portier/key.pem
+
+The SHA-256 fingerprint of the certificate will be used to authenticate the device when it connects to other devices
+Fingerprint: ea536d476ecd337969811f8ced499aca41a6aa74422a00618094db3d2bb15dbc
+
+To allow this device to securely connect to another device, add the following line to the known_hosts file of the other device:
+43ac2dba-7f06-4a64-bda8-3947b7ac7c76: ea536d476ecd337969811f8ced499aca41a6aa74422a00618094db3d2bb15dbc
+The known_hosts file is usually located at ~/.portier/known_hosts
+
+Hint: You can also use the trust-command on the other device:
+> portier-cli tls trust -i 43ac2dba-7f06-4a64-bda8-3947b7ac7c76
+This way, portier-cli will update the known_hosts file for you
+
+Uploading fingerprint to the server (it is public)
+Fingerprint uploaded successfully
+
+Done
+```
+
+The key output here is the "fingerprint" of the certificate. It is a unique SHA-256 fingerprint, which is used to verify the certificate. The fingerprint can safely be published to portier, as long as the private key from `~/.portier/key.pem` remains secret. Repeat the `tls create` command on all devices that you set up.
+
+The output also mentions what's needed to be done on peer devices that the above device needs to communicate with: The establishment of a trust relationship.
 
 ## Trusting a Peer Device
+
+Creating a device's own certificate and publish its key is a first step. The next step is to make other devices trust the certificate. To do that, you can use the command the command that was returned to you in the previous section:
+```sh
+portier-cli tls trust -i 43ac2dba-7f06-4a64-bda8-3947b7ac7c76
+```
+What happens here is that this device connects to portier.dev to ask for the fingerprint of device 43ac2dba-7f06-4a64-bda8-3947b7ac7c76, and then downloads the fingerprint to its own local `known_hosts` file. It also returns the fingerprint to you, so you can verify that portier hasn't tampered with the fingerprint. Here's the output of the above command:
+
+```sh
+2024/09/30 17:47:18 Gettings fingerprints from https://api.portier.dev/api/fingerprints
+
+The following fingerprints were received (includes devices that are shared to you):
+DeviceID: 43ac2dba-7f06-4a64-bda8-3947b7ac7c76, Fingerprint: ea536d476ecd337969811f8ced499aca41a6aa74422a00618094db3d2bb15dbc
+
+Adding fingerprints to /home/vscode/.portier/known_hosts
+
+Fingerprints added. Done.
+```
+
+Great! Now we can configure portier to encrypt those connections. In the `~/.portier/config.yaml` of both devices, set the following values to activate TLS:
+```yaml
+tlsEnabled: true # Global setting
+```
+This will enforce TLS for all **incoming** connections. For **outgoing** connections, the TLS setting must match the peer's server configuration. For a single service, activate TLS as shown in the following example:
+```yaml
+services:
+  - name: "example_service"
+    options:
+      urlLocal: "tcp://localhost:8080"
+      urlRemote: "tcp://remote.server:9090"
+      peerDeviceID: "43ac2dba-7f06-4a64-bda8-3947b7ac7c76"
+      tlsEnabled: true
+```
+
+Finally, portier's approach is somewhat similar to the approach of ssh, where fingerprints of known hosts are also stored in a file called `known_hosts`. Nonetheless, if you want to avoid using fingerprints and rely on ca-certificates of your own PKI, you can do so as well. In this case, the `~/.portier/config.yaml` needs to be configured with the path of the ca-cert, certificate and private key manually. As soon as a ca-cert is configured for a device, the TLS handshake will try to verify the peer's certificate using the ca-cert. Fingerprints are not used.
 
 # Project Layout
 * [assets/](https://pkg.go.dev/github.com/marinator86/portier-cli/assets) => docs, images, etc
