@@ -115,7 +115,7 @@ func (o *tlsCreateOptions) run(cmd *cobra.Command, args []string) error {
 		fmt.Println("The known_hosts file is usually located at ~/.portier/known_hosts")
 		fmt.Println()
 		fmt.Printf("Hint: You can also use the trust-command on the other device:\n")
-		fmt.Printf("> portier-cli tls trust -d %s\n", credentials.DeviceID)
+		fmt.Printf("> portier-cli tls trust -i %s\n", credentials.DeviceID)
 		fmt.Println("This way, portier-cli will update the known_hosts file for you")
 		fmt.Println()
 		fmt.Println("Uploading fingerprint to the server (it is public)")
