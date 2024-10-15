@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/adapter/rto_heap"
-	"github.com/marinator86/portier-cli/internal/portier/relay/adapter/rtt"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
-	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter/rto_heap"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter/rtt"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/encoder"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
+	windowitem "github.com/mh-dx/portier-cli/internal/portier/relay/window_item"
 	"gopkg.in/eapache/queue.v1"
 )
 

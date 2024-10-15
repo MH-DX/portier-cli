@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/kardianos/service"
-	"github.com/marinator86/portier-cli/internal/portier/application"
+	"github.com/mh-dx/portier-cli/internal/portier/application"
 )
 
 var logger *log.Logger

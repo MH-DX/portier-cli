@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/marinator86/portier-cli/internal/portier/application"
-	"github.com/marinator86/portier-cli/internal/portier/config"
-	"github.com/marinator86/portier-cli/internal/utils"
+	"github.com/mh-dx/portier-cli/internal/portier/application"
+	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 

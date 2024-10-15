@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	ptls_cmd "github.com/marinator86/portier-cli/cmd/ptls"
-	ptls_create_cmd "github.com/marinator86/portier-cli/cmd/ptls/create"
-	ptls_trust_cmd "github.com/marinator86/portier-cli/cmd/ptls/trust"
+	ptls_cmd "github.com/mh-dx/portier-cli/cmd/ptls"
+	ptls_create_cmd "github.com/mh-dx/portier-cli/cmd/ptls/create"
+	ptls_trust_cmd "github.com/mh-dx/portier-cli/cmd/ptls/trust"
 	"github.com/spf13/cobra"
 )
 

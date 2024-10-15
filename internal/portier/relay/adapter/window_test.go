@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	windowitem "github.com/mh-dx/portier-cli/internal/portier/relay/window_item"
 	"github.com/stretchr/testify/mock"
 )
 

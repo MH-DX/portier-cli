@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/marinator86/portier-cli/cmd"
+	"github.com/mh-dx/portier-cli/cmd"
 )
 
 var version = "0.0.1"

@@ -1,4 +1,4 @@
-module github.com/marinator86/portier-cli
+module github.com/mh-dx/portier-cli
 
 go 1.19
 

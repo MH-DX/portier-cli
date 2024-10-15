@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/config"
-	"github.com/marinator86/portier-cli/internal/utils"
+	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/utils"
 )
 
 func TestApplicationStartupAndForwardingWithTLS(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
 	"github.com/stretchr/testify/mock"
 )
 

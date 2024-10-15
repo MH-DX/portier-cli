@@ -7,10 +7,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/portier/ptls"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
+	"github.com/mh-dx/portier-cli/internal/portier/ptls"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/encoder"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
 )
 
 type connectingInboundState struct {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/encoder"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 )
 
 var spider = Spider{

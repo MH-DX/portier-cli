@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/encoder"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
