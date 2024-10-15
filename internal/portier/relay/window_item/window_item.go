@@ -3,7 +3,7 @@ package windowitem
 import (
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 )
 
 // A windowItem is an item in the window.

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	portier "github.com/marinator86/portier-cli/internal/portier/api"
+	portier "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/spf13/cobra"
 )
 

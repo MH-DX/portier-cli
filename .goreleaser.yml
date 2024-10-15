@@ -32,8 +32,8 @@ archives:
 nfpms:
   - builds:
       - portier-cli
-    vendor: marinator86
-    homepage:  https://github.com/marinator86/portier-cli
+    vendor: MH.DX UG
+    homepage:  https://github.com/MH-DX/portier-cli
     maintainer: "Mario Hammer <contact@portier.dev>"
     description: "Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
     license: GPL-3.0
@@ -62,13 +62,13 @@ nfpms:
 
 dockers:
 - image_templates:
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
   dockerfile: Dockerfile
   use: buildx
   build_flag_templates:
   - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/README.md"
+  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/mh-dx/portier-cli/master/README.md"
   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Mario Hammer\",\"email\":\"contact@portier.dev\"}]"
   - "--label=io.artifacthub.package.license=MIT"
   - "--label=org.opencontainers.image.description=Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
@@ -79,14 +79,14 @@ dockers:
   - "--label=org.opencontainers.image.source={{.GitURL}}"
   - "--platform=linux/amd64"
 - image_templates:
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
   dockerfile:  Dockerfile
   use: buildx
   build_flag_templates:
   - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/README.md"
-  - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/marinator86/portier-cli/master/www/static/images/logo.png"
+  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/mh-dx/portier-cli/master/README.md"
+  - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/mh-dx/portier-cli/master/www/static/images/logo.png"
   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"Mario Hammer\",\"email\":\"contact@portier.dev\"}]"
   - "--label=io.artifacthub.package.license=MIT"
   - "--label=org.opencontainers.image.description=Remotely access all your machines through Portier CLI. It's easy, efficient and reliable. For more info, visit portier.dev"
@@ -99,22 +99,22 @@ dockers:
   goarch: arm64
 
 docker_manifests:
-- name_template: 'marinator86/{{.ProjectName}}:{{ .Tag }}'
+- name_template: 'mhdxug/{{.ProjectName}}:{{ .Tag }}'
   image_templates:
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
+- name_template: 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}'
   image_templates:
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'marinator86/{{.ProjectName}}:latest'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
+- name_template: 'mhdxug/{{.ProjectName}}:latest'
   image_templates:
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/marinator86/{{.ProjectName}}:latest'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
+- name_template: 'ghcr.io/mh-dx/{{.ProjectName}}:latest'
   image_templates:
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/marinator86/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
 
 checksum:
   name_template: "checksums.txt"

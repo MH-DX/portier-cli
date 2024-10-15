@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	messages "github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	messages "github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 )
 
 type MessageHeapOptions struct {

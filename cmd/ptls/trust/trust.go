@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	api "github.com/marinator86/portier-cli/internal/portier/api"
-	"github.com/marinator86/portier-cli/internal/utils"
+	api "github.com/mh-dx/portier-cli/internal/portier/api"
+	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

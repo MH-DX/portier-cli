@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	portier "github.com/marinator86/portier-cli/internal/portier/api"
-	"github.com/marinator86/portier-cli/internal/utils"
+	portier "github.com/mh-dx/portier-cli/internal/portier/api"
+	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 

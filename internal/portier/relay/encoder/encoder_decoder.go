@@ -1,7 +1,7 @@
 package encoder
 
 import (
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 	"github.com/vmihailenco/msgpack"
 )
 

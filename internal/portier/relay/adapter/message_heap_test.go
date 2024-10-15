@@ -3,7 +3,7 @@ package adapter
 import (
 	"testing"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 )
 
 func TestInsertAndReturn(testing *testing.T) {

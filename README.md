@@ -23,11 +23,11 @@ Portier uses a cloud infrastructure to forward messages between clients that han
 
 <br>
 <br>
-<img src="https://github.com/marinator86/portier-cli/actions/workflows/test.yml/badge.svg" alt="drawing"/>
-<img src="https://pkg.go.dev/badge/github.com/marinator86/portier-cli.svg" alt="drawing"/>
-<img src="https://img.shields.io/github/v/release/marinator86/portier-cli" alt="drawing"/>
-<img src="https://img.shields.io/docker/pulls/marinator86/portier-cli" alt="drawing"/>
-<img src="https://img.shields.io/github/downloads/marinator86/portier-cli/total.svg" alt="drawing"/>
+<img src="https://github.com/mh-dx/portier-cli/actions/workflows/test.yml/badge.svg" alt="drawing"/>
+<img src="https://pkg.go.dev/badge/github.com/mh-dx/portier-cli.svg" alt="drawing"/>
+<img src="https://img.shields.io/github/v/release/mh-dx/portier-cli" alt="drawing"/>
+<img src="https://img.shields.io/docker/pulls/mh-dx/portier-cli" alt="drawing"/>
+<img src="https://img.shields.io/github/downloads/mh-dx/portier-cli/total.svg" alt="drawing"/>
 </div>
 
 # Table of Contents
@@ -52,13 +52,13 @@ For macOS, download the appropriate binary for your architecture:
 
 - **Intel (x64):**
   ```bash
-  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_amd64.tar.gz | tar xz
+  curl -L https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_amd64.tar.gz | tar xz
   sudo mv portier-cli /usr/local/bin
   ```
 
 - **Apple Silicon (ARM64):**
   ```bash
-  curl -L https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_arm64.tar.gz | tar xz
+  curl -L https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_darwin_arm64.tar.gz | tar xz
   sudo mv portier-cli /usr/local/bin
   ```
 
@@ -68,7 +68,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
 
 - **Debian-based systems (e.g., Ubuntu)**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.deb
+  wget https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.deb
   ```
   ```bash
   sudo dpkg -i portier-cli_<VERSION>_linux_<ARCH>.deb
@@ -76,7 +76,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
 
 - **Red Hat-based systems (e.g., Fedora, CentOS)**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.rpm
+  wget https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.rpm
   ```
   ```bash
   sudo rpm -i portier-cli_<VERSION>_linux_<ARCH>.rpm
@@ -84,7 +84,7 @@ For Linux, binaries are available in `.deb`, `.rpm`, and `.tar.gz` formats. Choo
 
 - **Tarball (any Linux):**
   ```bash
-  wget https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.tar.gz
+  wget https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_linux_<ARCH>.tar.gz
   ```
   ```bash
   tar -xzf portier-cli_<VERSION>_linux_<ARCH>.tar.gz
@@ -99,13 +99,13 @@ For Windows, download the `.zip` file and extract it:
 
 - **64-bit:**
   ```cmd
-  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_amd64.zip
+  curl -LO https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_amd64.zip
   unzip portier-cli_<VERSION>_windows_amd64.zip -d portier-cli
   ```
 
 - **ARM64:**
   ```cmd
-  curl -LO https://github.com/marinator86/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_arm64.zip
+  curl -LO https://github.com/mh-dx/portier-cli/releases/latest/download/portier-cli_<VERSION>_windows_arm64.zip
   unzip portier-cli_<VERSION>_windows_arm64.zip -d portier-cli
   ```
 
@@ -117,7 +117,7 @@ To build and install `portier-cli` from the source:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/marinator86/portier-cli.git
+   git clone https://github.com/mh-dx/portier-cli.git
    cd portier-cli
    ```
 
@@ -253,10 +253,10 @@ portier connections can optionally be end-to-end encrypted using TLS 1.3. With e
 ## Trusting a Peer Device
 
 # Project Layout
-* [assets/](https://pkg.go.dev/github.com/marinator86/portier-cli/assets) => docs, images, etc
-* [cmd/](https://pkg.go.dev/github.com/marinator86/portier-cli/cmd)  => commandline configurartions (flags, subcommands)
-* [pkg/](https://pkg.go.dev/github.com/marinator86/portier-cli/pkg)  => packages that are okay to import for other projects
-* [internal/](https://pkg.go.dev/github.com/marinator86/portier-cli/pkg)  => packages that are only for project internal purposes
+* [assets/](https://pkg.go.dev/github.com/mh-dx/portier-cli/assets) => docs, images, etc
+* [cmd/](https://pkg.go.dev/github.com/mh-dx/portier-cli/cmd)  => commandline configurartions (flags, subcommands)
+* [pkg/](https://pkg.go.dev/github.com/mh-dx/portier-cli/pkg)  => packages that are okay to import for other projects
+* [internal/](https://pkg.go.dev/github.com/mh-dx/portier-cli/pkg)  => packages that are only for project internal purposes
 - [`tools/`](tools/) => for automatically shipping all required dependencies when running `go get` (or `make bootstrap`) such as `golang-ci-lint` (see: https://github.com/golang/go/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module)
 )
 - [`scripts/`](scripts/) => build scripts 

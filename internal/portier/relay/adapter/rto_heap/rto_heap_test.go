@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marinator86/portier-cli/internal/portier/relay/encoder"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
-	windowitem "github.com/marinator86/portier-cli/internal/portier/relay/window_item"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/encoder"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
+	windowitem "github.com/mh-dx/portier-cli/internal/portier/relay/window_item"
 	"github.com/stretchr/testify/mock"
 )
 

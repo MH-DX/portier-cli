@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/marinator86/portier-cli/internal/portier/relay/adapter"
-	"github.com/marinator86/portier-cli/internal/portier/relay/messages"
-	"github.com/marinator86/portier-cli/internal/portier/relay/router"
-	"github.com/marinator86/portier-cli/internal/portier/relay/uplink"
-	"github.com/marinator86/portier-cli/internal/utils"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/router"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
+	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/stretchr/testify/mock"
 )
 
