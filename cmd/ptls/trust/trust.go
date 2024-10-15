@@ -74,7 +74,15 @@ func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 	// load known_hosts file in yaml
 	known_hosts, err := os.Open(o.KnownHostsFilePath)
 	if err != nil {
-		return err
+		// if file does not exist, create it
+		if os.IsNotExist(err) {
+			known_hosts, err = os.Create(o.KnownHostsFilePath)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	decoder := yaml.NewDecoder(known_hosts)
