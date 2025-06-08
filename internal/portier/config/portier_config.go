@@ -26,7 +26,8 @@ type PortierConfig struct {
 }
 
 type DeviceCredentials struct {
-	DeviceID uuid.UUID `yaml:"deviceID"`
+	// DeviceID is filled at runtime using the whoami endpoint and is not persisted
+	DeviceID uuid.UUID `yaml:"-"`
 	ApiToken string    `yaml:"APIKey"`
 }
 
@@ -156,13 +157,18 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 		return nil, err
 	}
 
-	credentials := DeviceCredentials{}
+	type fileCreds struct {
+		ApiToken string `yaml:"APIKey"`
+	}
 
-	err = yaml.Unmarshal(fileContent, &credentials)
+	fc := fileCreds{}
+	err = yaml.Unmarshal(fileContent, &fc)
 	if err != nil {
 		log.Printf("Error unmarshalling yaml: %v. Exiting", err)
 		return nil, err
 	}
+
+	credentials := DeviceCredentials{ApiToken: fc.ApiToken}
 
 	return &credentials, nil
 }
