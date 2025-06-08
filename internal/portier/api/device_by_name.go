@@ -16,7 +16,7 @@ type DeviceByNameResponse struct {
 // GetDeviceByName fetches the device GUID for a given device name from the API.
 func GetDeviceByName(baseURL, name string) (string, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := fmt.Sprintf("%s/deviceByName/%s", baseURL, name)
+	url := fmt.Sprintf("%s/spider/deviceByName/%s", baseURL, name)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
