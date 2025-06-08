@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,11 +37,28 @@ type PortierApplication struct {
 	ptls ptls.PTLS
 }
 
-func NewPortierApplication() *PortierApplication {
+// IsRunning returns true if services are started.
+func (p *PortierApplication) IsRunning() bool {
+	return p.router != nil
+}
 
+var (
+	defaultApp *PortierApplication
+	once       sync.Once
+)
+
+func NewPortierApplication() *PortierApplication {
 	return &PortierApplication{
 		contexts: []ServiceContext{},
 	}
+}
+
+// GetPortierApplication returns a singleton instance for CLI usage.
+func GetPortierApplication() *PortierApplication {
+	once.Do(func() {
+		defaultApp = NewPortierApplication()
+	})
+	return defaultApp
 }
 
 func (p *PortierApplication) StartServices(portierConfig *config.PortierConfig, creds *config.DeviceCredentials) error {
@@ -199,6 +217,37 @@ func (p *PortierApplication) startListeners() error {
 		}
 	}
 	return nil
+}
+
+// AddService adds a service to a running application and starts listening for it.
+func (p *PortierApplication) AddService(service config.Service) error {
+	if p.config == nil {
+		p.config = &config.PortierConfig{Services: []config.Service{}}
+	}
+	p.config.Services = append(p.config.Services, service)
+
+	if !p.IsRunning() {
+		return nil
+	}
+
+	log.Printf("Starting service: %s\n", service.Name)
+	log.Println(utils.PrettyPrint(service))
+
+	switch service.Options.URLLocal.Scheme {
+	case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
+		listener, err := net.Listen(service.Options.URLLocal.Scheme, service.Options.URLLocal.Host)
+		if err != nil {
+			return err
+		}
+		ctx := ServiceContext{Service: service, Listener: listener}
+		p.contexts = append(p.contexts, ctx)
+		go p.handleAccept(ctx, listener)
+		return nil
+	case "udp", "udp4", "udp6", "unixgram", "ip", "ip4", "ip6":
+		return fmt.Errorf("scheme yet unsupported: %s. Contact contact@portier.dev", service.Options.URLLocal.Scheme)
+	default:
+		return fmt.Errorf("unrecognized scheme: %s", service.Options.URLLocal.Scheme)
+	}
 }
 
 func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error) {

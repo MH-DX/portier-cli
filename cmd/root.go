@@ -30,6 +30,11 @@ func newRootCmd(version string) *cobra.Command {
 	}
 	cmd.AddCommand(runCmd)
 
+	forwardCmd, err := newForwardCmd()
+	if err == nil {
+		cmd.AddCommand(forwardCmd)
+	}
+
 	return cmd
 }
 
