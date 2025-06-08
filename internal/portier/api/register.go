@@ -160,7 +160,7 @@ func Register(name string, baseURL string, home string, credentialsFileName stri
 		return err
 	}
 
-	err = StoreDeviceCredentials(device.GUID, apiKey.ApiKey, home, credentialsFileName)
+	err = StoreDeviceCredentials(apiKey.ApiKey, home, credentialsFileName)
 	if err != nil {
 		fmt.Println("Error storing credentials:", err)
 		return err

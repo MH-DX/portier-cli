@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/utils"
@@ -11,6 +12,7 @@ import (
 
 type registerOptions struct {
 	Name                string
+	ApiKey              string
 	ApiURL              string
 	HomeFolderPath      string
 	CredentialsFileName string
@@ -25,6 +27,7 @@ func defaultRegisterOptions() *registerOptions {
 
 	return &registerOptions{
 		ApiURL:              "https://api.portier.dev/api",
+		ApiKey:              "",
 		HomeFolderPath:      home,
 		CredentialsFileName: "credentials_device.yaml",
 		Output:              "yaml",
@@ -43,6 +46,7 @@ func newRegisterCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&o.Name, "name", "n", o.Name, "name of the device")
+	cmd.Flags().StringVarP(&o.ApiKey, "apiKey", "k", o.ApiKey, "existing API key to register with")
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
 	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the API (https://api.portier.dev)")
@@ -54,6 +58,22 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 	err := o.parseArgs(cmd, args)
 	if err != nil {
 		return err
+	}
+
+	if o.ApiKey != "" {
+		if o.Name != "" {
+			return fmt.Errorf("--name must not be provided when --apiKey is used")
+		}
+		guid, err := portier.WhoAmI(strings.TrimSuffix(o.ApiURL, "/api"), o.ApiKey)
+		if err != nil {
+			return err
+		}
+		err = portier.StoreDeviceCredentials(o.ApiKey, o.HomeFolderPath, o.CredentialsFileName)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
+		return nil
 	}
 
 	if o.Name == "" {
@@ -75,6 +95,11 @@ func (o *registerOptions) parseArgs(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	o.Name = name
+
+	apiKey, err := cmd.Flags().GetString("apiKey")
+	if err == nil {
+		o.ApiKey = apiKey
+	}
 
 	apiUrl, err := cmd.Flags().GetString("apiUrl")
 	if err != nil {
