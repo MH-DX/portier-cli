@@ -67,7 +67,7 @@ func (o *tlsCreateOptions) run(cmd *cobra.Command, args []string) error {
 
 	// load credentials.yaml file
 	// get the device ID from the credentials.yaml file
-	credentials, err := api.LoadDeviceCredentials(o.HomeFolderPath, o.CredentialsFileName)
+	credentials, err := api.LoadDeviceCredentials(o.HomeFolderPath, o.CredentialsFileName, o.ApiURL)
 	if err != nil {
 		return err
 	}
