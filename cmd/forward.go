@@ -95,7 +95,12 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	remoteID, err := portierapi.GetDeviceByName(o.ApiURL, remoteName)
+	deviceCreds, err := config.LoadApiToken(o.ApiTokenFile)
+	if err != nil {
+		return err
+	}
+
+	remoteID, err := portierapi.GetDeviceByName(strings.TrimSuffix(o.ApiURL, "/api"), remoteName, deviceCreds.ApiToken)
 	if err != nil {
 		return err
 	}

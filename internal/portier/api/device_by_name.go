@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // DeviceByNameResponse represents the response structure of GET /deviceByName/<name>
@@ -14,13 +15,17 @@ type DeviceByNameResponse struct {
 }
 
 // GetDeviceByName fetches the device GUID for a given device name from the API.
-func GetDeviceByName(baseURL, name string) (string, error) {
+func GetDeviceByName(baseURL, name string, apiKey string) (string, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	url := fmt.Sprintf("%s/spider/deviceByName/%s", baseURL, name)
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Authorization", apiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

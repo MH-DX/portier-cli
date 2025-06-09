@@ -32,7 +32,8 @@ func Login() error {
 	// define the data
 	data := url.Values{}
 	data.Set("client_id", "jE4nxZ6miTLOS4OWGLzoyVlOnkxAiHqb")
-	data.Set("scope", "openid email offline_access")
+	data.Set("scope", "openid email profile offline_access")
+	data.Set("audience", "https://api.portier.dev")
 
 	// create the request
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, deviceURL, strings.NewReader(data.Encode()))
