@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
@@ -73,6 +74,12 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
+		cert := filepath.Join(o.HomeFolderPath, "cert.pem")
+		key := filepath.Join(o.HomeFolderPath, "key.pem")
+		known := filepath.Join(o.HomeFolderPath, "known_hosts")
+		if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -84,6 +91,13 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Command: Create device %s at %s, out %s\n", o.Name, o.ApiURL, o.Output)
 
 	portier.Register(o.Name, o.ApiURL, o.HomeFolderPath, o.CredentialsFileName)
+
+	cert := filepath.Join(o.HomeFolderPath, "cert.pem")
+	key := filepath.Join(o.HomeFolderPath, "key.pem")
+	known := filepath.Join(o.HomeFolderPath, "known_hosts")
+	if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
+		return err
+	}
 
 	return nil
 }

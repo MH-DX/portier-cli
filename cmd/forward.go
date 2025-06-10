@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
+	ptls_trust_cmd "github.com/mh-dx/portier-cli/cmd/ptls/trust"
 	portierapi "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/application"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
@@ -105,11 +106,6 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	home, err := utils.Home()
-	if err != nil {
-		return err
-	}
-
 	cfg, err := config.LoadConfig(o.ConfigFile)
 	if err != nil {
 		return err
@@ -117,6 +113,15 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 	creds, err := config.LoadApiToken(o.ApiTokenFile)
 	if err != nil {
 		return err
+	}
+
+	if !o.NoTLS {
+		cert := cfg.PTLSConfig.CertFile
+		key := cfg.PTLSConfig.KeyFile
+		known := cfg.PTLSConfig.KnownHostsFile
+		if err := ensureTLSCertificate(cmd, filepath.Dir(o.ApiTokenFile), o.ApiTokenFile, o.ApiURL, cert, key, known); err != nil {
+			return err
+		}
 	}
 
 	tlsEnabled := !o.NoTLS
@@ -132,13 +137,20 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(answer)
 			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-				fps, err := portierapi.GetFingerprint(home, o.ApiURL, []string{remoteID})
-				if err != nil {
+				trustCmd := ptls_trust_cmd.NewTrustcmd()
+				trustCmd.SetIn(cmd.InOrStdin())
+				trustCmd.SetOut(cmd.OutOrStdout())
+				args := []string{
+					"--home", filepath.Dir(o.ApiTokenFile),
+					"--knownHosts", khPath,
+					"--apiUrl", o.ApiURL,
+					"--credentials", filepath.Base(o.ApiTokenFile),
+					"--ids", remoteID,
+				}
+				trustCmd.SetArgs(args)
+				if err := trustCmd.Execute(); err != nil {
 					return err
 				}
-				kh[remoteID] = fps[remoteID]
-				data, _ := yaml.Marshal(kh)
-				os.WriteFile(khPath, data, 0o644)
 				fmt.Fprintln(cmd.OutOrStdout(), "Device trusted. The remote device might need to trust this device as well.")
 			} else {
 				return fmt.Errorf("device not trusted")
