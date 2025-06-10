@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type GetFingerPrintRequest struct {
@@ -21,34 +22,57 @@ type GetFingerPrintResponse struct {
 
 func GetFingerprint(home, baseURL string, deviceIDs []string) (map[string]string, error) {
 	accessToken, err := LoadAccessToken(home)
-	if err != nil {
-		return nil, err
+	useAPIKey := false
+	var apiKey string
+	if err != nil || accessToken.AccessToken == "" {
+		creds, derr := LoadDeviceCredentials(home, "credentials_device.yaml", baseURL)
+		if derr != nil {
+			if err != nil {
+				return nil, err
+			}
+			return nil, derr
+		}
+		useAPIKey = true
+		apiKey = creds.APIKey
 	}
 
-	// Create the request
-	payload := GetFingerPrintRequest{
-		DeviceIDs: deviceIDs,
-	}
+	var req *http.Request
+	var url string
+	if useAPIKey {
+		url = fmt.Sprintf("%s/spider/fingerprints", strings.TrimSuffix(baseURL, "/api"))
+		log.Printf("Getting fingerprints from %s\n", url)
+		query := ""
+		if len(deviceIDs) > 0 {
+			query = "?ids=" + strings.Join(deviceIDs, ",")
+		}
+		req, err = http.NewRequest("GET", url+query, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", apiKey)
+	} else {
+		// Create the request
+		payload := GetFingerPrintRequest{
+			DeviceIDs: deviceIDs,
+		}
 
-	// Convert the request to JSON
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
+		// Convert the request to JSON
+		payloadJSON, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
 
-	// Make the POST request
-	url := fmt.Sprintf("%s/fingerprints", baseURL)
-	log.Printf("Gettings fingerprints from %s\n", url)
-	fmt.Println()
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// Set Authorization header if access token available
-	if accessToken.AccessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+		// Make the POST request
+		url = fmt.Sprintf("%s/fingerprints", baseURL)
+		log.Printf("Gettings fingerprints from %s\n", url)
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if accessToken.AccessToken != "" {
+			req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+		}
 	}
 
 	client := &http.Client{}
