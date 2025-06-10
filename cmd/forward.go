@@ -106,6 +106,9 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// add log statement to show the remote ID
+	fmt.Fprintf(cmd.OutOrStdout(), "Device %s has ID %s\n", remoteName, remoteID)
+
 	cfg, err := config.LoadConfig(o.ConfigFile)
 	if err != nil {
 		return err
@@ -132,11 +135,13 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 			yaml.Unmarshal(data, &kh)
 		}
 		if _, ok := kh[remoteID]; !ok {
-			fmt.Fprintf(cmd.OutOrStdout(), "Device %s not trusted. Trust it? [y/N] ", remoteID)
+			fmt.Fprintf(cmd.OutOrStdout(), "Device %s is not trusted for TLS encrypted communication. Please confirm downloading its fingerprint [Y/n] ", remoteName)
 			reader := bufio.NewReader(cmd.InOrStdin())
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(answer)
-			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+			if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+				return fmt.Errorf("TLS enabled, but the remote device ist not trusted. Aborting")
+			} else {
 				trustCmd := ptls_trust_cmd.NewTrustcmd()
 				trustCmd.SetIn(cmd.InOrStdin())
 				trustCmd.SetOut(cmd.OutOrStdout())
@@ -151,9 +156,7 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 				if err := trustCmd.Execute(); err != nil {
 					return err
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), "Device trusted. The remote device might need to trust this device as well.")
-			} else {
-				return fmt.Errorf("device not trusted")
+				fmt.Fprintf(cmd.OutOrStdout(), "Device %s trusted. The remote device might need to trust this device as well.\n", remoteName)
 			}
 		}
 	} else {

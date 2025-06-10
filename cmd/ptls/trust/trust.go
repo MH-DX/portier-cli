@@ -59,9 +59,22 @@ func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("The following fingerprints were received (includes devices that are shared to you):")
+	if len(fingerprints) == 0 {
+		fmt.Println("The following fingerprints were received (includes devices that are shared to you):")
+	} else {
+		fmt.Println("No fingerprints were received. This means that either no devices have uploaded their fingerprints or the provided device IDs do not match any devices.")
+	}
+
 	for deviceID, fingerprint := range fingerprints {
 		if fingerprint == "" {
+			// If this device was explicitly requested, return an error
+			if len(*o.DeviceIDs) > 0 {
+				for _, requestedID := range *o.DeviceIDs {
+					if requestedID == deviceID {
+						return fmt.Errorf("device %s was explicitly requested but has no fingerprint available. Please ensure the device has uploaded its fingerprint using the create command", deviceID)
+					}
+				}
+			}
 			fmt.Printf("DeviceID: %s, Fingerprint: <empty>\n", deviceID)
 			continue
 		}
