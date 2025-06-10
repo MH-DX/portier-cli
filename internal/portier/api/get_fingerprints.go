@@ -41,14 +41,22 @@ func GetFingerprint(home, baseURL string, deviceIDs []string) (map[string]string
 	if useAPIKey {
 		url = fmt.Sprintf("%s/spider/fingerprints", strings.TrimSuffix(baseURL, "/api"))
 		log.Printf("Getting fingerprints from %s\n", url)
-		query := ""
-		if len(deviceIDs) > 0 {
-			query = "?ids=" + strings.Join(deviceIDs, ",")
+		payload := GetFingerPrintRequest{
+			DeviceIDs: deviceIDs,
 		}
-		req, err = http.NewRequest("GET", url+query, nil)
+
+		// Convert the request to JSON
+		payloadJSON, err := json.Marshal(payload)
 		if err != nil {
 			return nil, err
 		}
+
+		// Make the POST request
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", apiKey)
 	} else {
 		// Create the request

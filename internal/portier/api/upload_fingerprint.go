@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type FingerPrintUploadRequest struct {
@@ -19,34 +20,70 @@ type FingerPrintUploadRequest struct {
 
 func UploadFingerprint(home, baseURL, deviceID, fingerprint string) error {
 	accessToken, err := LoadAccessToken(home)
-	if err != nil {
-		return err
+	useAPIKey := false
+	var apiKey string
+	if err != nil || accessToken.AccessToken == "" {
+		creds, derr := LoadDeviceCredentials(home, "credentials_device.yaml", baseURL)
+		if derr != nil {
+			if err != nil {
+				return err
+			}
+			return derr
+		}
+		useAPIKey = true
+		apiKey = creds.APIKey
 	}
 
-	// Create the request
-	payload := FingerPrintUploadRequest{
-		DeviceID:          deviceID,
-		SHA256Fingerprint: fingerprint,
-	}
+	var req *http.Request
+	var url string
+	if useAPIKey {
+		url := fmt.Sprintf("%s/spider/fingerprintupsert", strings.TrimSuffix(baseURL, "/api"))
+		log.Printf("Uploading fingerprint to %s\n", url)
 
-	// Convert the request to JSON
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+		// Create the request payload
+		payload := FingerPrintUploadRequest{
+			DeviceID:          deviceID,
+			SHA256Fingerprint: fingerprint,
+		}
 
-	// Make the POST request
-	url := fmt.Sprintf("%s/fingerprintupsert", baseURL)
-	log.Printf("Uploading fingerprint to %s\n", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
+		// Convert the request to JSON
+		payloadJSON, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
 
-	// Set Authorization header if access token available
-	if accessToken.AccessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", apiKey)
+	} else {
+		// Create the request
+		payload := FingerPrintUploadRequest{
+			DeviceID:          deviceID,
+			SHA256Fingerprint: fingerprint,
+		}
+
+		// Convert the request to JSON
+		payloadJSON, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+
+		// Make the POST request
+		url = fmt.Sprintf("%s/fingerprintupsert", baseURL)
+		log.Printf("Uploading fingerprint to %s\n", url)
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		// Set Authorization header if access token available
+		if accessToken.AccessToken != "" {
+			req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+		}
 	}
 
 	client := &http.Client{}
