@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**IMPORTANT**: All commit messages must follow semantic commit conventions. Agents should always use the subject "AGENT" in their commits.
+**IMPORTANT**: All commit messages must follow semantic commit conventions. Agents should always use the subject "AGENT" in their commits. Example: `fix(AGENT): fix fingerprint retrieval with API key fallback`
 
 ## Repository Summary: Portier CLI
 
