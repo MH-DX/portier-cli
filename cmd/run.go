@@ -71,7 +71,7 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "starting device, services %s, apiToken %s, out %s\n", o.ConfigFile, o.ApiTokenFile, o.Output)
 
-	application := application.NewPortierApplication()
+	application := application.GetPortierApplication()
 
 	portierConfig, err := config.LoadConfig(o.ConfigFile)
 	if err != nil {
