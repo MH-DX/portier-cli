@@ -11,7 +11,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
-            "args": ["forward", "RaspberryPi:22->localhost:2222"],
+            "args": ["forward", "RaspberryPi:22->localhost:2222", "--no-persist"],
         }
     ]
 }

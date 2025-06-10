@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	api "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"gopkg.in/yaml.v2"
@@ -168,7 +169,15 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 		return nil, err
 	}
 
-	credentials := DeviceCredentials{ApiToken: fc.ApiToken}
+	guid, err := api.WhoAmI("https://api.portier.dev", fc.ApiToken)
+	if err != nil {
+		return nil, fmt.Errorf("could not get device ID: %w", err)
+	}
+
+	credentials := DeviceCredentials{
+		DeviceID: guid,
+		ApiToken: fc.ApiToken,
+	}
 
 	return &credentials, nil
 }

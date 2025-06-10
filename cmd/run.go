@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	api "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/application"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
 	"github.com/mh-dx/portier-cli/internal/utils"
@@ -78,18 +77,9 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	deviceCreds := deviceCredentials
-	if deviceCreds == nil {
-		deviceCreds, err = config.LoadApiToken(o.ApiTokenFile)
-		if err != nil {
-			return err
-		}
-		whoamiBase := fmt.Sprintf("https://%s", portierConfig.PortierURL.Host)
-		guid, err := api.WhoAmI(whoamiBase, deviceCreds.ApiToken)
-		if err != nil {
-			return err
-		}
-		deviceCreds.DeviceID = guid
+	deviceCreds, err := config.LoadApiToken(o.ApiTokenFile)
+	if err != nil {
+		return fmt.Errorf("could not load api token file: %w", err)
 	}
 
 	application.StartServices(portierConfig, deviceCreds)

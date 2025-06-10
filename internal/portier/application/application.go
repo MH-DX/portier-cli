@@ -251,7 +251,6 @@ func (p *PortierApplication) AddService(service config.Service) error {
 }
 
 func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error) {
-	log.Printf("Creating relay for device: %s\n", p.deviceCredentials.DeviceID)
 	log.Printf("Portier URL: %s\n", p.config.PortierURL.String())
 
 	uplinkOptions := uplink.Options{
