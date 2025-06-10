@@ -13,13 +13,13 @@ If complex network setup blocked you - search no more. Portier offers you remote
 With its automatic reconnect and advanced retransmission algorithms, your remote access works free from connection drops. Portier turns these events into a bit of latency, and then everything continues smoothly.
 Portier-cli requires roughly 10MB of RAM to run, but is also capable of scaling up to handle thousands of parallel connections - if you need it.
 
-## Secure, (don’t) trust us.
+## Secure, (don't) trust us.
 
-Portier uses TLS to secure your connections. And there’s no need to trust us: Portier-cli encrypts connections end to end (under development). Your data remains private.
+Portier uses TLS to secure your connections. And there's no need to trust us: Portier-cli encrypts connections end to end (under development). Your data remains private.
 
 ## Low-latency, high throughput servers.
 
-Portier uses a cloud infrastructure to forward messages between clients that handles high throughput with millisecond latencies. Working with rdp or ssh? Don’t worry about it, your clicks and key strokes will have a swift and fast response, just like you’re used to.
+Portier uses a cloud infrastructure to forward messages between clients that handles high throughput with millisecond latencies. Working with rdp or ssh? Don't worry about it, your clicks and key strokes will have a swift and fast response, just like you're used to.
 
 <br>
 <br>
@@ -30,11 +30,157 @@ Portier uses a cloud infrastructure to forward messages between clients that han
 <img src="https://img.shields.io/github/downloads/mh-dx/portier-cli/total.svg" alt="drawing"/>
 </div>
 
+# Quick Start: Connect from Home to Your Workplace PC
+
+This guide walks you through setting up remote access to your workplace PC from your home computer using Portier CLI. We'll call your workplace computer `myWorkplacePC` and your home computer `myHomePC`.
+
+## Part 1: Setting Up Your Workplace PC (myWorkplacePC)
+
+First, you need to prepare your workplace PC to accept remote connections.
+
+### 1. Install Portier CLI on myWorkplacePC
+
+Follow the [installation instructions](#install) below to install portier-cli on your workplace computer.
+
+### 2. Login to Portier on myWorkplacePC
+
+```bash
+portier-cli login
+```
+
+This will display a one-time login link:
+```
+2024/05/04 20:11:26 Starting Portier CLI...
+2024/05/04 20:11:26 
+
+Logging in to portier.dev
+-------------------------
+Steps:
+
+1. Open the following link in your browser to authenticate:
+https://portier-spider.eu.auth0.com/activate?user_code=MXXG-ZXXG
+
+2. Alternatively, open https://portier-spider.eu.auth0.com/activate in your browser and enter the code MXXG-ZXXG
+
+Waiting for user to log in...
+```
+
+Complete the login in your browser. After authentication, you'll see:
+```
+2024/05/04 20:11:23 Log in successful, storing access token in ~/.portier/credentials.yaml
+2024/05/04 20:11:23 Login successful.
+```
+
+### 3. Register myWorkplacePC as a Device
+
+You have two options to register your workplace PC:
+
+**Option 1: Automatic Registration**
+```bash
+portier-cli register --name myWorkplacePC
+```
+
+This will output:
+```
+2024/04/12 21:14:32 Starting Portier CLI...
+Command: Create device myWorkplacePC at https://api.portier.dev/api, out yaml
+Registering Device...
+Generating API key...
+Device registered and credentials stored successfully.
+Device ID: 	cd9b0785-5f26-405f-beed-b2568a2d9efe
+API Key: 	  ***
+```
+
+**Option 2: Manual Registration with API Key**
+If you prefer to create the device and API key manually through the web application at portier.dev:
+```bash
+portier-cli register -k YOUR_API_KEY
+```
+
+### 4. Start Portier Service on myWorkplacePC
+
+Start the service as a background process:
+```bash
+nohup portier-cli run > portier.log 2>&1 &
+```
+
+Your workplace PC is now ready to accept remote connections!
+
+## Part 2: Connecting from Your Home PC (myHomePC)
+
+Now, set up your home computer to connect to your workplace PC.
+
+### 1. Install and Login on myHomePC
+
+Repeat steps 1 and 2 from above on your home computer (install portier-cli and login to portier.dev).
+
+### 2. Register myHomePC
+
+Register your home computer as a device:
+```bash
+portier-cli register --name myHomePC
+```
+
+### 3. Set Up Remote Access to myWorkplacePC
+
+Use the `forward` command to establish a connection to your workplace PC's SSH service:
+
+```bash
+portier-cli forward myWorkplacePC:22->22222
+```
+
+This command will:
+1. Look up the device ID for `myWorkplacePC` automatically
+2. Set up a forward from `myWorkplacePC`'s port 22 (SSH) to your local port 22222
+3. Automatically configure TLS encryption and trust the remote device
+4. Save the configuration for future use
+5. Start the forwarding service immediately
+
+You'll see output like:
+```
+Device myWorkplacePC has ID cd9b0785-5f26-405f-beed-b2568a2d9efe
+Device myWorkplacePC is not trusted for TLS encrypted communication. Please confirm downloading its fingerprint [Y/n] y
+Device myWorkplacePC trusted. The remote device might need to trust this device as well.
+```
+
+### 4. Access Your Workplace PC
+
+Now you can SSH into your workplace PC from home:
+```bash
+ssh -p 22222 username@localhost
+```
+
+The connection format is: `<remoteDeviceName>:<remotePort>-><localPort>` or `<remoteDeviceName>:<remotePort>-><localHost>:<localPort>`
+
+### Additional Examples
+
+Forward other services from your workplace PC:
+```bash
+# Access a web server running on port 80
+portier-cli forward myWorkplacePC:80->8080
+
+# Access a database on port 3306
+portier-cli forward myWorkplacePC:3306->127.0.0.1:3306
+
+# Temporary forwarding without persistence
+portier-cli forward myWorkplacePC:8000->8000 --no-persist
+```
+
+## Forward Command Options
+
+The `forward` command supports several useful flags:
+- `--no-tls`: Disable TLS encryption (not recommended for production)
+- `--no-persist`: Don't save the forwarding configuration (temporary forwarding)
+- `--config`: Specify a custom config file path
+- `--apiToken`: Specify a custom API token file path
+
 # Table of Contents
 <!--ts-->
    * [portier-cli](#portier-cli)
+   * [Quick Start: Connect from Home to Your Workplace PC](#quick-start-connect-from-home-to-your-workplace-pc)
    * [Install](#install)
-   * [Setup](#setup)
+   * [Advanced Configuration](#advanced-configuration)
+   * [End-to-End Encryption](#end-to-end-encryption)
    * [Project Layout](#project-layout)
    * [Makefile Targets](#makefile-targets)
    * [Contribute](#contribute)
@@ -172,14 +318,17 @@ In some shells, you can click the link directly, on others you have to copy the 
 
 ## Register a device
 
-Now it's time to register this machine as a device:
+You have two options to register this machine as a device:
+
+### Option 1: Automatic Registration
+Register directly from the CLI with a device name:
 ```
-portier-cli register --name myDevice1
+portier-cli register --name myWorkplacePC
 ```
 This will connect to the portier API to register the device and download an API key:
 ```
 2024/04/12 21:14:32 Starting Portier CLI...
-Command: Create device myDevice1 at https://api.portier.dev/api, out yaml
+Command: Create device myWorkplacePC at https://api.portier.dev/api, out yaml
 Registering Device...
 Generating API key...
 Device registered and credentials stored successfully.
@@ -187,15 +336,25 @@ Device ID: 	cd9b0785-5f26-405f-beed-b2568a2d9efe
 API Key: 	  ***
 ```
 
-Take a note of your Device ID (in this case `cd9b0785-5f26-405f-beed-b2568a2d9efe`). We'll need it later when configuring a service.
+### Option 2: Manual Registration with API Key
+If you prefer to create the device and API key manually through the web application at portier.dev, you can use the `-k` flag to register with an existing API key:
+```
+portier-cli register -k YOUR_API_KEY
+```
 
 ## Start Portier
 
-After you've registered, you can start the service:
+After you've registered, you can start the service as a background process:
 ```
-portier-cli run
+portier-cli run &
 ```
-The output:
+
+For better control, you can also use `nohup` to ensure it continues running even after you log out:
+```
+nohup portier-cli run > portier.log 2>&1 &
+```
+
+The output will be similar to:
 ```
 2024/04/12 21:18:40 Starting Portier CLI...
 starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mario/.portier/credentials_device.yaml, out json
@@ -204,53 +363,62 @@ starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mar
 2024/04/12 21:18:40 All Services started...
 ```
 
-In this example, myDevice1 can be accessed remotely by other portier devices belonging to your account. Note that myDevice1 doesn't forward any remote port itself, it is just waiting for incoming connections. Read the next chapter to learn how you can setup a second portier device to access myDevice1.
+In this example, myWorkplacePC can be accessed remotely by other portier devices belonging to your account. Note that myWorkplacePC doesn't forward any remote port itself, it is just waiting for incoming connections. Read the next chapter to learn how you can setup a second portier device to access myWorkplacePC.
 
 ## Setting Up a Remote Service
 
-Assume you need to access myDevice1's via ssh, where the ssh server on myDevice1 is running on port 22. Let's call your home machine `myHome`.
+Assume you need to access myWorkplacePC's via ssh, where the ssh server on myWorkplacePC is running on port 22. Let's call your home machine `myHome`.
 
-First, repeat the previous steps to install and register portier-cli on your home machine. Then, create the portier config.yaml in your home folder, (under `~/.portier/config.yaml`), and add the following lines:
-```
-services:
-  - name: ssh
-    options: 
-      urlLocal: "tcp://localhost:22222"                      # the local URL on myHome, where the remote port will be forwarded to
-      urlRemote: "tcp://localhost:22"                        # the URL that portier-cli on myDevice1 will connect to
-      peerDeviceID: <Device ID>                              # the device id we noted in chapter "Register a device"
-      ReadBufferSize: 32768                                  # optional TCP read buffer size (set to 32KB to accomodate scp)
+First, repeat the previous steps to install and register portier-cli on your home machine. Then, instead of manually editing configuration files, you can use the `forward` command to set up port forwarding:
+
+```bash
+portier-cli forward myWorkplacePC:22->22222
 ```
 
-Now, start portier-cli on myHome, and note the additional output about the started service ssh:
+This command will:
+1. Look up the device ID for `myWorkplacePC` automatically
+2. Set up a forward from `myWorkplacePC`'s port 22 to your local port 22222
+3. Automatically configure TLS encryption and trust the remote device (with your confirmation)
+4. Save the configuration to `~/.portier/config.yaml` for persistence
+5. Start the forwarding service immediately
+
+The format is: `<remoteDeviceName>:<remotePort>-><localPort>` or `<remoteDeviceName>:<remotePort>-><localHost>:<localPort>`
+
+When you run this command, you'll see output like:
 ```
-% ./portier-cli run          
-2024/04/13 21:04:53 Starting Portier CLI...
-starting device, services /Users/mario/.portier/config.yaml, apiToken /Users/mario/.portier/credentials_device.yaml, out json
-2024/04/13 21:04:53 Creating relay...
-2024/04/13 21:04:53 Starting services...
-2024/04/13 21:04:53 Starting service: ssh
-2024/04/13 21:04:53 Starting listener for service: {ssh {tcp://localhost:22222 tcp://localhost:22 34d34526-9d00-4f17-90e9-5c87b8e01703      0s 0s 0 0}}
-...
-2024/04/13 21:04:53 All Services started...
+Device myWorkplacePC has ID cd9b0785-5f26-405f-beed-b2568a2d9efe
+Device myWorkplacePC is not trusted for TLS encrypted communication. Please confirm downloading its fingerprint [Y/n] y
+Device myWorkplacePC trusted. The remote device might need to trust this device as well.
 ```
 
-Now, you're ready to access myDevice1 from myHome:
+The command will keep running and maintain the connection. Now, you're ready to access myWorkplacePC from myHome:
 ```
 ssh -p 22222 root@localhost
 ```
 
-Congratulations! You successfully forwarded a port using portier.
+### Additional Forward Command Options
 
+The `forward` command supports several useful flags:
+
+- `--no-tls`: Disable TLS encryption (not recommended for production)
+- `--no-persist`: Don't save the forwarding configuration (temporary forwarding)
+- `--config`: Specify a custom config file path
+- `--apiToken`: Specify a custom API token file path
+
+Example with options:
+```bash
+# Temporary forwarding without TLS
+portier-cli forward myWorkplacePC:80->8080 --no-tls --no-persist
+
+# Forward with custom local address
+portier-cli forward myWorkplacePC:3306->127.0.0.1:3306
+```
 # End-to-End Encryption
 
 portier connections can optionally be end-to-end encrypted using TLS 1.3. With encryption enabled, even simple plain-text protocols like http can only be read by the communicating devices. Not even portier.dev is able to decrypt the traffic. To use encryption, two simple steps are needed for each device taking part in an encrypted connection:
 
 1. Creation of a TLS certificate and upload of its public fingerprint to portier.dev via the `portier-cli tls create` command
 2. Download of the peer devices's fingerprint from portier.dev via the `portier-cli tls trust` command
-
-## Creation
-
-## Trusting a Peer Device
 
 # Project Layout
 * [assets/](https://pkg.go.dev/github.com/mh-dx/portier-cli/assets) => docs, images, etc
