@@ -182,6 +182,21 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 	return &credentials, nil
 }
 
+// SaveConfig saves the config to the given file path.
+func SaveConfig(filePath string, config *PortierConfig) error {
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	err = os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 func DefaultPortierConfig() (*PortierConfig, error) {
 	home, err := utils.Home()
 	if err != nil {
