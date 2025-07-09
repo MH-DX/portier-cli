@@ -36,9 +36,6 @@
 ; Language files
 !insertmacro MUI_LANGUAGE "English"
 
-; Reserve files
-!insertmacro MUI_RESERVEFILE_INSTALLOPTIONS
-
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
