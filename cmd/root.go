@@ -35,6 +35,14 @@ func newRootCmd(version string) *cobra.Command {
 		cmd.AddCommand(forwardCmd)
 	}
 
+	serviceCmd, err := newServiceCmd()
+	if err == nil {
+		cmd.AddCommand(serviceCmd)
+	}
+
+	trayCmd := newTrayCmd()
+	cmd.AddCommand(trayCmd)
+
 	return cmd
 }
 

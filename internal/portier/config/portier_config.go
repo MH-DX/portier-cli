@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,10 +92,10 @@ type PTLSConfig struct {
 
 func defaultPTLSConfig(home string) *PTLSConfig {
 	result := PTLSConfig{
-		CertFile:       fmt.Sprintf("%s/cert.pem", home),
-		KeyFile:        fmt.Sprintf("%s/key.pem", home),
-		CAFile:         fmt.Sprintf("%s/cacert.pem", home),
-		KnownHostsFile: fmt.Sprintf("%s/known_hosts", home),
+		CertFile:       filepath.Join(home, "cert.pem"),
+		KeyFile:        filepath.Join(home, "key.pem"),
+		CAFile:         filepath.Join(home, "cacert.pem"),
+		KnownHostsFile: filepath.Join(home, "known_hosts"),
 	}
 
 	return &result
@@ -180,6 +181,21 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 	}
 
 	return &credentials, nil
+}
+
+// SaveConfig saves the config to the given file path.
+func SaveConfig(filePath string, config *PortierConfig) error {
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	err = os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 func DefaultPortierConfig() (*PortierConfig, error) {

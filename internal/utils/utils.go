@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"os"
+	"path/filepath"
 )
 
 // Home returns the home directory of the current user withouth a trailing slash.
@@ -13,7 +14,7 @@ func Home() (string, error) {
 		return "", err
 	}
 
-	home += "/.portier"
+	home = filepath.Join(home, ".portier")
 
 	if customHome := os.Getenv("PORTIER_HOME"); customHome != "" {
 		home = customHome
