@@ -5,12 +5,14 @@ go 1.19
 require (
 	github.com/daixiang0/gci v0.10.1
 	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/getlantern/systray v1.2.2
 	github.com/go-critic/go-critic v0.8.0
 	github.com/golangci/golangci-lint v1.52.2
 	github.com/gotesttools/gotestfmt/v2 v2.4.1
 	github.com/kardianos/service v1.2.2
 	github.com/muesli/mango-cobra v1.2.0
 	github.com/muesli/roff v0.1.0
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
@@ -26,10 +28,8 @@ require (
 	github.com/getlantern/hex v0.0.0-20190417191902-c6586a6fe0b7 // indirect
 	github.com/getlantern/hidden v0.0.0-20190325191715-f02dbb02be55 // indirect
 	github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f // indirect
-	github.com/getlantern/systray v1.2.2 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 )
