@@ -50,6 +50,7 @@ Section "MainSection" SEC01
   SetOverwrite ifnewer
   File "portier-cli.exe"
   File "portier-tray.exe"
+  File "icon.ico"
   File "LICENSE"
   File "README.md"
   
@@ -194,6 +195,7 @@ Section Uninstall
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\portier-cli.exe"
   Delete "$INSTDIR\portier-tray.exe"
+  Delete "$INSTDIR\icon.ico"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\README.md"
   
