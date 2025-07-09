@@ -10,7 +10,7 @@
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 !include "MUI2.nsh"
-!include "EnvVarUpdate.nsh"
+!include "WinMessages.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -69,7 +69,15 @@ Section "MainSection" SEC01
   CreateShortCut "$SMSTARTUP\Portier CLI.lnk" "$INSTDIR\portier-tray.exe"
   
   ; Add to PATH
-  ${EnvVarUpdate} $0 "PATH" "A" "HKLM" "$INSTDIR"
+  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
+  StrCmp $0 "" AddToPath_NoPrevious
+    StrCpy $0 "$0;$INSTDIR"
+    Goto AddToPath_WriteReg
+  AddToPath_NoPrevious:
+    StrCpy $0 "$INSTDIR"
+  AddToPath_WriteReg:
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" $0
+    SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 SectionEnd
 
 Section -AdditionalIcons
@@ -98,13 +106,91 @@ Function un.onInit
   Abort
 FunctionEnd
 
+; Function to remove a path from PATH environment variable
+Function un.RemoveFromPath
+  Exch $0
+  Exch
+  Exch $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+
+  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
+  StrCpy $5 $0 1 -1 ; copy last char
+  StrCmp $5 ";" +2 ; if last char != ;
+    StrCpy $0 "$0;" ; append ;
+  Push $0
+  Push "$1;"
+  Call un.StrStr ; Find `$1;` in $0
+  Pop $2 ; pos of our dir
+  StrCmp $2 "" unRemoveFromPath_done
+    ; else, it is in path
+    ; $0 now has the part before the path to remove
+    StrLen $3 "$1;"
+    StrLen $4 $2
+    StrCpy $5 $0 -$4 ; $5 is now the part before the path to remove
+    StrCpy $6 $2 "" $3 ; $6 is now the part after the path to remove
+    StrCpy $0 "$5$6"
+  unRemoveFromPath_done:
+    Pop $6
+    Pop $5
+    Pop $4
+    Pop $3
+    Pop $2
+    Pop $1
+    Exch $0
+FunctionEnd
+
+; String search function for uninstaller
+Function un.StrStr
+  Exch $R1 ; st=haystack,old$R1, $R1=needle
+  Exch    ; st=old$R1,haystack
+  Exch $R2 ; st=old$R1,old$R2, $R2=haystack
+  Push $R3
+  Push $R4
+  Push $R5
+  StrLen $R3 $R1
+  StrCpy $R4 0
+  ; $R1=needle
+  ; $R2=haystack
+  ; $R3=len(needle)
+  ; $R4=cnt
+  ; $R5=tmp
+  loop:
+    StrCpy $R5 $R2 $R3 $R4
+    StrCmp $R5 $R1 done
+    StrCmp $R5 "" done
+    IntOp $R4 $R4 + 1
+    Goto loop
+  done:
+    StrCmp $R5 $R1 found
+    StrCpy $R1 ""
+    Goto final
+  found:
+    StrCpy $R1 $R2 "" $R4
+  final:
+    Pop $R5
+    Pop $R4
+    Pop $R3
+    Pop $R2
+    Exch $R1
+FunctionEnd
+
 Section Uninstall
   ; Stop service if running
   ExecWait "$INSTDIR\portier-cli.exe service stop"
   ExecWait "$INSTDIR\portier-cli.exe service uninstall"
   
   ; Remove from PATH
-  ${un.EnvVarUpdate} $0 "PATH" "R" "HKLM" "$INSTDIR"
+  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH"
+  Push $0
+  Push "$INSTDIR"
+  Call un.RemoveFromPath
+  Pop $0
+  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "PATH" $0
+  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
   
   ; Remove files
   Delete "$INSTDIR\${PRODUCT_NAME}.url"
