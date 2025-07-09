@@ -62,7 +62,7 @@ nfpms:
 
 dockers:
 - image_templates:
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
   - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
   dockerfile: Dockerfile
   use: buildx
@@ -79,7 +79,7 @@ dockers:
   - "--label=org.opencontainers.image.source={{.GitURL}}"
   - "--platform=linux/amd64"
 - image_templates:
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
   - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
   dockerfile:  Dockerfile
   use: buildx
@@ -99,18 +99,18 @@ dockers:
   goarch: arm64
 
 docker_manifests:
-- name_template: 'mh-dx/{{.ProjectName}}:{{ .Tag }}'
+- name_template: 'mhdxug/{{.ProjectName}}:{{ .Tag }}'
   image_templates:
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
 - name_template: 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}'
   image_templates:
   - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
   - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'mh-dx/{{.ProjectName}}:latest'
+- name_template: 'mhdxug/{{.ProjectName}}:latest'
   image_templates:
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'mh-dx/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'mhdxug/{{.ProjectName}}:{{ .Tag }}-arm64'
 - name_template: 'ghcr.io/mh-dx/{{.ProjectName}}:latest'
   image_templates:
   - 'ghcr.io/mh-dx/{{.ProjectName}}:{{ .Tag }}-amd64'
