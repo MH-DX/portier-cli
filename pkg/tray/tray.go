@@ -5,55 +5,43 @@ package tray
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/getlantern/systray"
-	"github.com/mh-dx/portier-cli/internal/portier/application"
-	"github.com/mh-dx/portier-cli/internal/portier/config"
-	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/skratchdot/open-golang/open"
 )
 
 type TrayApp struct {
-	app              *application.PortierApplication
-	menuStatusItem   *systray.MenuItem
-	menuStartItem    *systray.MenuItem
-	menuStopItem     *systray.MenuItem
-	menuRestartItem  *systray.MenuItem
-	menuConfigItem   *systray.MenuItem
-	menuAPIKeyItem   *systray.MenuItem
-	menuQuitItem     *systray.MenuItem
-	isRunning        bool
-	configPath       string
-	apiKeyPath       string
-	ctx              context.Context
-	cancel           context.CancelFunc
+	serviceController *ServiceController
+	menuStatusItem    *systray.MenuItem
+	menuStartItem     *systray.MenuItem
+	menuStopItem      *systray.MenuItem
+	menuRestartItem   *systray.MenuItem
+	menuConfigItem    *systray.MenuItem
+	menuAPIKeyItem    *systray.MenuItem
+	menuQuitItem      *systray.MenuItem
+	isRunning         bool
+	ctx               context.Context
+	cancel            context.CancelFunc
 }
 
 // NewTrayApp creates a new system tray application
 func NewTrayApp() *TrayApp {
-	home, err := utils.Home()
+	serviceController, err := NewServiceController()
 	if err != nil {
-		log.Printf("could not get home directory: %v", err)
+		log.Printf("Failed to create service controller: %v", err)
 		return nil
 	}
-
-	configPath := filepath.Join(home, "config.yaml")
-	apiKeyPath := filepath.Join(home, "credentials_device.yaml")
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &TrayApp{
-		app:        application.GetPortierApplication(),
-		configPath: configPath,
-		apiKeyPath: apiKeyPath,
-		ctx:        ctx,
-		cancel:     cancel,
+		serviceController: serviceController,
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 }
 
@@ -101,9 +89,8 @@ func (t *TrayApp) onReady() {
 // onExit handles cleanup when the tray application exits
 func (t *TrayApp) onExit() {
 	t.cancel()
-	if t.isRunning {
-		t.stopService()
-	}
+	// Note: We don't stop the service here as it should continue running
+	// The service is managed independently of the tray application
 }
 
 // statusUpdateLoop periodically updates the service status
@@ -124,7 +111,7 @@ func (t *TrayApp) statusUpdateLoop() {
 // updateStatus checks and updates the service status
 func (t *TrayApp) updateStatus() {
 	wasRunning := t.isRunning
-	t.isRunning = t.app.IsRunning()
+	t.isRunning = t.serviceController.IsRunning()
 
 	if wasRunning != t.isRunning {
 		t.updateMenuState()
@@ -178,34 +165,23 @@ func (t *TrayApp) startService() {
 	}
 
 	// Ensure config file exists
-	if err := t.ensureConfigExists(); err != nil {
+	if err := t.serviceController.EnsureConfigExists(); err != nil {
 		log.Printf("Failed to create config file: %v", err)
 		return
 	}
 
-	// Load configuration
-	portierConfig, err := config.LoadConfig(t.configPath)
+	// Start the OS service
+	err := t.serviceController.Start()
 	if err != nil {
-		log.Printf("Failed to load config: %v", err)
+		log.Printf("Failed to start service: %v", err)
 		return
 	}
 
-	// Load API credentials
-	deviceCreds, err := config.LoadApiToken(t.apiKeyPath)
-	if err != nil {
-		log.Printf("Failed to load API token: %v", err)
-		return
-	}
-
-	// Start services
-	err = t.app.StartServices(portierConfig, deviceCreds)
-	if err != nil {
-		log.Printf("Failed to start services: %v", err)
-		return
-	}
-
-	log.Println("Portier service started successfully")
-	t.updateStatus()
+	// Update status after a short delay to allow service to start
+	go func() {
+		time.Sleep(2 * time.Second)
+		t.updateStatus()
+	}()
 }
 
 // stopService stops the Portier service
@@ -214,33 +190,42 @@ func (t *TrayApp) stopService() {
 		return
 	}
 
-	err := t.app.StopServices()
+	err := t.serviceController.Stop()
 	if err != nil {
-		log.Printf("Failed to stop services: %v", err)
+		log.Printf("Failed to stop service: %v", err)
 		return
 	}
 
-	log.Println("Portier service stopped successfully")
-	t.updateStatus()
+	// Update status after a short delay to allow service to stop
+	go func() {
+		time.Sleep(2 * time.Second)
+		t.updateStatus()
+	}()
 }
 
 // restartService restarts the Portier service
 func (t *TrayApp) restartService() {
-	if t.isRunning {
-		t.stopService()
-		time.Sleep(2 * time.Second) // Wait a moment before restarting
+	err := t.serviceController.Restart()
+	if err != nil {
+		log.Printf("Failed to restart service: %v", err)
+		return
 	}
-	t.startService()
+
+	// Update status after a short delay to allow service to restart
+	go func() {
+		time.Sleep(3 * time.Second)
+		t.updateStatus()
+	}()
 }
 
 // openConfigFile opens the configuration file in the default editor
 func (t *TrayApp) openConfigFile() {
-	if err := t.ensureConfigExists(); err != nil {
+	if err := t.serviceController.EnsureConfigExists(); err != nil {
 		log.Printf("Failed to create config file: %v", err)
 		return
 	}
 
-	err := open.Run(t.configPath)
+	err := open.Run(t.serviceController.GetConfigPath())
 	if err != nil {
 		log.Printf("Failed to open config file: %v", err)
 	}
@@ -248,40 +233,16 @@ func (t *TrayApp) openConfigFile() {
 
 // openAPIKeyFile opens the API key file in the default editor
 func (t *TrayApp) openAPIKeyFile() {
-	if _, err := os.Stat(t.apiKeyPath); os.IsNotExist(err) {
-		log.Printf("API key file does not exist: %s", t.apiKeyPath)
+	apiKeyPath := t.serviceController.GetAPIKeyPath()
+	if _, err := os.Stat(apiKeyPath); os.IsNotExist(err) {
+		log.Printf("API key file does not exist: %s", apiKeyPath)
 		return
 	}
 
-	err := open.Run(t.apiKeyPath)
+	err := open.Run(apiKeyPath)
 	if err != nil {
 		log.Printf("Failed to open API key file: %v", err)
 	}
-}
-
-// ensureConfigExists creates a default config file if it doesn't exist
-func (t *TrayApp) ensureConfigExists() error {
-	if _, err := os.Stat(t.configPath); os.IsNotExist(err) {
-		// Create the directory if it doesn't exist
-		dir := filepath.Dir(t.configPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create config directory: %w", err)
-		}
-
-		// Create a default config
-		defaultConfig, err := config.DefaultPortierConfig()
-		if err != nil {
-			return fmt.Errorf("failed to create default config: %w", err)
-		}
-
-		// Save the default config
-		if err := config.SaveConfig(t.configPath, defaultConfig); err != nil {
-			return fmt.Errorf("failed to save default config: %w", err)
-		}
-
-		log.Printf("Created default config file: %s", t.configPath)
-	}
-	return nil
 }
 
 // getIcon returns a simple icon for the system tray

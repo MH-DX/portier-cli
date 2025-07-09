@@ -12,6 +12,7 @@ import (
 	"github.com/kardianos/service"
 	"github.com/mh-dx/portier-cli/internal/portier/application"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
+	internalService "github.com/mh-dx/portier-cli/internal/service"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -73,40 +74,32 @@ Available actions:
 func (o *serviceOptions) run(cmd *cobra.Command, args []string) error {
 	o.Action = args[0]
 
-	svcConfig := &service.Config{
-		Name:        "portier-cli",
-		DisplayName: "Portier CLI Service",
-		Description: "Portier CLI remote access tunneling service",
-		Arguments:   []string{"service", "run"},
+	// Create service manager with configuration
+	serviceConfig := &internalService.Config{
+		ConfigFile:   o.ConfigFile,
+		ApiTokenFile: o.ApiTokenFile,
 	}
 
-	prg := &portierService{
-		options: o,
-		app:     application.GetPortierApplication(),
-	}
-
-	prg.ctx, prg.cancel = context.WithCancel(context.Background())
-
-	s, err := service.New(prg, svcConfig)
+	serviceManager, err := internalService.NewServiceManager(serviceConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create service: %w", err)
+		return fmt.Errorf("failed to create service manager: %w", err)
 	}
 
 	switch o.Action {
 	case "install":
-		return o.installService(s)
+		return o.installServiceManager(serviceManager)
 	case "uninstall":
-		return o.uninstallService(s)
+		return o.uninstallServiceManager(serviceManager)
 	case "start":
-		return o.startService(s)
+		return o.startServiceManager(serviceManager)
 	case "stop":
-		return o.stopService(s)
+		return o.stopServiceManager(serviceManager)
 	case "restart":
-		return o.restartService(s)
+		return o.restartServiceManager(serviceManager)
 	case "status":
-		return o.statusService(s)
+		return o.statusServiceManager(serviceManager)
 	case "run":
-		return o.runService(s)
+		return o.runService(serviceManager.GetService())
 	default:
 		return fmt.Errorf("unknown action: %s", o.Action)
 	}
@@ -250,4 +243,76 @@ func (p *portierService) run() {
 	}
 
 	log.Println("Portier CLI service stopped")
+}
+
+func (o *serviceOptions) installServiceManager(sm *internalService.ServiceManager) error {
+	fmt.Println("Installing Portier CLI service...")
+	err := sm.Install()
+	if err != nil {
+		return fmt.Errorf("failed to install service: %w", err)
+	}
+	fmt.Println("Service installed successfully")
+	return nil
+}
+
+func (o *serviceOptions) uninstallServiceManager(sm *internalService.ServiceManager) error {
+	fmt.Println("Uninstalling Portier CLI service...")
+	err := sm.Uninstall()
+	if err != nil {
+		return fmt.Errorf("failed to uninstall service: %w", err)
+	}
+	fmt.Println("Service uninstalled successfully")
+	return nil
+}
+
+func (o *serviceOptions) startServiceManager(sm *internalService.ServiceManager) error {
+	fmt.Println("Starting Portier CLI service...")
+	err := sm.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start service: %w", err)
+	}
+	fmt.Println("Service started successfully")
+	return nil
+}
+
+func (o *serviceOptions) stopServiceManager(sm *internalService.ServiceManager) error {
+	fmt.Println("Stopping Portier CLI service...")
+	err := sm.Stop()
+	if err != nil {
+		return fmt.Errorf("failed to stop service: %w", err)
+	}
+	fmt.Println("Service stopped successfully")
+	return nil
+}
+
+func (o *serviceOptions) restartServiceManager(sm *internalService.ServiceManager) error {
+	fmt.Println("Restarting Portier CLI service...")
+	err := sm.Restart()
+	if err != nil {
+		return fmt.Errorf("failed to restart service: %w", err)
+	}
+	fmt.Println("Service restarted successfully")
+	return nil
+}
+
+func (o *serviceOptions) statusServiceManager(sm *internalService.ServiceManager) error {
+	status, err := sm.Status()
+	if err != nil {
+		return fmt.Errorf("failed to get service status: %w", err)
+	}
+
+	var statusStr string
+	switch status {
+	case service.StatusRunning:
+		statusStr = "Running"
+	case service.StatusStopped:
+		statusStr = "Stopped"
+	case service.StatusUnknown:
+		statusStr = "Unknown"
+	default:
+		statusStr = "Unknown"
+	}
+
+	fmt.Printf("Service Status: %s\n", statusStr)
+	return nil
 }
