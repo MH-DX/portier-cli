@@ -32,7 +32,7 @@ func NewServiceManager(cfg *Config) (*ServiceManager, error) {
 
 	svcConfig := &service.Config{
 		Name:        "portier-cli",
-		DisplayName: "Portier CLI Service", 
+		DisplayName: "Portier CLI Service",
 		Description: "Portier CLI remote access tunneling service",
 		Executable:  execPath,
 		Arguments:   []string{"service", "run"},
@@ -59,7 +59,7 @@ func (sm *ServiceManager) Start() error {
 	return sm.service.Start()
 }
 
-// Stop stops the OS service  
+// Stop stops the OS service
 func (sm *ServiceManager) Stop() error {
 	return sm.service.Stop()
 }

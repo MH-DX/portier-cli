@@ -7,6 +7,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -245,10 +246,44 @@ func (t *TrayApp) openAPIKeyFile() {
 	}
 }
 
-// getIcon returns a simple icon for the system tray
-// In a real implementation, this would load from an embedded icon file
+// getIcon returns the system tray icon loaded from icon.ico file
 func getIcon() []byte {
-	// Simple 16x16 black dot icon in ICO format
+	// Try multiple possible locations for the icon file
+	iconPaths := []string{}
+
+	// Get the executable directory
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		iconPaths = append(iconPaths, filepath.Join(execDir, "icon.ico"))
+	}
+
+	// Also try current working directory
+	if cwd, err := os.Getwd(); err == nil {
+		iconPaths = append(iconPaths, filepath.Join(cwd, "icon.ico"))
+	}
+
+	// Try relative to executable's parent directory (for development)
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		parentDir := filepath.Dir(execDir)
+		iconPaths = append(iconPaths, filepath.Join(parentDir, "icon.ico"))
+	}
+
+	// Try each path until we find the icon
+	for _, iconPath := range iconPaths {
+		if iconData, err := os.ReadFile(iconPath); err == nil {
+			log.Printf("Loaded icon from: %s", iconPath)
+			return iconData
+		}
+	}
+
+	log.Printf("Could not find icon.ico in any of the expected locations, using default icon")
+	return getDefaultIcon()
+}
+
+// getDefaultIcon returns a fallback icon if the icon.ico file cannot be loaded
+func getDefaultIcon() []byte {
+	// Simple 16x16 black dot icon in ICO format as fallback
 	return []byte{
 		0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x10, 0x10, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x68, 0x04,
 		0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20, 0x00,
