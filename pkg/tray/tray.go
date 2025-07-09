@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/getlantern/systray"
+	"github.com/mh-dx/portier-cli/pkg/webwizard"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -23,6 +24,7 @@ type TrayApp struct {
 	menuRestartItem   *systray.MenuItem
 	menuConfigItem    *systray.MenuItem
 	menuAPIKeyItem    *systray.MenuItem
+	menuSetupItem     *systray.MenuItem
 	menuQuitItem      *systray.MenuItem
 	isRunning         bool
 	ctx               context.Context
@@ -58,6 +60,17 @@ func (t *TrayApp) onReady() {
 	systray.SetTitle("Portier CLI")
 	systray.SetTooltip("Portier CLI - Remote Access Tool")
 
+	// Check if setup is needed
+	credentialsExist, err := webwizard.CheckCredentialsExist()
+	if err != nil {
+		log.Printf("Error checking credentials: %v", err)
+	}
+
+	// If no credentials exist, launch setup wizard
+	if !credentialsExist {
+		go t.launchSetupWizard()
+	}
+
 	// Create menu items
 	t.menuStatusItem = systray.AddMenuItem("Status: Stopped", "Service Status")
 	t.menuStatusItem.Disable()
@@ -72,6 +85,10 @@ func (t *TrayApp) onReady() {
 
 	t.menuConfigItem = systray.AddMenuItem("Open Config", "Open Configuration File")
 	t.menuAPIKeyItem = systray.AddMenuItem("Open API Key", "Open API Key File")
+
+	systray.AddSeparator()
+
+	t.menuSetupItem = systray.AddMenuItem("Setup Wizard", "Launch Setup Wizard")
 
 	systray.AddSeparator()
 
@@ -150,6 +167,8 @@ func (t *TrayApp) handleMenuClicks() {
 			go t.openConfigFile()
 		case <-t.menuAPIKeyItem.ClickedCh:
 			go t.openAPIKeyFile()
+		case <-t.menuSetupItem.ClickedCh:
+			go t.launchSetupWizard()
 		case <-t.menuQuitItem.ClickedCh:
 			systray.Quit()
 			return
@@ -295,4 +314,31 @@ func getDefaultIcon() []byte {
 // IsWindows returns true if running on Windows
 func IsWindows() bool {
 	return runtime.GOOS == "windows"
+}
+
+// launchSetupWizard launches the web-based setup wizard
+func (t *TrayApp) launchSetupWizard() {
+	log.Println("Launching Portier CLI Setup Wizard...")
+
+	wizard := webwizard.NewWizardServer()
+	if err := wizard.Start(); err != nil {
+		log.Printf("Failed to start setup wizard: %v", err)
+		return
+	}
+
+	// Wait for the wizard to complete or be cancelled
+	wizard.Wait()
+
+	// Clean up
+	if err := wizard.Stop(); err != nil {
+		log.Printf("Error stopping wizard server: %v", err)
+	}
+
+	log.Println("Setup wizard completed")
+
+	// Update status after wizard completes
+	go func() {
+		time.Sleep(2 * time.Second)
+		t.updateStatus()
+	}()
 }

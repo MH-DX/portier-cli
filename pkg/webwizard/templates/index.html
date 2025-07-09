@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portier CLI Setup Wizard</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>🔗 Portier CLI</h1>
+                <p>Remote Access Tool Setup</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Welcome Step -->
+            <div id="step-welcome" class="step active">
+                <div class="step-content">
+                    <h2>Welcome to Portier CLI Setup</h2>
+                    <p class="intro-text">
+                        This setup wizard will guide you through the process of configuring 
+                        Portier CLI for secure remote access to your devices.
+                    </p>
+                    
+                    <div class="features">
+                        <div class="feature">
+                            <span class="feature-icon">🔐</span>
+                            <h3>Secure Connection</h3>
+                            <p>End-to-end encrypted tunnels for safe remote access</p>
+                        </div>
+                        
+                        <div class="feature">
+                            <span class="feature-icon">🌐</span>
+                            <h3>Cloud-Based Relay</h3>
+                            <p>No complex network configuration required</p>
+                        </div>
+                        
+                        <div class="feature">
+                            <span class="feature-icon">⚡</span>
+                            <h3>Easy Setup</h3>
+                            <p>Get started in minutes with this guided wizard</p>
+                        </div>
+                    </div>
+
+                    <div class="setup-steps">
+                        <h3>Setup Process:</h3>
+                        <ol>
+                            <li>Login to your Portier account</li>
+                            <li>Register this device</li>
+                            <li>Install and start the service</li>
+                            <li>Complete setup</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button id="btn-start-setup" class="btn btn-primary">Start Setup</button>
+                </div>
+            </div>
+
+            <!-- Login Step -->
+            <div id="step-login" class="step">
+                <div class="step-content">
+                    <h2>Step 1: Login to Portier</h2>
+                    <p>
+                        To register this device, you need to authenticate with your Portier account.
+                    </p>
+                    
+                    <div id="login-form" class="login-section">
+                        <p>Click the button below to start the authentication process:</p>
+                        <button id="btn-start-login" class="btn btn-primary">Start Login Process</button>
+                    </div>
+
+                    <div id="login-progress" class="login-section hidden">
+                        <div class="progress-indicator">
+                            <div class="spinner"></div>
+                            <p>Starting authentication process...</p>
+                        </div>
+                    </div>
+
+                    <div id="login-qr" class="login-section hidden">
+                        <h3>Scan QR Code with Your Mobile Device</h3>
+                        <div class="qr-container">
+                            <div id="qrcode"></div>
+                        </div>
+                        <p>Or manually open this URL:</p>
+                        <div class="manual-url">
+                            <input type="text" id="verification-url" readonly>
+                            <button id="btn-copy-url" class="btn btn-secondary">Copy</button>
+                        </div>
+                        <div class="waiting-message">
+                            <div class="spinner"></div>
+                            <p>Waiting for authentication...</p>
+                        </div>
+                    </div>
+
+                    <div id="login-success" class="login-section hidden">
+                        <div class="success-message">
+                            <span class="success-icon">✅</span>
+                            <h3>Login Successful!</h3>
+                            <p>You have successfully authenticated with Portier.</p>
+                        </div>
+                    </div>
+
+                    <div id="login-error" class="login-section hidden">
+                        <div class="error-message">
+                            <span class="error-icon">❌</span>
+                            <h3>Login Failed</h3>
+                            <p id="login-error-text"></p>
+                            <button id="btn-retry-login" class="btn btn-secondary">Retry</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button id="btn-prev-login" class="btn btn-secondary">Back</button>
+                    <button id="btn-next-login" class="btn btn-primary" disabled>Next: Register Device</button>
+                </div>
+            </div>
+
+            <!-- Register Step -->
+            <div id="step-register" class="step">
+                <div class="step-content">
+                    <h2>Step 2: Register This Device</h2>
+                    <p>
+                        Give this device a friendly name to identify it in your Portier dashboard.
+                    </p>
+                    
+                    <div id="register-form" class="register-section">
+                        <div class="form-group">
+                            <label for="device-name">Device Name:</label>
+                            <input type="text" id="device-name" placeholder="e.g., My Laptop, Office PC, Home Server" required>
+                            <small>Choose a descriptive name that helps you identify this device.</small>
+                        </div>
+                        <button id="btn-register-device" class="btn btn-primary">Register Device</button>
+                    </div>
+
+                    <div id="register-progress" class="register-section hidden">
+                        <div class="progress-indicator">
+                            <div class="spinner"></div>
+                            <p>Registering device...</p>
+                        </div>
+                    </div>
+
+                    <div id="register-success" class="register-section hidden">
+                        <div class="success-message">
+                            <span class="success-icon">✅</span>
+                            <h3>Device Registered!</h3>
+                            <p>Your device has been successfully registered with Portier.</p>
+                        </div>
+                    </div>
+
+                    <div id="register-error" class="register-section hidden">
+                        <div class="error-message">
+                            <span class="error-icon">❌</span>
+                            <h3>Registration Failed</h3>
+                            <p id="register-error-text"></p>
+                            <button id="btn-retry-register" class="btn btn-secondary">Retry</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button id="btn-prev-register" class="btn btn-secondary">Back</button>
+                    <button id="btn-next-register" class="btn btn-primary" disabled>Next: Install Service</button>
+                </div>
+            </div>
+
+            <!-- Service Step -->
+            <div id="step-service" class="step">
+                <div class="step-content">
+                    <h2>Step 3: Install and Start Service</h2>
+                    <p>
+                        Install the Portier service to enable automatic connection management.
+                    </p>
+                    
+                    <div id="service-form" class="service-section">
+                        <div class="service-actions">
+                            <button id="btn-install-service" class="btn btn-primary">Install Service</button>
+                            <button id="btn-start-service" class="btn btn-secondary" disabled>Start Service</button>
+                        </div>
+                    </div>
+
+                    <div id="service-install-progress" class="service-section hidden">
+                        <div class="progress-indicator">
+                            <div class="spinner"></div>
+                            <p>Installing Portier service...</p>
+                        </div>
+                    </div>
+
+                    <div id="service-start-progress" class="service-section hidden">
+                        <div class="progress-indicator">
+                            <div class="spinner"></div>
+                            <p>Starting Portier service...</p>
+                        </div>
+                    </div>
+
+                    <div id="service-success" class="service-section hidden">
+                        <div class="success-message">
+                            <span class="success-icon">✅</span>
+                            <h3>Service Ready!</h3>
+                            <p>The Portier service has been installed and started successfully.</p>
+                        </div>
+                    </div>
+
+                    <div id="service-error" class="service-section hidden">
+                        <div class="error-message">
+                            <span class="error-icon">❌</span>
+                            <h3>Service Installation Failed</h3>
+                            <p id="service-error-text"></p>
+                            <button id="btn-retry-service" class="btn btn-secondary">Retry</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button id="btn-prev-service" class="btn btn-secondary">Back</button>
+                    <button id="btn-next-service" class="btn btn-primary" disabled>Next: Complete Setup</button>
+                </div>
+            </div>
+
+            <!-- Complete Step -->
+            <div id="step-complete" class="step">
+                <div class="step-content">
+                    <h2>🎉 Setup Complete!</h2>
+                    <p class="completion-text">
+                        Congratulations! Portier CLI has been successfully configured on this device.
+                    </p>
+                    
+                    <div class="completion-summary">
+                        <h3>What's Next?</h3>
+                        <ul>
+                            <li>✅ Your device is now registered with Portier</li>
+                            <li>✅ The Portier service is running in the background</li>
+                            <li>✅ You can now establish secure remote connections</li>
+                        </ul>
+                    </div>
+
+                    <div class="next-steps">
+                        <h3>Next Steps:</h3>
+                        <ol>
+                            <li>Visit the <a href="https://portier.dev" target="_blank">Portier Dashboard</a> to manage your devices</li>
+                            <li>Configure port forwarding rules for your services</li>
+                            <li>Connect to this device from other Portier-enabled devices</li>
+                        </ol>
+                    </div>
+
+                    <div class="help-section">
+                        <h3>Need Help?</h3>
+                        <p>
+                            Check out the <a href="https://docs.portier.dev" target="_blank">documentation</a> 
+                            or contact support if you need assistance.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="step-actions">
+                    <button id="btn-close-wizard" class="btn btn-primary">Close Wizard</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Progress Indicator -->
+        <div class="progress-bar">
+            <div class="progress-step active" data-step="welcome">
+                <div class="step-number">1</div>
+                <div class="step-label">Welcome</div>
+            </div>
+            <div class="progress-step" data-step="login">
+                <div class="step-number">2</div>
+                <div class="step-label">Login</div>
+            </div>
+            <div class="progress-step" data-step="register">
+                <div class="step-number">3</div>
+                <div class="step-label">Register</div>
+            </div>
+            <div class="progress-step" data-step="service">
+                <div class="step-number">4</div>
+                <div class="step-label">Service</div>
+            </div>
+            <div class="progress-step" data-step="complete">
+                <div class="step-number">5</div>
+                <div class="step-label">Complete</div>
+            </div>
+        </div>
+
+        <!-- Console Output -->
+        <div id="console-output" class="console hidden">
+            <div class="console-header">
+                <h3>Console Output</h3>
+                <button id="btn-toggle-console" class="btn btn-secondary">Hide</button>
+            </div>
+            <div class="console-content">
+                <pre id="console-text"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/wizard.js"></script>
+</body>
+</html>
