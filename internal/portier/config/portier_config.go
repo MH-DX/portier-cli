@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,10 +92,10 @@ type PTLSConfig struct {
 
 func defaultPTLSConfig(home string) *PTLSConfig {
 	result := PTLSConfig{
-		CertFile:       fmt.Sprintf("%s/cert.pem", home),
-		KeyFile:        fmt.Sprintf("%s/key.pem", home),
-		CAFile:         fmt.Sprintf("%s/cacert.pem", home),
-		KnownHostsFile: fmt.Sprintf("%s/known_hosts", home),
+		CertFile:       filepath.Join(home, "cert.pem"),
+		KeyFile:        filepath.Join(home, "key.pem"),
+		CAFile:         filepath.Join(home, "cacert.pem"),
+		KnownHostsFile: filepath.Join(home, "known_hosts"),
 	}
 
 	return &result

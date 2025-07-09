@@ -30,12 +30,21 @@ func NewServiceManager(cfg *Config) (*ServiceManager, error) {
 		return nil, fmt.Errorf("could not get executable path: %w", err)
 	}
 
+	// Build service arguments with config file paths
+	args := []string{"service", "run"}
+	if cfg.ConfigFile != "" {
+		args = append(args, "-c", cfg.ConfigFile)
+	}
+	if cfg.ApiTokenFile != "" {
+		args = append(args, "-t", cfg.ApiTokenFile)
+	}
+
 	svcConfig := &service.Config{
 		Name:        "portier-cli",
 		DisplayName: "Portier CLI Service",
 		Description: "Portier CLI remote access tunneling service",
 		Executable:  execPath,
-		Arguments:   []string{"service", "run"},
+		Arguments:   args,
 	}
 
 	prg := &portierServiceProgram{
