@@ -34,7 +34,7 @@ func runTray(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("Starting Portier CLI system tray...")
-	
+
 	trayApp := tray.NewTrayApp()
 	if trayApp == nil {
 		return fmt.Errorf("failed to create tray application")
@@ -42,6 +42,6 @@ func runTray(cmd *cobra.Command, args []string) error {
 
 	// This will block until the tray application exits
 	trayApp.Run()
-	
+
 	return nil
 }
