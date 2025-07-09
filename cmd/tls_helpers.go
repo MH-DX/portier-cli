@@ -38,7 +38,7 @@ func ensureTLSCertificate(cobraCmd *cobra.Command, home, credentialsFile, apiURL
 			"--cert", certPath,
 			"--key", keyPath,
 			"--knownHosts", knownHosts,
-			"--apiUrl", strings.TrimSuffix(apiURL, "/api"),
+			"--apiUrl", apiURL,
 		}
 		createCmd.SetArgs(args)
 		if err := createCmd.Execute(); err != nil {
