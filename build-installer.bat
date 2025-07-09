@@ -15,8 +15,8 @@ for %%p in (
     "C:\Program Files (x86)\NSIS\makensis.exe"
     "%LOCALAPPDATA%\Microsoft\WinGet\Packages\NSIS.NSIS_Microsoft.Winget.Source_8wekyb3d8bbwe\makensis.exe"
 ) do (
-    if exist "%%p" (
-        set "MAKENSIS_PATH=%%p"
+    if exist %%p (
+        set MAKENSIS_PATH=%%p
         goto :nsis_found
     )
 )
@@ -61,7 +61,7 @@ if not exist "icon.ico" (
 
 :: Build the installer
 echo Building installer...
-"%MAKENSIS_PATH%" portier-installer.nsi
+%MAKENSIS_PATH% portier-installer.nsi
 if errorlevel 1 (
     echo Failed to build installer
     exit /b 1
