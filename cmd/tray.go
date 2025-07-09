@@ -35,6 +35,24 @@ func runTray(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("Starting Portier CLI system tray...")
 
+	// Check if the service is installed, and install if not
+	controller, err := tray.NewServiceController()
+	if err != nil {
+		return fmt.Errorf("failed to create service controller: %w", err)
+	}
+	status, err := controller.Status()
+	if err != nil {
+		return fmt.Errorf("failed to get service status: %w", err)
+	}
+	if status == 3 { // service.StatusUnknown == 3
+		fmt.Println("Service not installed. Installing...")
+		err := controller.Install()
+		if err != nil {
+			return fmt.Errorf("failed to install service: %w", err)
+		}
+		fmt.Println("Service installed successfully.")
+	}
+
 	trayApp := tray.NewTrayApp()
 	if trayApp == nil {
 		return fmt.Errorf("failed to create tray application")

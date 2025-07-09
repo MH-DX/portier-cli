@@ -51,6 +51,7 @@ func newRegisterCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
 	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the API (https://api.portier.dev)")
+	cmd.Flags().Bool("no-tls", false, "Do not generate or check TLS certificates")
 
 	return cmd
 }
@@ -60,6 +61,8 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	noTLS, _ := cmd.Flags().GetBool("no-tls")
 
 	if o.ApiKey != "" {
 		if o.Name != "" {
@@ -74,29 +77,36 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
-		cert := filepath.Join(o.HomeFolderPath, "cert.pem")
-		key := filepath.Join(o.HomeFolderPath, "key.pem")
-		known := filepath.Join(o.HomeFolderPath, "known_hosts")
-		if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
-			return err
+		if !noTLS {
+			cert := filepath.Join(o.HomeFolderPath, "cert.pem")
+			key := filepath.Join(o.HomeFolderPath, "key.pem")
+			known := filepath.Join(o.HomeFolderPath, "known_hosts")
+			if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
 
 	if o.Name == "" {
-		log.Fatalf("name is required to register a device")
-		return nil
+		fmt.Print("Enter device name: ")
+		_, err := fmt.Scanln(&o.Name)
+		if err != nil || o.Name == "" {
+			return fmt.Errorf("device name is required")
+		}
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Command: Create device %s at %s, out %s\n", o.Name, o.ApiURL, o.Output)
 
 	portier.Register(o.Name, o.ApiURL, o.HomeFolderPath, o.CredentialsFileName)
 
-	cert := filepath.Join(o.HomeFolderPath, "cert.pem")
-	key := filepath.Join(o.HomeFolderPath, "key.pem")
-	known := filepath.Join(o.HomeFolderPath, "known_hosts")
-	if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
-		return err
+	if !noTLS {
+		cert := filepath.Join(o.HomeFolderPath, "cert.pem")
+		key := filepath.Join(o.HomeFolderPath, "key.pem")
+		known := filepath.Join(o.HomeFolderPath, "known_hosts")
+		if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
+			return err
+		}
 	}
 
 	return nil

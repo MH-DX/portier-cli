@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mdp/qrterminal/v3"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -88,14 +89,18 @@ Logging in to portier.dev
 -------------------------
 Steps:
 
-1. Open the following link in your browser to authenticate:
+Open the following link in your browser to authenticate:
 ` + verificationURLComplete + `
 
-2. Alternatively, open ` + verificationURL + ` in your browser and enter the code ` + userCode + `
-
-Waiting for user to log in...
+Alternatively, open ` + verificationURL + ` in your browser and enter the code ` + userCode + `
 `)
 
+	// Always display QR code in terminal for verificationURLComplete
+	fmt.Println("Or scan this QR code to open the login URL:")
+	qrterminal.GenerateHalfBlock(verificationURLComplete, qrterminal.L, os.Stdout)
+
+	fmt.Println()
+	fmt.Println("Waiting for you to log in...")
 	// poll the token endpoint until the user has logged in
 	for {
 		// define the endpoint
