@@ -9,3 +9,12 @@ dist/
 .idea/
 
 kubeconfig
+
+# Windows binaries
+portier-cli.exe
+portier-tray.exe
+portier-cli-installer.exe
+
+# Test binaries
+portier-cli-test
+portier-tray-test
