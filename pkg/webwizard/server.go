@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/utils"
+	"github.com/mh-dx/portier-cli/pkg/tray"
 	"github.com/skratchdot/open-golang/open"
 	"gopkg.in/yaml.v3"
 )
@@ -60,18 +61,26 @@ type DeviceRegistrationRequest struct {
 
 // WizardServer manages the setup wizard web server
 type WizardServer struct {
-	server    *http.Server
-	upgrader  websocket.Upgrader
-	clients   map[*websocket.Conn]bool
-	broadcast chan WizardMessage
-	ctx       context.Context
-	cancel    context.CancelFunc
-	port      int
+	server            *http.Server
+	upgrader          websocket.Upgrader
+	clients           map[*websocket.Conn]bool
+	broadcast         chan WizardMessage
+	ctx               context.Context
+	cancel            context.CancelFunc
+	port              int
+	serviceController *tray.ServiceController
 }
 
 // NewWizardServer creates a new wizard server
 func NewWizardServer() *WizardServer {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create service controller for service management
+	serviceController, err := tray.NewServiceController()
+	if err != nil {
+		log.Printf("Warning: Failed to create service controller: %v", err)
+		// Continue without service controller - some functionality will be limited
+	}
 
 	ws := &WizardServer{
 		upgrader: websocket.Upgrader{
@@ -79,10 +88,11 @@ func NewWizardServer() *WizardServer {
 				return true // Allow all origins for local development
 			},
 		},
-		clients:   make(map[*websocket.Conn]bool),
-		broadcast: make(chan WizardMessage),
-		ctx:       ctx,
-		cancel:    cancel,
+		clients:           make(map[*websocket.Conn]bool),
+		broadcast:         make(chan WizardMessage),
+		ctx:               ctx,
+		cancel:            cancel,
+		serviceController: serviceController,
 	}
 
 	return ws
@@ -341,10 +351,33 @@ func (ws *WizardServer) handleServiceInstall(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Simulate service installation (this would need to be implemented based on the existing service command)
+	// Start service installation in a goroutine
 	go func() {
-		// TODO: Integrate with actual service installation logic
-		time.Sleep(2 * time.Second) // Simulate installation time
+		if ws.serviceController == nil {
+			ws.broadcast <- WizardMessage{
+				Type:  "serviceInstallResult",
+				Error: "Service controller not available",
+			}
+			return
+		}
+
+		// Ensure config exists first
+		if err := ws.serviceController.EnsureConfigExists(); err != nil {
+			ws.broadcast <- WizardMessage{
+				Type:  "serviceInstallResult",
+				Error: fmt.Sprintf("Failed to create configuration: %v", err),
+			}
+			return
+		}
+
+		// Install the service
+		if err := ws.serviceController.Install(); err != nil {
+			ws.broadcast <- WizardMessage{
+				Type:  "serviceInstallResult",
+				Error: fmt.Sprintf("Service installation failed: %v", err),
+			}
+			return
+		}
 
 		ws.broadcast <- WizardMessage{
 			Type:    "serviceInstallResult",
@@ -363,10 +396,24 @@ func (ws *WizardServer) handleServiceStart(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Simulate service start (this would need to be implemented based on the existing service command)
+	// Start service in a goroutine
 	go func() {
-		// TODO: Integrate with actual service start logic
-		time.Sleep(1 * time.Second) // Simulate start time
+		if ws.serviceController == nil {
+			ws.broadcast <- WizardMessage{
+				Type:  "serviceStartResult",
+				Error: "Service controller not available",
+			}
+			return
+		}
+
+		// Start the service
+		if err := ws.serviceController.Start(); err != nil {
+			ws.broadcast <- WizardMessage{
+				Type:  "serviceStartResult",
+				Error: fmt.Sprintf("Failed to start service: %v", err),
+			}
+			return
+		}
 
 		ws.broadcast <- WizardMessage{
 			Type:    "serviceStartResult",
