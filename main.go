@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime/pprof"
 
 	"github.com/mh-dx/portier-cli/cmd"
@@ -14,21 +15,28 @@ import (
 var version = "0.0.1"
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var memprofile = flag.String("memprofile", "", "write memory profile to this file")
+var logfile = flag.String("logfile", "", "path to log file")
 
 func main() {
+	flag.Parse()
+
 	home, err := utils.Home()
 	if err != nil {
 		log.Fatalf("Failed to get portier home directory: %v", err)
 	}
-	logPath := home + "/portier-cli.log"
+
+	if *logfile == "" {
+		*logfile = filepath.Join(home, "portier-cli.log")
+	}
+
 	log.SetOutput(&lumberjack.Logger{
-		Filename:   logPath,
+		Filename:   *logfile,
 		MaxSize:    1, // megabytes
 		MaxBackups: 3,
-		MaxAge:     28,    //days
+		MaxAge:     28,    // days
 		Compress:   false, // disabled by default
 	})
-	flag.Parse()
+
 	if *cpuprofile != "" {
 		log.Println("Profiling CPU...")
 		f, err := os.Create(*cpuprofile)
@@ -38,7 +46,9 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+
 	runErr := cmd.Execute(version)
+
 	if *memprofile != "" {
 		log.Println("Profiling memory...")
 		f, err := os.Create(*memprofile)
@@ -49,6 +59,7 @@ func main() {
 		f.Close()
 		return
 	}
+
 	if runErr != nil {
 		os.Exit(1)
 	}

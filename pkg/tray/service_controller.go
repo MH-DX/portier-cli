@@ -20,6 +20,7 @@ type ServiceController struct {
 	serviceManager *internalService.ServiceManager
 	configFile     string
 	apiKeyFile     string
+	logFile        string
 }
 
 // NewServiceController creates a new service controller
@@ -31,11 +32,13 @@ func NewServiceController() (*ServiceController, error) {
 
 	configFile := filepath.Join(home, "config.yaml")
 	apiKeyFile := filepath.Join(home, "credentials_device.yaml")
+	logFile := filepath.Join(home, "portier-cli.log")
 
 	// Create service manager with configuration
 	serviceConfig := &internalService.Config{
 		ConfigFile:   configFile,
 		ApiTokenFile: apiKeyFile,
+		LogFile:      logFile,
 	}
 
 	serviceManager, err := internalService.NewServiceManager(serviceConfig)
@@ -47,6 +50,7 @@ func NewServiceController() (*ServiceController, error) {
 		serviceManager: serviceManager,
 		configFile:     configFile,
 		apiKeyFile:     apiKeyFile,
+		logFile:        logFile,
 	}, nil
 }
 
@@ -149,4 +153,9 @@ func (sc *ServiceController) GetConfigPath() string {
 // GetAPIKeyPath returns the path to the API key file
 func (sc *ServiceController) GetAPIKeyPath() string {
 	return sc.apiKeyFile
+}
+
+// GetLogFilePath returns the path to the log file
+func (sc *ServiceController) GetLogFilePath() string {
+	return sc.logFile
 }

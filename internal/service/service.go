@@ -14,6 +14,7 @@ import (
 type Config struct {
 	ConfigFile   string
 	ApiTokenFile string
+	LogFile      string
 }
 
 // ServiceManager provides a unified interface for service management
@@ -38,6 +39,9 @@ func NewServiceManager(cfg *Config) (*ServiceManager, error) {
 	if cfg.ApiTokenFile != "" {
 		args = append(args, "-t", cfg.ApiTokenFile)
 	}
+	if cfg.LogFile != "" {
+		args = append(args, "-l", cfg.LogFile)
+	}
 
 	svcConfig := &service.Config{
 		Name:        "portier-cli",
@@ -48,8 +52,9 @@ func NewServiceManager(cfg *Config) (*ServiceManager, error) {
 	}
 
 	prg := &portierServiceProgram{
-		config: cfg,
-		app:    application.GetPortierApplication(),
+		config:  cfg,
+		app:     application.GetPortierApplication(),
+		logFile: cfg.LogFile,
 	}
 
 	s, err := service.New(prg, svcConfig)
@@ -109,10 +114,11 @@ func (sm *ServiceManager) GetService() service.Service {
 
 // portierServiceProgram implements the service.Interface
 type portierServiceProgram struct {
-	config *Config
-	app    *application.PortierApplication
-	ctx    context.Context
-	cancel context.CancelFunc
+	config  *Config
+	app     *application.PortierApplication
+	ctx     context.Context
+	cancel  context.CancelFunc
+	logFile string
 }
 
 func (p *portierServiceProgram) Start(s service.Service) error {

@@ -20,6 +20,7 @@ import (
 type serviceOptions struct {
 	ConfigFile   string
 	ApiTokenFile string
+	LogFile      string
 	Action       string
 }
 
@@ -39,6 +40,7 @@ func newServiceOptions() (*serviceOptions, error) {
 	return &serviceOptions{
 		ConfigFile:   filepath.Join(home, "config.yaml"),
 		ApiTokenFile: filepath.Join(home, "credentials_device.yaml"),
+		LogFile:      filepath.Join(home, "portier-cli.log"),
 	}, nil
 }
 
@@ -67,6 +69,7 @@ Available actions:
 
 	cmd.Flags().StringVarP(&o.ConfigFile, "config", "c", o.ConfigFile, "custom config file path")
 	cmd.Flags().StringVarP(&o.ApiTokenFile, "apitoken", "t", o.ApiTokenFile, "custom API token file path")
+	cmd.Flags().StringVarP(&o.LogFile, "logfile", "l", o.LogFile, "custom log file path")
 
 	return cmd, nil
 }
@@ -78,6 +81,7 @@ func (o *serviceOptions) run(cmd *cobra.Command, args []string) error {
 	serviceConfig := &internalService.Config{
 		ConfigFile:   o.ConfigFile,
 		ApiTokenFile: o.ApiTokenFile,
+		LogFile:      o.LogFile,
 	}
 
 	serviceManager, err := internalService.NewServiceManager(serviceConfig)
