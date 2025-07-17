@@ -4,7 +4,7 @@
 package tray
 
 import (
-	"fmt"
+	"log"
 	"runtime"
 )
 
@@ -17,7 +17,7 @@ func NewTrayApp() *TrayApp {
 
 // Run starts the system tray application (stub for non-Windows platforms)
 func (t *TrayApp) Run() {
-	fmt.Printf("System tray functionality is not available on %s\n", runtime.GOOS)
+	log.Printf("System tray functionality is not available on %s", runtime.GOOS)
 }
 
 // IsWindows returns true if running on Windows

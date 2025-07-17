@@ -92,7 +92,7 @@ func (c *connectingInboundState) Start() error {
 		for {
 			err := c.uplink.Send(msg)
 			if err != nil {
-				fmt.Printf("error sending connection accept message: %s\n", err)
+				log.Printf("error sending connection accept message: %s", err)
 			}
 			select {
 			case <-c.context.Done():

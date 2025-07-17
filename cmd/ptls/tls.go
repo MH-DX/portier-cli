@@ -1,7 +1,7 @@
 package ptls_cmd
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +17,7 @@ func NewTLScmd() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("subcommand \"%s\" not found\n\n", args[0])
+			log.Printf("subcommand \"%s\" not found", args[0])
 			return cmd.Help()
 		},
 	}

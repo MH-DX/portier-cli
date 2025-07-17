@@ -60,9 +60,9 @@ func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(fingerprints) == 0 {
-		fmt.Println("The following fingerprints were received (includes devices that are shared to you):")
+		log.Println("The following fingerprints were received (includes devices that are shared to you):")
 	} else {
-		fmt.Println("No fingerprints were received. This means that either no devices have uploaded their fingerprints or the provided device IDs do not match any devices.")
+		log.Println("No fingerprints were received. This means that either no devices have uploaded their fingerprints or the provided device IDs do not match any devices.")
 	}
 
 	for deviceID, fingerprint := range fingerprints {
@@ -75,15 +75,15 @@ func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 					}
 				}
 			}
-			fmt.Printf("DeviceID: %s, Fingerprint: <empty>\n", deviceID)
+			log.Printf("DeviceID: %s, Fingerprint: <empty>", deviceID)
 			continue
 		}
-		fmt.Printf("DeviceID: %s, Fingerprint: %s\n", deviceID, fingerprint)
+		log.Printf("DeviceID: %s, Fingerprint: %s", deviceID, fingerprint)
 	}
 
-	fmt.Println()
-	fmt.Printf("Adding fingerprints to %s\n", o.KnownHostsFilePath)
-	fmt.Println()
+	log.Println()
+	log.Printf("Adding fingerprints to %s", o.KnownHostsFilePath)
+	log.Println()
 	// load known_hosts file in yaml
 	known_hosts, err := os.Open(o.KnownHostsFilePath)
 	if err != nil {
@@ -128,6 +128,6 @@ func (o *tlsTrustOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Fingerprints added. Done.\n")
+	log.Printf("Fingerprints added. Done.")
 	return nil
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 
 	"github.com/mh-dx/portier-cli/pkg/tray"
@@ -33,7 +34,7 @@ func runTray(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("system tray functionality is only available on Windows")
 	}
 
-	fmt.Println("Starting Portier CLI system tray...")
+	log.Println("Starting Portier CLI system tray...")
 
 	// Check if the service is installed, and install if not
 	controller, err := tray.NewServiceController()
@@ -45,12 +46,12 @@ func runTray(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get service status: %w", err)
 	}
 	if status == 3 { // service.StatusUnknown == 3
-		fmt.Println("Service not installed. Installing...")
+		log.Println("Service not installed. Installing...")
 		err := controller.Install()
 		if err != nil {
 			return fmt.Errorf("failed to install service: %w", err)
 		}
-		fmt.Println("Service installed successfully.")
+		log.Println("Service installed successfully.")
 	}
 
 	trayApp := tray.NewTrayApp()
