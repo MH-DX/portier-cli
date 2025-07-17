@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
+	"github.com/mh-dx/portier-cli/internal/portier/config"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -84,6 +85,9 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 			if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
 				return err
 			}
+			if err := ensureConfigTLS(o.HomeFolderPath); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -105,6 +109,9 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 		key := filepath.Join(o.HomeFolderPath, "key.pem")
 		known := filepath.Join(o.HomeFolderPath, "known_hosts")
 		if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
+			return err
+		}
+		if err := ensureConfigTLS(o.HomeFolderPath); err != nil {
 			return err
 		}
 	}
@@ -131,6 +138,35 @@ func (o *registerOptions) parseArgs(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	o.ApiURL = apiUrl
+
+	return nil
+}
+
+func ensureConfigTLS(home string) error {
+	configFile := filepath.Join(home, "config.yaml")
+	portierConfig, err := config.LoadConfig(configFile)
+	if err != nil {
+		return err
+	}
+
+	portierConfig.TLSEnabled = true
+
+	if portierConfig.PTLSConfig.CertFile == "" {
+		portierConfig.PTLSConfig.CertFile = filepath.Join(home, "cert.pem")
+	}
+	if portierConfig.PTLSConfig.KeyFile == "" {
+		portierConfig.PTLSConfig.KeyFile = filepath.Join(home, "key.pem")
+	}
+	if portierConfig.PTLSConfig.CAFile == "" {
+		portierConfig.PTLSConfig.CAFile = filepath.Join(home, "cacert.pem")
+	}
+	if portierConfig.PTLSConfig.KnownHostsFile == "" {
+		portierConfig.PTLSConfig.KnownHostsFile = filepath.Join(home, "known_hosts")
+	}
+
+	if err := config.SaveConfig(configFile, portierConfig); err != nil {
+		return err
+	}
 
 	return nil
 }
