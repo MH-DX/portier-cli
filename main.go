@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -29,13 +30,14 @@ func main() {
 		*logfile = filepath.Join(home, "portier-cli.log")
 	}
 
-	log.SetOutput(&lumberjack.Logger{
+	lj := &lumberjack.Logger{
 		Filename:   *logfile,
 		MaxSize:    1, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,    // days
 		Compress:   false, // disabled by default
-	})
+	}
+	log.SetOutput(io.MultiWriter(os.Stdout, lj))
 
 	if *cpuprofile != "" {
 		log.Println("Profiling CPU...")
