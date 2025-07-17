@@ -106,52 +106,52 @@ func (o *serviceOptions) run(cmd *cobra.Command, args []string) error {
 }
 
 func (o *serviceOptions) installService(s service.Service) error {
-	fmt.Println("Installing Portier CLI service...")
+	log.Println("Installing Portier CLI service...")
 	err := s.Install()
 	if err != nil {
 		return fmt.Errorf("failed to install service: %w", err)
 	}
-	fmt.Println("Service installed successfully")
+	log.Println("Service installed successfully")
 	return nil
 }
 
 func (o *serviceOptions) uninstallService(s service.Service) error {
-	fmt.Println("Uninstalling Portier CLI service...")
+	log.Println("Uninstalling Portier CLI service...")
 	err := s.Uninstall()
 	if err != nil {
 		return fmt.Errorf("failed to uninstall service: %w", err)
 	}
-	fmt.Println("Service uninstalled successfully")
+	log.Println("Service uninstalled successfully")
 	return nil
 }
 
 func (o *serviceOptions) startService(s service.Service) error {
-	fmt.Println("Starting Portier CLI service...")
+	log.Println("Starting Portier CLI service...")
 	err := s.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
-	fmt.Println("Service started successfully")
+	log.Println("Service started successfully")
 	return nil
 }
 
 func (o *serviceOptions) stopService(s service.Service) error {
-	fmt.Println("Stopping Portier CLI service...")
+	log.Println("Stopping Portier CLI service...")
 	err := s.Stop()
 	if err != nil {
 		return fmt.Errorf("failed to stop service: %w", err)
 	}
-	fmt.Println("Service stopped successfully")
+	log.Println("Service stopped successfully")
 	return nil
 }
 
 func (o *serviceOptions) restartService(s service.Service) error {
-	fmt.Println("Restarting Portier CLI service...")
+	log.Println("Restarting Portier CLI service...")
 	err := s.Restart()
 	if err != nil {
 		return fmt.Errorf("failed to restart service: %w", err)
 	}
-	fmt.Println("Service restarted successfully")
+	log.Println("Service restarted successfully")
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (o *serviceOptions) statusService(s service.Service) error {
 		statusStr = "Unknown"
 	}
 
-	fmt.Printf("Service Status: %s\n", statusStr)
+	log.Printf("Service Status: %s", statusStr)
 	return nil
 }
 
@@ -246,52 +246,52 @@ func (p *portierService) run() {
 }
 
 func (o *serviceOptions) installServiceManager(sm *internalService.ServiceManager) error {
-	fmt.Println("Installing Portier CLI service...")
+	log.Println("Installing Portier CLI service...")
 	err := sm.Install()
 	if err != nil {
 		return fmt.Errorf("failed to install service: %w", err)
 	}
-	fmt.Println("Service installed successfully")
+	log.Println("Service installed successfully")
 	return nil
 }
 
 func (o *serviceOptions) uninstallServiceManager(sm *internalService.ServiceManager) error {
-	fmt.Println("Uninstalling Portier CLI service...")
+	log.Println("Uninstalling Portier CLI service...")
 	err := sm.Uninstall()
 	if err != nil {
 		return fmt.Errorf("failed to uninstall service: %w", err)
 	}
-	fmt.Println("Service uninstalled successfully")
+	log.Println("Service uninstalled successfully")
 	return nil
 }
 
 func (o *serviceOptions) startServiceManager(sm *internalService.ServiceManager) error {
-	fmt.Println("Starting Portier CLI service...")
+	log.Println("Starting Portier CLI service...")
 	err := sm.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
-	fmt.Println("Service started successfully")
+	log.Println("Service started successfully")
 	return nil
 }
 
 func (o *serviceOptions) stopServiceManager(sm *internalService.ServiceManager) error {
-	fmt.Println("Stopping Portier CLI service...")
+	log.Println("Stopping Portier CLI service...")
 	err := sm.Stop()
 	if err != nil {
 		return fmt.Errorf("failed to stop service: %w", err)
 	}
-	fmt.Println("Service stopped successfully")
+	log.Println("Service stopped successfully")
 	return nil
 }
 
 func (o *serviceOptions) restartServiceManager(sm *internalService.ServiceManager) error {
-	fmt.Println("Restarting Portier CLI service...")
+	log.Println("Restarting Portier CLI service...")
 	err := sm.Restart()
 	if err != nil {
 		return fmt.Errorf("failed to restart service: %w", err)
 	}
-	fmt.Println("Service restarted successfully")
+	log.Println("Service restarted successfully")
 	return nil
 }
 
@@ -313,6 +313,6 @@ func (o *serviceOptions) statusServiceManager(sm *internalService.ServiceManager
 		statusStr = "Unknown"
 	}
 
-	fmt.Printf("Service Status: %s\n", statusStr)
+	log.Printf("Service Status: %s", statusStr)
 	return nil
 }

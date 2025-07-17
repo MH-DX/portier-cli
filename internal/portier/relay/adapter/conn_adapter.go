@@ -1,7 +1,7 @@
 package adapter
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -151,18 +151,18 @@ func (c *connectionAdapter) Send(msg messages.Message) {
 	// if the message queue is not closed, send the message to the message queue
 	newState, err := c.state.HandleMessage(msg)
 	if err != nil {
-		fmt.Printf("error handling message: %v\n", err)
+		log.Printf("error handling message: %v", err)
 		return
 	}
 	if newState != nil {
 		err := c.state.Stop()
 		if err != nil {
-			fmt.Printf("error stopping old state: %v\n", err)
+			log.Printf("error stopping old state: %v", err)
 		}
 		c.state = newState
 		err = newState.Start()
 		if err != nil {
-			fmt.Printf("error starting new state: %v\n", err)
+			log.Printf("error starting new state: %v", err)
 			c.eventChannel <- AdapterEvent{
 				ConnectionId: c.options.ConnectionId,
 				Type:         Error,

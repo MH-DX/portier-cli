@@ -77,14 +77,14 @@ func (o *tlsCreateOptions) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Self-signed certificate created:")
-	fmt.Println()
-	fmt.Printf("CommonName: \t%s\n", cert.Subject)
-	fmt.Printf("NotBefore: \t%s\n", cert.NotBefore)
-	fmt.Printf("NotAfter: \t%s\n", cert.NotAfter)
-	fmt.Printf("SerialNumber: \t%s\n", cert.SerialNumber)
-	fmt.Printf("Algorithm: \t%s\n", cert.SignatureAlgorithm)
-	fmt.Println()
+	log.Println("Self-signed certificate created:")
+	log.Println()
+	log.Printf("CommonName: \t%s", cert.Subject)
+	log.Printf("NotBefore: \t%s", cert.NotBefore)
+	log.Printf("NotAfter: \t%s", cert.NotAfter)
+	log.Printf("SerialNumber: \t%s", cert.SerialNumber)
+	log.Printf("Algorithm: \t%s", cert.SignatureAlgorithm)
+	log.Println()
 
 	certPEM, keyPEM, err := certManager.ConvertCertificateToPEM(cert, priv)
 	if err != nil {
@@ -98,36 +98,36 @@ func (o *tlsCreateOptions) run(cmd *cobra.Command, args []string) error {
 	if err := os.WriteFile(o.KeyPath, keyPEM, 0644); err != nil {
 		return err
 	}
-	fmt.Printf("Certificate written to \t%s\n", o.CertPath)
-	fmt.Printf("Private key written to \t%s\n", o.KeyPath)
-	fmt.Println()
+	log.Printf("Certificate written to \t%s", o.CertPath)
+	log.Printf("Private key written to \t%s", o.KeyPath)
+	log.Println()
 
 	if o.UploadFingerprint {
 		fp, err := certManager.GetFingerprint(cert)
 		if err != nil {
 			return err
 		}
-		fmt.Println("The SHA-256 fingerprint of the certificate will be used to authenticate the device when it connects to other devices")
-		fmt.Printf("Fingerprint: %s\n", fp)
-		fmt.Println()
-		fmt.Println("To allow this device to securely connect to another device, add the following line to the known_hosts file of the other device:")
-		fmt.Printf("%s: %s\n", credentials.DeviceID, fp)
-		fmt.Println("The known_hosts file is usually located at ~/.portier/known_hosts")
-		fmt.Println()
-		fmt.Printf("Hint: You can also use the trust-command on the other device:\n")
-		fmt.Printf("> portier-cli tls trust -i %s\n", credentials.DeviceID)
-		fmt.Println("This way, portier-cli will update the known_hosts file for you")
-		fmt.Println()
-		fmt.Println("Uploading fingerprint to the server (it is public)")
+		log.Println("The SHA-256 fingerprint of the certificate will be used to authenticate the device when it connects to other devices")
+		log.Printf("Fingerprint: %s", fp)
+		log.Println()
+		log.Println("To allow this device to securely connect to another device, add the following line to the known_hosts file of the other device:")
+		log.Printf("%s: %s", credentials.DeviceID, fp)
+		log.Println("The known_hosts file is usually located at ~/.portier/known_hosts")
+		log.Println()
+		log.Printf("Hint: You can also use the trust-command on the other device:\n")
+		log.Printf("> portier-cli tls trust -i %s", credentials.DeviceID)
+		log.Println("This way, portier-cli will update the known_hosts file for you")
+		log.Println()
+		log.Println("Uploading fingerprint to the server (it is public)")
 		err = api.UploadFingerprint(o.HomeFolderPath, o.ApiURL, credentials.DeviceID, fp)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Fingerprint uploaded successfully")
-		fmt.Println()
+		log.Println("Fingerprint uploaded successfully")
+		log.Println()
 	}
 
-	fmt.Println("Done")
+	log.Println("Done")
 
 	return nil
 }

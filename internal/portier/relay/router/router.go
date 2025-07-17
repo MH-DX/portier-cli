@@ -1,7 +1,6 @@
 package router
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -187,7 +186,7 @@ func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOp
 	// start the connection adapter
 	err := connectionAdapter.Start()
 	if err != nil {
-		fmt.Printf("error starting connection adapter: %s\n", err)
+		log.Printf("error starting connection adapter: %s", err)
 		return
 	}
 	log.Printf("started connection adapter for connection %s\n", header.CID)

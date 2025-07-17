@@ -96,11 +96,11 @@ Alternatively, open ` + verificationURL + ` in your browser and enter the code `
 `)
 
 	// Always display QR code in terminal for verificationURLComplete
-	fmt.Println("Or scan this QR code to open the login URL:")
+	log.Println("Or scan this QR code to open the login URL:")
 	qrterminal.GenerateHalfBlock(verificationURLComplete, qrterminal.L, os.Stdout)
 
-	fmt.Println()
-	fmt.Println("Waiting for you to log in...")
+	log.Println("")
+	log.Println("Waiting for you to log in...")
 	// poll the token endpoint until the user has logged in
 	for {
 		// define the endpoint
