@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -79,14 +80,26 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
 		if !noTLS {
-			cert := filepath.Join(o.HomeFolderPath, "cert.pem")
-			key := filepath.Join(o.HomeFolderPath, "key.pem")
-			known := filepath.Join(o.HomeFolderPath, "known_hosts")
+			cert, key, known, err := resolveTLSPaths(o.HomeFolderPath)
+			if err != nil {
+				return err
+			}
+			certExists := false
+			if _, err := os.Stat(cert); err == nil {
+				if _, err := os.Stat(key); err == nil {
+					certExists = true
+				}
+			}
 			if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
 				return err
 			}
 			if err := ensureConfigTLS(o.HomeFolderPath); err != nil {
 				return err
+			}
+			if certExists {
+				if err := ensureFingerprintUpToDate(cmd, o.HomeFolderPath, o.ApiURL, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), cert); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -105,14 +118,26 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 	portier.Register(o.Name, o.ApiURL, o.HomeFolderPath, o.CredentialsFileName)
 
 	if !noTLS {
-		cert := filepath.Join(o.HomeFolderPath, "cert.pem")
-		key := filepath.Join(o.HomeFolderPath, "key.pem")
-		known := filepath.Join(o.HomeFolderPath, "known_hosts")
+		cert, key, known, err := resolveTLSPaths(o.HomeFolderPath)
+		if err != nil {
+			return err
+		}
+		certExists := false
+		if _, err := os.Stat(cert); err == nil {
+			if _, err := os.Stat(key); err == nil {
+				certExists = true
+			}
+		}
 		if err := ensureTLSCertificate(cmd, o.HomeFolderPath, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), o.ApiURL, cert, key, known); err != nil {
 			return err
 		}
 		if err := ensureConfigTLS(o.HomeFolderPath); err != nil {
 			return err
+		}
+		if certExists {
+			if err := ensureFingerprintUpToDate(cmd, o.HomeFolderPath, o.ApiURL, filepath.Join(o.HomeFolderPath, o.CredentialsFileName), cert); err != nil {
+				return err
+			}
 		}
 	}
 
