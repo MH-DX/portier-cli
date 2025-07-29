@@ -189,7 +189,7 @@ func (o *registerOptions) takeOverExistingDevice(cmd *cobra.Command, noTLS bool)
 		return fmt.Errorf("device already exists")
 	}
 
-	guid, err := portier.GetDeviceByName(o.HomeFolderPath, strings.TrimSuffix(o.ApiURL, "/api"), o.Name)
+	guid, err := portier.GetDeviceByName(o.HomeFolderPath, o.ApiURL, o.Name)
 	if err != nil {
 		return err
 	}
