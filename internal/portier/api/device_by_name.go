@@ -15,6 +15,8 @@ type DeviceByNameResponse struct {
 }
 
 // GetDeviceByName fetches the device GUID for a given device name from the API.
+// The baseURL should include the `/api` suffix. When an API key is used, the
+// function will automatically trim `/api` to access the spider endpoint.
 func GetDeviceByName(home, baseURL, name string) (string, error) {
 	accessToken, err := LoadAccessToken(home)
 	useAPIKey := false
@@ -34,7 +36,7 @@ func GetDeviceByName(home, baseURL, name string) (string, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	var url string
 	if useAPIKey {
-		url = fmt.Sprintf("%s/spider/deviceByName/%s", baseURL, name)
+		url = fmt.Sprintf("%s/spider/deviceByName/%s", strings.TrimSuffix(baseURL, "/api"), name)
 	} else {
 		url = fmt.Sprintf("%s/deviceByName/%s", baseURL, name)
 	}

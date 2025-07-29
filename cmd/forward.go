@@ -97,7 +97,7 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 	}
 
 	home := filepath.Dir(o.ApiTokenFile)
-	remoteID, err := portierapi.GetDeviceByName(home, strings.TrimSuffix(o.ApiURL, "/api"), remoteName)
+	remoteID, err := portierapi.GetDeviceByName(home, o.ApiURL, remoteName)
 	if err != nil {
 		return err
 	}
