@@ -15,17 +15,45 @@ type DeviceByNameResponse struct {
 }
 
 // GetDeviceByName fetches the device GUID for a given device name from the API.
-func GetDeviceByName(baseURL, name string, apiKey string) (string, error) {
+func GetDeviceByName(home, baseURL, name string) (string, error) {
+	accessToken, err := LoadAccessToken(home)
+	useAPIKey := false
+	var apiKey string
+	if err != nil || accessToken.AccessToken == "" {
+		creds, derr := LoadDeviceCredentials(home, "credentials_device.yaml", baseURL)
+		if derr != nil {
+			if err != nil {
+				return "", err
+			}
+			return "", derr
+		}
+		useAPIKey = true
+		apiKey = creds.APIKey
+	}
+
 	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := fmt.Sprintf("%s/spider/deviceByName/%s", baseURL, name)
+	var url string
+	if useAPIKey {
+		url = fmt.Sprintf("%s/spider/deviceByName/%s", baseURL, name)
+	} else {
+		url = fmt.Sprintf("%s/deviceByName/%s", baseURL, name)
+	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", apiKey)
+	if useAPIKey {
+		req.Header.Set("Authorization", apiKey)
+	} else if accessToken.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
