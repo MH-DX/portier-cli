@@ -82,6 +82,7 @@ func ensureTLSCertificate(cobraCmd *cobra.Command, home, credentialsFile, apiURL
 }
 
 func ensureFingerprintUpToDate(cobraCmd *cobra.Command, home, apiURL, credentialsFile, certPath string) error {
+	fmt.Fprintln(cobraCmd.OutOrStdout(), "Checking TLS certificate fingerprint registration (upload if needed)")
 	creds, err := portier.LoadDeviceCredentials(home, filepath.Base(credentialsFile), apiURL)
 	if err != nil {
 		return err
