@@ -126,7 +126,7 @@ portier-cli register --name myHomePC
 Use the `forward` command to establish a connection to your workplace PC's SSH service:
 
 ```bash
-portier-cli forward myWorkplacePC:22->22222
+portier-cli forward "myWorkplacePC:22->22222"
 ```
 
 This command will:
@@ -150,20 +150,20 @@ Now you can SSH into your workplace PC from home:
 ssh -p 22222 username@localhost
 ```
 
-The connection format is: `<remoteDeviceName>:<remotePort>-><localPort>` or `<remoteDeviceName>:<remotePort>-><localHost>:<localPort>`
+The connection format is: "<remoteDeviceName>:<remotePort>-><localPort>" or "<remoteDeviceName>:<remotePort>-><localHost>:<localPort>"
 
 ### Additional Examples
 
 Forward other services from your workplace PC:
 ```bash
 # Access a web server running on port 80
-portier-cli forward myWorkplacePC:80->8080
+portier-cli forward "myWorkplacePC:80->8080"
 
 # Access a database on port 3306
-portier-cli forward myWorkplacePC:3306->127.0.0.1:3306
+portier-cli forward "myWorkplacePC:3306->127.0.0.1:3306"
 
 # Temporary forwarding without persistence
-portier-cli forward myWorkplacePC:8000->8000 --no-persist
+portier-cli forward "myWorkplacePC:8000->8000" --no-persist
 ```
 
 ## Forward Command Options
@@ -372,7 +372,7 @@ Assume you need to access myWorkplacePC's via ssh, where the ssh server on myWor
 First, repeat the previous steps to install and register portier-cli on your home machine. Then, instead of manually editing configuration files, you can use the `forward` command to set up port forwarding:
 
 ```bash
-portier-cli forward myWorkplacePC:22->22222
+portier-cli forward "myWorkplacePC:22->22222"
 ```
 
 This command will:
@@ -382,7 +382,7 @@ This command will:
 4. Save the configuration to `~/.portier/config.yaml` for persistence
 5. Start the forwarding service immediately
 
-The format is: `<remoteDeviceName>:<remotePort>-><localPort>` or `<remoteDeviceName>:<remotePort>-><localHost>:<localPort>`
+The format is: "<remoteDeviceName>:<remotePort>-><localPort>" or "<remoteDeviceName>:<remotePort>-><localHost>:<localPort>"
 
 When you run this command, you'll see output like:
 ```
@@ -408,10 +408,10 @@ The `forward` command supports several useful flags:
 Example with options:
 ```bash
 # Temporary forwarding without TLS
-portier-cli forward myWorkplacePC:80->8080 --no-tls --no-persist
+portier-cli forward "myWorkplacePC:80->8080" --no-tls --no-persist
 
 # Forward with custom local address
-portier-cli forward myWorkplacePC:3306->127.0.0.1:3306
+portier-cli forward "myWorkplacePC:3306->127.0.0.1:3306"
 ```
 # End-to-End Encryption
 
