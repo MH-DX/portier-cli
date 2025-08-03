@@ -28,7 +28,7 @@ func Login() error {
 	}
 
 	// define the endpoint
-	deviceURL := "https://portier-spider.eu.auth0.com/oauth/device/code"
+	deviceURL := "https://auth.portier.dev/oauth/device/code"
 
 	// define the data
 	data := url.Values{}
@@ -104,7 +104,7 @@ Alternatively, open ` + verificationURL + ` in your browser and enter the code `
 	// poll the token endpoint until the user has logged in
 	for {
 		// define the endpoint
-		tokenURL := "https://portier-spider.eu.auth0.com/oauth/token"
+		tokenURL := "https://auth.portier.dev/oauth/token"
 
 		// define the data
 		data := url.Values{}

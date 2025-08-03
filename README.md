@@ -58,9 +58,9 @@ Logging in to portier.dev
 Steps:
 
 1. Open the following link in your browser to authenticate:
-https://portier-spider.eu.auth0.com/activate?user_code=MXXG-ZXXG
+https://auth.portier.dev/activate?user_code=MXXG-ZXXG
 
-2. Alternatively, open https://portier-spider.eu.auth0.com/activate in your browser and enter the code MXXG-ZXXG
+2. Alternatively, open https://auth.portier.dev/activate in your browser and enter the code MXXG-ZXXG
 
 Waiting for user to log in...
 ```
