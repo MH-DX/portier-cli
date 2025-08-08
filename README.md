@@ -354,6 +354,21 @@ For better control, you can also use `nohup` to ensure it continues running even
 nohup portier-cli run > portier.log 2>&1 &
 ```
 
+### Running as a system service
+
+On platforms that support system services, Portier CLI can install itself as a persistent service. This ensures it starts automatically and continues running in the background:
+
+```bash
+portier-cli service install
+portier-cli service start
+```
+
+To stop the running service later, use:
+
+```bash
+portier-cli service stop
+```
+
 The output will be similar to:
 ```
 2024/04/12 21:18:40 Starting Portier CLI...
