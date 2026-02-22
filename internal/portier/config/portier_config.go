@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -138,7 +139,33 @@ func LoadConfig(filePath string) (*PortierConfig, error) {
 	return config, nil
 }
 
-func LoadApiToken(filePath string) (*DeviceCredentials, error) {
+func APIBaseURLFromPortierURL(portierURL string) string {
+	parsedURL, err := url.Parse(strings.TrimSpace(portierURL))
+	if err != nil || parsedURL.Host == "" {
+		return "https://api.portier.dev"
+	}
+
+	scheme := parsedURL.Scheme
+	switch scheme {
+	case "wss":
+		scheme = "https"
+	case "ws":
+		scheme = "http"
+	case "https", "http":
+	default:
+		scheme = "https"
+	}
+
+	return normalizeAPIBaseURL((&url.URL{Scheme: scheme, Host: parsedURL.Host}).String())
+}
+
+func normalizeAPIBaseURL(baseURL string) string {
+	result := strings.TrimSpace(strings.TrimSuffix(baseURL, "/"))
+	result = strings.TrimSuffix(result, "/api")
+	return result
+}
+
+func LoadApiTokenWithBaseURL(filePath string, baseURL string) (*DeviceCredentials, error) {
 	stat, err := os.Stat(filePath)
 	if err != nil {
 		log.Printf("Error getting file info: %v. Exiting", err)
@@ -170,7 +197,12 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 		return nil, err
 	}
 
-	guid, err := api.WhoAmI("https://api.portier.dev", fc.ApiToken)
+	baseURL = normalizeAPIBaseURL(baseURL)
+	if baseURL == "" {
+		baseURL = "https://api.portier.dev"
+	}
+
+	guid, err := api.WhoAmI(baseURL, fc.ApiToken)
 	if err != nil {
 		return nil, fmt.Errorf("could not get device ID: %w", err)
 	}
@@ -181,6 +213,10 @@ func LoadApiToken(filePath string) (*DeviceCredentials, error) {
 	}
 
 	return &credentials, nil
+}
+
+func LoadApiToken(filePath string) (*DeviceCredentials, error) {
+	return LoadApiTokenWithBaseURL(filePath, "https://api.portier.dev")
 }
 
 // SaveConfig saves the config to the given file path.

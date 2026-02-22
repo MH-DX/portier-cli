@@ -215,7 +215,8 @@ func (p *portierService) run() {
 	}
 
 	// Load API credentials
-	deviceCreds, err := config.LoadApiToken(p.options.ApiTokenFile)
+	apiBaseURL := config.APIBaseURLFromPortierURL(portierConfig.PortierURL.String())
+	deviceCreds, err := config.LoadApiTokenWithBaseURL(p.options.ApiTokenFile, apiBaseURL)
 	if err != nil {
 		log.Printf("Failed to load API token: %v", err)
 		return

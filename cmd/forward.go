@@ -109,7 +109,7 @@ func (o *forwardOptions) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	creds, err := config.LoadApiToken(o.ApiTokenFile)
+	creds, err := config.LoadApiTokenWithBaseURL(o.ApiTokenFile, o.ApiURL)
 	if err != nil {
 		return err
 	}

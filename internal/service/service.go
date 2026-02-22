@@ -142,7 +142,8 @@ func (p *portierServiceProgram) run() {
 	}
 
 	// Load API credentials
-	deviceCreds, err := config.LoadApiToken(p.config.ApiTokenFile)
+	apiBaseURL := config.APIBaseURLFromPortierURL(portierConfig.PortierURL.String())
+	deviceCreds, err := config.LoadApiTokenWithBaseURL(p.config.ApiTokenFile, apiBaseURL)
 	if err != nil {
 		return
 	}

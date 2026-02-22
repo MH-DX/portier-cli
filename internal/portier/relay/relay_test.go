@@ -261,7 +261,7 @@ func createRelay(deviceId uuid.UUID, url string, events chan adapter.AdapterEven
 	messageChannel, _ := uplink.Connect()
 	pTLS := &MockPTLS{}
 	pTLS.On("TestEndpointURL", mock.Anything).Return(false)
-	router := router.NewRouter(uplink, messageChannel, events, pTLS)
+	router := router.NewRouter(uplink, messageChannel, events, pTLS, nil)
 
 	return router, uplink
 }

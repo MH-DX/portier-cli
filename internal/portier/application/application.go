@@ -5,10 +5,12 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	portierapi "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
 	"github.com/mh-dx/portier-cli/internal/portier/ptls"
 	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter"
@@ -265,7 +267,38 @@ func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error)
 	}
 
 	events := make(chan adapter.AdapterEvent, 100)
-	router := router.NewRouter(uplink, messageChannel, events, p.ptls)
+	router := router.NewRouter(uplink, messageChannel, events, p.ptls, p.newInitiationFailureReporter())
 
 	return router, uplink, nil
+}
+
+func (p *PortierApplication) newInitiationFailureReporter() router.InitiationFailureReporter {
+	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil || p.config.PortierURL.URL == nil {
+		return nil
+	}
+
+	baseURL := p.config.PortierURL.URL.String()
+	if p.config.PortierURL.URL.Scheme == "wss" {
+		baseURL = "https://" + p.config.PortierURL.URL.Host
+	} else if p.config.PortierURL.URL.Scheme == "ws" {
+		baseURL = "http://" + p.config.PortierURL.URL.Host
+	} else {
+		baseURL = p.config.PortierURL.URL.Scheme + "://" + p.config.PortierURL.URL.Host
+	}
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	apiKey := p.deviceCredentials.ApiToken
+
+	return func(report router.InitiationFailureReport) {
+		err := portierapi.ReportConnectionInitiationFailure(baseURL, apiKey, portierapi.ConnectionInitiationFailureRequest{
+			ConnectingDeviceGUID: report.ConnectingDeviceGUID,
+			ConnectionID:         report.ConnectionID,
+			ErrorCode:            report.ErrorCode,
+			ErrorMessage:         report.ErrorMessage,
+			RecommendedAction:    report.RecommendedAction,
+			RemoteURL:            report.RemoteURL,
+		})
+		if err != nil {
+			log.Printf("warning: failed to report connection initiation failure: %v", err)
+		}
+	}
 }
