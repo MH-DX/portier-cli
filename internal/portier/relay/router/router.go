@@ -12,6 +12,17 @@ import (
 	"github.com/mh-dx/portier-cli/internal/portier/relay/uplink"
 )
 
+type InitiationFailureReport struct {
+	ConnectingDeviceGUID string
+	ConnectionID         string
+	ErrorCode            string
+	ErrorMessage         string
+	RecommendedAction    string
+	RemoteURL            string
+}
+
+type InitiationFailureReporter func(report InitiationFailureReport)
+
 type Router interface {
 	// Start starts the router
 	Start() error
@@ -51,18 +62,22 @@ type router struct {
 
 	// ptls is the ptls instance
 	ptls ptls.PTLS
+
+	// reportInitiationFailure reports inbound initiation failures without affecting packet handling.
+	reportInitiationFailure InitiationFailureReporter
 }
 
 // NewRouter creates a new router.
-func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan adapter.AdapterEvent, ptls ptls.PTLS) Router {
+func NewRouter(uplink uplink.Uplink, msg <-chan messages.Message, events chan adapter.AdapterEvent, ptls ptls.PTLS, reportInitiationFailure InitiationFailureReporter) Router {
 	return &router{
-		connections:    make(map[messages.ConnectionID]adapter.ConnectionAdapter),
-		encoderDecoder: encoder.NewEncoderDecoder(),
-		uplink:         uplink,
-		messages:       msg,
-		events:         events,
-		mutex:          sync.Mutex{},
-		ptls:           ptls,
+		connections:             make(map[messages.ConnectionID]adapter.ConnectionAdapter),
+		encoderDecoder:          encoder.NewEncoderDecoder(),
+		uplink:                  uplink,
+		messages:                msg,
+		events:                  events,
+		mutex:                   sync.Mutex{},
+		ptls:                    ptls,
+		reportInitiationFailure: reportInitiationFailure,
 	}
 }
 
@@ -187,6 +202,16 @@ func (r *router) CreateInboundConnection(header messages.MessageHeader, bridgeOp
 	err := connectionAdapter.Start()
 	if err != nil {
 		log.Printf("error starting connection adapter: %s", err)
+		if r.reportInitiationFailure != nil {
+			go r.reportInitiationFailure(InitiationFailureReport{
+				ConnectingDeviceGUID: header.From.String(),
+				ConnectionID:         string(header.CID),
+				ErrorCode:            "TARGET_INITIATION_ERROR",
+				ErrorMessage:         err.Error(),
+				RecommendedAction:    "Check that the target service is reachable on the configured host/port and retry.",
+				RemoteURL:            bridgeOptions.URLRemote.String(),
+			})
+		}
 		return
 	}
 	log.Printf("started connection adapter for connection %s\n", header.CID)

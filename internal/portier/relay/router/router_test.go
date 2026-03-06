@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mh-dx/portier-cli/internal/portier/relay/adapter"
@@ -22,7 +23,7 @@ func TestRouting(testing *testing.T) {
 	events := make(chan adapter.AdapterEvent, 10)
 	uplinkMock := &MockUplink{}
 	ptls := &MockPTLS{}
-	underTest := NewRouter(uplinkMock, msg, events, ptls)
+	underTest := NewRouter(uplinkMock, msg, events, ptls, nil)
 	underTest.AddConnection(connectionId, connectionAdapterMock)
 	connectionAdapterMock.On("Send", mock.MatchedBy(func(msg messages.Message) bool {
 		return msg.Header.CID == connectionId
@@ -59,7 +60,7 @@ func TestConnectionOpen(testing *testing.T) {
 	ptls := &MockPTLS{}
 	ptls.On("TestEndpointURL", mock.Anything).Return(false)
 
-	underTest := NewRouter(uplinkMock, msg, events, ptls)
+	underTest := NewRouter(uplinkMock, msg, events, ptls, nil)
 
 	remoteUrl, _ := url.Parse("tcp://" + forwarded.Addr().String())
 	bridgeOptions := messages.BridgeOptions{
@@ -99,7 +100,7 @@ func TestConnectionNotFound(testing *testing.T) {
 		return msg.Header.Type == messages.NF
 	})).Return(nil)
 	ptls := &MockPTLS{}
-	underTest := NewRouter(uplinkMock, msg, events, ptls)
+	underTest := NewRouter(uplinkMock, msg, events, ptls, nil)
 
 	// WHEN
 	underTest.HandleMessage(messages.Message{
@@ -114,6 +115,46 @@ func TestConnectionNotFound(testing *testing.T) {
 
 	// THEN
 	uplinkMock.AssertExpectations(testing)
+}
+
+func TestConnectionOpenReportsInitiationFailure(testing *testing.T) {
+	msg := make(chan messages.Message, 10)
+	events := make(chan adapter.AdapterEvent, 10)
+	uplinkMock := &MockUplink{}
+	uplinkMock.On("Send", mock.Anything).Return(nil)
+	ptls := &MockPTLS{}
+	ptls.On("TestEndpointURL", mock.Anything).Return(false)
+
+	reportCh := make(chan InitiationFailureReport, 1)
+	underTest := NewRouter(uplinkMock, msg, events, ptls, func(report InitiationFailureReport) {
+		reportCh <- report
+	})
+
+	remoteURL, _ := url.Parse("tcp://127.0.0.1:1")
+	connectionOpenMessage := messages.ConnectionOpenMessage{
+		BridgeOptions: messages.BridgeOptions{URLRemote: *remoteURL},
+	}
+	encoderDecoder := encoder.NewEncoderDecoder()
+	connectionOpenMessagePayload, _ := encoderDecoder.EncodeConnectionOpenMessage(connectionOpenMessage)
+
+	underTest.HandleMessage(messages.Message{
+		Header: messages.MessageHeader{
+			From: uuid.New(),
+			To:   uuid.New(),
+			Type: messages.CO,
+			CID:  messages.ConnectionID("cid-report-test"),
+		},
+		Message: connectionOpenMessagePayload,
+	})
+
+	select {
+	case report := <-reportCh:
+		assert.Equal(testing, "TARGET_INITIATION_ERROR", report.ErrorCode)
+		assert.Equal(testing, "cid-report-test", report.ConnectionID)
+		assert.Equal(testing, "tcp://127.0.0.1:1", report.RemoteURL)
+	case <-time.After(2 * time.Second):
+		testing.Fatal("expected initiation failure report to be emitted")
+	}
 }
 
 type ConnectionAdapterMock struct {
