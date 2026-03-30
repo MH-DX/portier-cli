@@ -20,6 +20,7 @@ func newRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(NewManCmd().Cmd)        // man subcommand
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newRegisterCmd())
+	cmd.AddCommand(newTaskCmd())
 	tlsCmd := ptls_cmd.NewTLScmd()
 	tlsCmd.AddCommand(ptls_create_cmd.NewCreatecmd())
 	tlsCmd.AddCommand(ptls_trust_cmd.NewTrustcmd())
