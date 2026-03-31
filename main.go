@@ -21,12 +21,11 @@ var logfile = flag.String("logfile", "", "path to log file")
 func main() {
 	flag.Parse()
 
-	home, err := utils.Home()
-	if err != nil {
-		log.Fatalf("Failed to get portier home directory: %v", err)
-	}
-
 	if *logfile == "" {
+		home, err := utils.Home()
+		if err != nil {
+			log.Fatalf("Failed to get portier home directory: %v", err)
+		}
 		*logfile = filepath.Join(home, "portier-cli.log")
 	}
 

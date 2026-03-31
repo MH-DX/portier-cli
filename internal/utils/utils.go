@@ -2,37 +2,52 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strings"
 )
 
-// Home returns the home directory of the current user withouth a trailing slash.
+// Home returns the Portier home directory without a trailing slash.
 func Home() (string, error) {
-	home, err := os.UserHomeDir()
+	return home(user.Current)
+}
+
+func home(currentUserLookup func() (*user.User, error)) (string, error) {
+	home, err := resolveHome(currentUserLookup)
 	if err != nil {
 		return "", err
 	}
 
-	home = filepath.Join(home, ".portier")
-
-	if customHome := os.Getenv("PORTIER_HOME"); customHome != "" {
-		home = customHome
-	}
-
-	if _, err := os.Stat(home); err != nil {
-		if os.IsNotExist(err) {
-			perm := os.FileMode(0o700)
-			err := os.Mkdir(home, perm)
-			if err != nil {
-				return "", err
-			}
-		} else {
-			return "", err
-		}
+	perm := os.FileMode(0o700)
+	if err := os.MkdirAll(home, perm); err != nil {
+		return "", err
 	}
 
 	return home, nil
+}
+
+func resolveHome(currentUserLookup func() (*user.User, error)) (string, error) {
+	if customHome := strings.TrimSpace(os.Getenv("PORTIER_HOME")); customHome != "" {
+		return customHome, nil
+	}
+
+	if home := strings.TrimSpace(os.Getenv("HOME")); home != "" {
+		return filepath.Join(home, ".portier"), nil
+	}
+
+	currentUser, err := currentUserLookup()
+	if err != nil {
+		return "", fmt.Errorf("HOME is not defined and current user lookup failed: %w", err)
+	}
+
+	if strings.TrimSpace(currentUser.HomeDir) == "" {
+		return "", fmt.Errorf("HOME is not defined and current user home directory is empty")
+	}
+
+	return filepath.Join(currentUser.HomeDir, ".portier"), nil
 }
 
 type YAMLURL struct {

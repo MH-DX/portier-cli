@@ -32,7 +32,11 @@ func NewServiceManager(cfg *Config) (*ServiceManager, error) {
 	}
 
 	// Build service arguments with config file paths
-	args := []string{"service", "run"}
+	args := []string{}
+	if cfg.LogFile != "" {
+		args = append(args, "-logfile", cfg.LogFile)
+	}
+	args = append(args, "service", "run")
 	if cfg.ConfigFile != "" {
 		args = append(args, "-c", cfg.ConfigFile)
 	}
