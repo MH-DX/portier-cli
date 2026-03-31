@@ -1,6 +1,7 @@
 package uplink
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -141,5 +142,31 @@ func TestReconnect(testing *testing.T) {
 	response := <-channel
 	if response.Header != okayMsg.Header {
 		testing.Errorf("expected %v, got %v", okayMsg, response)
+	}
+}
+
+func TestConnectSurfacesJSONHandshakeErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "task window expired",
+		})
+	}))
+	defer server.Close()
+
+	options := defaultOptions()
+	options.PortierURL = "ws" + server.URL[4:]
+	options.APIToken = "Bearer task-token"
+
+	uplink := NewWebsocketUplink(options, nil)
+
+	_, err := uplink.Connect()
+	if err == nil {
+		t.Fatal("expected websocket connect error")
+	}
+
+	if err.Error() != "websocket handshake failed: 403 Forbidden: task window expired" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

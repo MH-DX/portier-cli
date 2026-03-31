@@ -6,10 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTaskCmd() *cobra.Command {
+func newCustomerCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "task",
-		Short:        "Task-scoped workflows for operator handoffs",
+		Use:          "customer",
+		Short:        "Customer-scoped Portier setup helpers",
 		SilenceUsage: true,
 		Args:         cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -18,8 +18,7 @@ func newTaskCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(newTaskEnrollCmd())
-	cmd.AddCommand(newTaskStartCmd())
+	cmd.AddCommand(newCustomerSetupCmd())
 
 	return cmd
 }

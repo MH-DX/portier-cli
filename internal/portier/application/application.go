@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ func (p *PortierApplication) StartServices(portierConfig *config.PortierConfig, 
 	router, uplink, err := p.createRelay()
 	if err != nil {
 		log.Printf("Error creating outbound relay: %v", err)
-		os.Exit(1)
+		return err
 	}
 	p.router = router
 	p.uplink = uplink
@@ -274,6 +273,9 @@ func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error)
 
 func (p *PortierApplication) newInitiationFailureReporter() router.InitiationFailureReporter {
 	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil || p.config.PortierURL.URL == nil {
+		return nil
+	}
+	if strings.HasPrefix(p.config.PortierURL.URL.Path, "/api/tasks/") {
 		return nil
 	}
 

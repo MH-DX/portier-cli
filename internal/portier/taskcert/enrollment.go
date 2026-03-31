@@ -219,6 +219,20 @@ func Store(outputDir string, privateKeyPEM, certificatePEM, certificateChainPEM 
 	return paths, nil
 }
 
+func LoadMetadata(metadataPath string) (*Metadata, error) {
+	metadataBytes, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata := &Metadata{}
+	if err := yaml.Unmarshal(metadataBytes, metadata); err != nil {
+		return nil, err
+	}
+
+	return metadata, nil
+}
+
 func parseSingleCertificatePEM(certificatePEM []byte) (*x509.Certificate, error) {
 	block, rest := pem.Decode(certificatePEM)
 	if block == nil {
