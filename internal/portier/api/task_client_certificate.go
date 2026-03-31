@@ -3,6 +3,7 @@ package portier
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,7 +66,7 @@ func GetTaskClientCertificateInfo(baseURL, taskGUID, taskToken string) (*TaskCli
 	var response TaskClientCertificateInfoResponse
 	err := doTaskClientCertificateRequest(
 		"task certificate info request",
-		fmt.Sprintf("%s/public/tasks/%s/client-certificate-info", normalizeTaskBaseURL(baseURL), taskGUID),
+		taskClientCertificateEndpoints(baseURL, taskGUID, "client-certificate-info"),
 		requestBody,
 		&response,
 	)
@@ -85,7 +86,7 @@ func IssueTaskClientCertificate(baseURL, taskGUID, taskToken, csr string) (*Task
 	var response TaskClientCertificateResponse
 	err := doTaskClientCertificateRequest(
 		"task certificate signing request",
-		fmt.Sprintf("%s/public/tasks/%s/client-certificate", normalizeTaskBaseURL(baseURL), taskGUID),
+		taskClientCertificateEndpoints(baseURL, taskGUID, "client-certificate"),
 		requestBody,
 		&response,
 	)
@@ -100,7 +101,31 @@ type taskCertificateErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func doTaskClientCertificateRequest(operation, endpoint string, requestBody any, responseBody any) error {
+func doTaskClientCertificateRequest(operation string, endpoints []string, requestBody any, responseBody any) error {
+	var lastError error
+	for _, endpoint := range endpoints {
+		err := doTaskClientCertificateRequestOnce(operation, endpoint, requestBody, responseBody)
+		if err == nil {
+			return nil
+		}
+
+		var apiError *TaskClientCertificateAPIError
+		if errors.As(err, &apiError) && apiError.StatusCode == http.StatusNotFound {
+			lastError = err
+			continue
+		}
+
+		return err
+	}
+
+	if lastError != nil {
+		return lastError
+	}
+
+	return fmt.Errorf("%s failed: no task certificate endpoints configured", operation)
+}
+
+func doTaskClientCertificateRequestOnce(operation, endpoint string, requestBody any, responseBody any) error {
 	payload, err := json.Marshal(requestBody)
 	if err != nil {
 		return err
@@ -157,4 +182,12 @@ func normalizeTaskBaseURL(baseURL string) string {
 	result := strings.TrimSpace(strings.TrimSuffix(baseURL, "/"))
 	result = strings.TrimSuffix(result, "/api")
 	return result
+}
+
+func taskClientCertificateEndpoints(baseURL, taskGUID, suffix string) []string {
+	normalizedBaseURL := normalizeTaskBaseURL(baseURL)
+	return []string{
+		fmt.Sprintf("%s/public/tasks/%s/%s", normalizedBaseURL, taskGUID, suffix),
+		fmt.Sprintf("%s/api/tasks/%s/%s", normalizedBaseURL, taskGUID, suffix),
+	}
 }

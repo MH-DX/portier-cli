@@ -66,7 +66,7 @@ func TestTaskEnrollSuccess(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/public/tasks/" + taskGUID + "/client-certificate-info":
+		case "/api/tasks/" + taskGUID + "/client-certificate-info":
 			var request map[string]string
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
 			require.Equal(t, taskToken, request["task_token"])
@@ -79,7 +79,7 @@ func TestTaskEnrollSuccess(t *testing.T) {
 				"not_after":         notAfter.Format(time.RFC3339),
 				"required_uri_sans": requiredURISANs,
 			})
-		case "/public/tasks/" + taskGUID + "/client-certificate":
+		case "/api/tasks/" + taskGUID + "/client-certificate":
 			body, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
 			privateKeySent = strings.Contains(string(body), "PRIVATE KEY")
