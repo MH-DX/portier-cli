@@ -163,18 +163,28 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		p.router.AddConnection(cID, adapter)
 		adapter.Start()
 
-		// If we have a handshaker, we need to call it now
-		if tlsHandshaker != nil {
-			err := tlsHandshaker()
-			if err != nil {
-				log.Printf("Error in TLS handshake: %v", err)
-				adapter.Close()
-				return err
-			}
-		}
+		p.startTLSHandshake(adapter, tlsHandshaker)
 
 		log.Printf("Started connection adapter for service: %s\n", context.Service.Name)
 	}
+}
+
+func (p *PortierApplication) startTLSHandshake(connectionAdapter adapter.ConnectionAdapter, handshaker func() error) {
+	if handshaker == nil {
+		return
+	}
+
+	go func() {
+		if err := handshaker(); err != nil {
+			log.Printf("Error in TLS handshake: %v", err)
+			if closeErr := connectionAdapter.Close(); closeErr != nil {
+				log.Printf("Error closing connection adapter after TLS handshake failure: %v", closeErr)
+			}
+			return
+		}
+
+		log.Printf("TLS handshake completed")
+	}()
 }
 
 func (p *PortierApplication) StopServices() error {

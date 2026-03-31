@@ -1,6 +1,7 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -8,10 +9,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
 	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
+	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 	"github.com/mh-dx/portier-cli/internal/utils"
 )
 
@@ -83,6 +86,59 @@ func TestApplicationStartupAndForwardingWithTLS(t *testing.T) {
 	// assert that remote connection received the message
 	if total != len(msg) {
 		t.Errorf("expected %d bytes, got %d", len(msg), total)
+	}
+}
+
+type fakeConnectionAdapter struct {
+	closeCalls chan struct{}
+}
+
+func (f *fakeConnectionAdapter) Start() error { return nil }
+
+func (f *fakeConnectionAdapter) Close() error {
+	select {
+	case f.closeCalls <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (f *fakeConnectionAdapter) Send(messages.Message) {}
+
+func TestStartTLSHandshakeDoesNotBlockAcceptLoop(t *testing.T) {
+	app := NewPortierApplication()
+	connectionAdapter := &fakeConnectionAdapter{closeCalls: make(chan struct{}, 1)}
+	handshakeStarted := make(chan struct{}, 1)
+	releaseHandshake := make(chan struct{})
+
+	done := make(chan struct{})
+	go func() {
+		app.startTLSHandshake(connectionAdapter, func() error {
+			handshakeStarted <- struct{}{}
+			<-releaseHandshake
+			return errors.New("handshake failed")
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("expected startTLSHandshake to return immediately")
+	}
+
+	select {
+	case <-handshakeStarted:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("expected handshake goroutine to start")
+	}
+
+	close(releaseHandshake)
+
+	select {
+	case <-connectionAdapter.closeCalls:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("expected handshake failure to close the adapter")
 	}
 }
 
