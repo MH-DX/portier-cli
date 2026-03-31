@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	ptls_cmd "github.com/mh-dx/portier-cli/cmd/ptls"
 	ptls_create_cmd "github.com/mh-dx/portier-cli/cmd/ptls/create"
 	ptls_trust_cmd "github.com/mh-dx/portier-cli/cmd/ptls/trust"
@@ -50,7 +52,15 @@ func newRootCmd(version string) *cobra.Command {
 
 // Execute invokes the command.
 func Execute(version string) error {
-	if err := newRootCmd(version).Execute(); err != nil {
+	return ExecuteArgs(version, os.Args[1:])
+}
+
+// ExecuteArgs invokes the command with an explicit argv slice.
+func ExecuteArgs(version string, args []string) error {
+	rootCmd := newRootCmd(version)
+	rootCmd.SetArgs(args)
+
+	if err := rootCmd.Execute(); err != nil {
 		return err
 	}
 
