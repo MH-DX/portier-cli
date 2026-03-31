@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -252,11 +251,16 @@ func (p *PortierApplication) AddService(service config.Service) error {
 }
 
 func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error) {
-	log.Printf("Portier URL: %s\n", p.config.PortierURL.String())
+	relayURL, err := p.config.RelayURL()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Printf("Portier relay URL: %s\n", relayURL)
 
 	uplinkOptions := uplink.Options{
 		APIToken:   p.deviceCredentials.ApiToken,
-		PortierURL: p.config.PortierURL.String(),
+		PortierURL: relayURL,
 	}
 	uplink := uplink.NewWebsocketUplink(uplinkOptions, nil)
 	messageChannel, err := uplink.Connect()
@@ -272,22 +276,14 @@ func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error)
 }
 
 func (p *PortierApplication) newInitiationFailureReporter() router.InitiationFailureReporter {
-	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil || p.config.PortierURL.URL == nil {
+	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil {
 		return nil
 	}
-	if strings.HasPrefix(p.config.PortierURL.URL.Path, "/api/tasks/") {
+	if p.config.IsTaskRelay() {
 		return nil
 	}
 
-	baseURL := p.config.PortierURL.URL.String()
-	if p.config.PortierURL.URL.Scheme == "wss" {
-		baseURL = "https://" + p.config.PortierURL.URL.Host
-	} else if p.config.PortierURL.URL.Scheme == "ws" {
-		baseURL = "http://" + p.config.PortierURL.URL.Host
-	} else {
-		baseURL = p.config.PortierURL.URL.Scheme + "://" + p.config.PortierURL.URL.Host
-	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL := p.config.APIBaseURL()
 	apiKey := p.deviceCredentials.ApiToken
 
 	return func(report router.InitiationFailureReport) {

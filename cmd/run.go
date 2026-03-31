@@ -77,7 +77,7 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	apiBaseURL := config.APIBaseURLFromPortierURL(portierConfig.PortierURL.String())
+	apiBaseURL := portierConfig.APIBaseURL()
 	deviceCreds, err := config.LoadApiTokenWithBaseURL(o.ApiTokenFile, apiBaseURL)
 	if err != nil {
 		return fmt.Errorf("could not load api token file: %w", err)

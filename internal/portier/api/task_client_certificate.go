@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 type TaskClientCertificateInfoRequest struct {
@@ -178,16 +180,18 @@ func decodeTaskCertificateError(body []byte, fallback string) string {
 	return fallback
 }
 
-func normalizeTaskBaseURL(baseURL string) string {
-	result := strings.TrimSpace(strings.TrimSuffix(baseURL, "/"))
-	result = strings.TrimSuffix(result, "/api")
-	return result
-}
-
 func taskClientCertificateEndpoints(baseURL, taskGUID, suffix string) []string {
-	normalizedBaseURL := normalizeTaskBaseURL(baseURL)
-	return []string{
-		fmt.Sprintf("%s/public/tasks/%s/%s", normalizedBaseURL, taskGUID, suffix),
-		fmt.Sprintf("%s/api/tasks/%s/%s", normalizedBaseURL, taskGUID, suffix),
+	resourcePath := fmt.Sprintf("/tasks/%s/%s", taskGUID, suffix)
+
+	publicURL, err := endpoints.PublicURL(baseURL, resourcePath)
+	if err != nil {
+		return nil
 	}
+
+	apiURL, err := endpoints.APIURL(baseURL, resourcePath)
+	if err != nil {
+		return []string{publicURL}
+	}
+
+	return []string{publicURL, apiURL}
 }

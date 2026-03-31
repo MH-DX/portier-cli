@@ -38,7 +38,7 @@ func defaultTLSOptions() *tlsCreateOptions {
 		KeyPath:             fmt.Sprintf("%s/key.pem", home),
 		KnownHostsFilePath:  fmt.Sprintf("%s/known_hosts", home),
 		UploadFingerprint:   true,
-		ApiURL:              "https://api.portier.dev/api",
+		ApiURL:              "https://api.portier.dev",
 	}
 }
 

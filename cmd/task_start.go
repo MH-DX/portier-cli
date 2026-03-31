@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mh-dx/portier-cli/internal/portier/application"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 	"github.com/mh-dx/portier-cli/internal/portier/taskcert"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
@@ -175,11 +176,6 @@ func (o *taskStartOptions) prepare() (*taskStartRuntime, error) {
 		return nil, err
 	}
 
-	portierURL, err := buildTaskSpiderWebsocketURL(apiURL, taskGUID)
-	if err != nil {
-		return nil, err
-	}
-
 	localURL, err := url.Parse("tcp://" + listenAddress)
 	if err != nil {
 		return nil, fmt.Errorf("local listen address %q is invalid: %w", listenAddress, err)
@@ -195,7 +191,18 @@ func (o *taskStartOptions) prepare() (*taskStartRuntime, error) {
 		cleanup()
 		return nil, err
 	}
-	portierConfig.PortierURL = utils.YAMLURL{URL: portierURL}
+	normalizedBaseURL := endpoints.NormalizeBaseURL(apiURL)
+	if normalizedBaseURL == "" {
+		cleanup()
+		return nil, fmt.Errorf("invalid api URL %q", apiURL)
+	}
+	parsedBaseURL, err := url.Parse(normalizedBaseURL)
+	if err != nil {
+		cleanup()
+		return nil, fmt.Errorf("invalid api URL %q: %w", apiURL, err)
+	}
+	portierConfig.BaseURL = utils.YAMLURL{URL: parsedBaseURL}
+	portierConfig.RelayPath = fmt.Sprintf("/task-spider/%s", taskGUID)
 	portierConfig.TLSEnabled = true
 	portierConfig.PTLSConfig = config.PTLSConfig{
 		CertFile:       fullChainPath,
@@ -295,32 +302,6 @@ func resolveTaskStartListenAddress(listenAddress string, remoteURL *url.URL) (st
 	}
 
 	return listenAddress, nil
-}
-
-func buildTaskSpiderWebsocketURL(baseURL, taskGUID string) (*url.URL, error) {
-	parsedURL, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil {
-		return nil, fmt.Errorf("invalid api URL %q: %w", baseURL, err)
-	}
-	if parsedURL.Host == "" {
-		return nil, fmt.Errorf("invalid api URL %q: missing host", baseURL)
-	}
-
-	switch parsedURL.Scheme {
-	case "https":
-		parsedURL.Scheme = "wss"
-	case "http":
-		parsedURL.Scheme = "ws"
-	case "wss", "ws":
-	default:
-		parsedURL.Scheme = "wss"
-	}
-
-	parsedURL.RawQuery = ""
-	parsedURL.Fragment = ""
-	parsedURL.Path = fmt.Sprintf("/api/tasks/%s/spider", taskGUID)
-
-	return parsedURL, nil
 }
 
 func prepareTaskClientCertificateBundle(metadataDir string, metadata *taskcert.Metadata) (string, func(), error) {

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 type FingerPrintUploadRequest struct {
@@ -37,7 +38,10 @@ func UploadFingerprint(home, baseURL, deviceID, fingerprint string) error {
 	var req *http.Request
 	var url string
 	if useAPIKey {
-		url := fmt.Sprintf("%s/spider/fingerprintupsert", strings.TrimSuffix(baseURL, "/api"))
+		url, err = endpoints.SpiderURL(baseURL, "/fingerprintupsert")
+		if err != nil {
+			return err
+		}
 		log.Printf("Uploading fingerprint to %s\n", url)
 
 		// Create the request payload
@@ -72,7 +76,10 @@ func UploadFingerprint(home, baseURL, deviceID, fingerprint string) error {
 		}
 
 		// Make the POST request
-		url = fmt.Sprintf("%s/fingerprintupsert", baseURL)
+		url, err = endpoints.APIURL(baseURL, "/fingerprintupsert")
+		if err != nil {
+			return err
+		}
 		log.Printf("Uploading fingerprint to %s\n", url)
 		req, err = http.NewRequest("POST", url, bytes.NewBuffer(payloadJSON))
 		if err != nil {

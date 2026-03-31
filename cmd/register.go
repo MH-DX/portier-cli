@@ -30,7 +30,7 @@ func defaultRegisterOptions() *registerOptions {
 	}
 
 	return &registerOptions{
-		ApiURL:              "https://api.portier.dev/api",
+		ApiURL:              "https://api.portier.dev",
 		ApiKey:              "",
 		HomeFolderPath:      home,
 		CredentialsFileName: "credentials_device.yaml",
@@ -53,7 +53,7 @@ func newRegisterCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&o.ApiKey, "apiKey", "k", o.ApiKey, "existing API key to register with")
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
-	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the API (https://api.portier.dev)")
+	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the Portier backend (https://api.portier.dev)")
 	cmd.Flags().Bool("no-tls", false, "Do not generate or check TLS certificates")
 
 	return cmd
@@ -71,7 +71,7 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 		if o.Name != "" {
 			return fmt.Errorf("--name must not be provided when --apiKey is used")
 		}
-		guid, err := portier.WhoAmI(strings.TrimSuffix(o.ApiURL, "/api"), o.ApiKey)
+		guid, err := portier.WhoAmI(o.ApiURL, o.ApiKey)
 		if err != nil {
 			return err
 		}

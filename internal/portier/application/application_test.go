@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 	"github.com/mh-dx/portier-cli/internal/utils"
 )
 
@@ -91,6 +92,9 @@ func createConfigs(ws_url string, deviceID uuid.UUID, services []config.Service,
 		panic(err)
 	}
 	portierURL, _ := url.Parse(ws_url)
+	normalizedBaseURL := endpoints.NormalizeBaseURL(ws_url)
+	baseURL, _ := url.Parse(normalizedBaseURL)
+
 	portierConfig.TLSEnabled = true
 	portierConfig.PTLSConfig = config.PTLSConfig{
 		CertFile:       fmt.Sprintf("testdata/cert%s.pem", suffix),
@@ -98,7 +102,11 @@ func createConfigs(ws_url string, deviceID uuid.UUID, services []config.Service,
 		KnownHostsFile: fmt.Sprintf("testdata/known_hosts.%s", suffix),
 	}
 
-	portierConfig.PortierURL.URL = portierURL
+	portierConfig.BaseURL = utils.YAMLURL{URL: baseURL}
+	portierConfig.RelayPath = portierURL.Path
+	if portierConfig.RelayPath == "" {
+		portierConfig.RelayPath = "/"
+	}
 	portierConfig.Services = services
 
 	credentials := &config.DeviceCredentials{

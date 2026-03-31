@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 type ConnectionInitiationFailureRequest struct {
@@ -19,8 +20,10 @@ type ConnectionInitiationFailureRequest struct {
 }
 
 func ReportConnectionInitiationFailure(baseURL, apiKey string, request ConnectionInitiationFailureRequest) error {
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := fmt.Sprintf("%s/spider/connection-initiation-failure", baseURL)
+	url, err := endpoints.SpiderURL(baseURL, "/connection-initiation-failure")
+	if err != nil {
+		return err
+	}
 
 	payload, err := json.Marshal(request)
 	if err != nil {

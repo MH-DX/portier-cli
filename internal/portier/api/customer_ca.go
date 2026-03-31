@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 type CustomerCABundleError struct {
@@ -19,7 +21,10 @@ func (e *CustomerCABundleError) Error() string {
 }
 
 func GetCurrentCustomerCABundle(baseURL, customerGUID string) ([]byte, error) {
-	endpoint := fmt.Sprintf("%s/api/customers/%s/ca-certificates/current.pem", normalizeCustomerCABaseURL(baseURL), customerGUID)
+	endpoint, err := endpoints.APIURL(baseURL, fmt.Sprintf("/customers/%s/ca-certificates/current.pem", customerGUID))
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -64,10 +69,4 @@ func decodeCustomerCAError(body []byte, fallback string) string {
 	}
 
 	return fallback
-}
-
-func normalizeCustomerCABaseURL(baseURL string) string {
-	result := strings.TrimSpace(strings.TrimSuffix(baseURL, "/"))
-	result = strings.TrimSuffix(result, "/api")
-	return result
 }
