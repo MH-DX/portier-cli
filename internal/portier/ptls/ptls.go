@@ -163,7 +163,7 @@ func (p *ptls) decorateTLSClient(conn net.Conn, peerDeviceID uuid.UUID) (net.Con
 			}
 
 			knownHostsMap := make(map[string]string)
-			err = yaml.Unmarshal(knownHosts, knownHostsMap)
+			err = yaml.Unmarshal(knownHosts, &knownHostsMap)
 			if err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func (p *ptls) decorateTLSServer(conn net.Conn, peerDeviceID uuid.UUID) (net.Con
 			}
 
 			knownHostsMap := make(map[string]string)
-			err = yaml.Unmarshal(knownHosts, knownHostsMap)
+			err = yaml.Unmarshal(knownHosts, &knownHostsMap)
 			if err != nil {
 				return err
 			}

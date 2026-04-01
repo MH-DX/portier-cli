@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -163,13 +164,13 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		p.router.AddConnection(cID, adapter)
 		adapter.Start()
 
-		p.startTLSHandshake(adapter, tlsHandshaker)
+		p.startTLSHandshake(adapter, tlsHandshaker, context.Service.Options.PeerDeviceID)
 
 		log.Printf("Started connection adapter for service: %s\n", context.Service.Name)
 	}
 }
 
-func (p *PortierApplication) startTLSHandshake(connectionAdapter adapter.ConnectionAdapter, handshaker func() error) {
+func (p *PortierApplication) startTLSHandshake(connectionAdapter adapter.ConnectionAdapter, handshaker func() error, peerDeviceID uuid.UUID) {
 	if handshaker == nil {
 		return
 	}
@@ -177,6 +178,9 @@ func (p *PortierApplication) startTLSHandshake(connectionAdapter adapter.Connect
 	go func() {
 		if err := handshaker(); err != nil {
 			log.Printf("Error in TLS handshake: %v", err)
+			if strings.Contains(err.Error(), "certificate relies on legacy Common Name field") {
+				log.Printf("Peer device certificate is missing a subject alternative name. Reissue the target device certificate with a SAN for device %s.", peerDeviceID.String())
+			}
 			if closeErr := connectionAdapter.Close(); closeErr != nil {
 				log.Printf("Error closing connection adapter after TLS handshake failure: %v", closeErr)
 			}

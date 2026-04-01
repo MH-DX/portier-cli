@@ -117,7 +117,7 @@ func TestStartTLSHandshakeDoesNotBlockAcceptLoop(t *testing.T) {
 			handshakeStarted <- struct{}{}
 			<-releaseHandshake
 			return errors.New("handshake failed")
-		})
+		}, uuid.New())
 		close(done)
 	}()
 

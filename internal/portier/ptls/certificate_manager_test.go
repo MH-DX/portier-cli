@@ -1,8 +1,9 @@
 package ptls
 
 import (
-	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateCert(t *testing.T) {
@@ -17,19 +18,20 @@ func TestCreateCert(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// print the cert in PEM format
+	require.Equal(t, "00000000-0000-0000-0000-000000000001", cert.Subject.CommonName)
+	require.Contains(t, cert.DNSNames, "00000000-0000-0000-0000-000000000001")
+
 	certPEM, keyPEM, err := underTest.ConvertCertificateToPEM(cert, priv)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	require.NotEmpty(t, certPEM)
+	require.NotEmpty(t, keyPEM)
+
 	// get fingerprint
 	fp, err := underTest.GetFingerprint(cert)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	// write cert and key to files
-	os.WriteFile("cert.pem", certPEM, 0644)
-	os.WriteFile("key.pem", keyPEM, 0644)
-	os.WriteFile("fingerprint", []byte(fp), 0644)
+	require.NotEmpty(t, fp)
 }
