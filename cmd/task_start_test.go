@@ -7,8 +7,11 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -170,19 +173,239 @@ func TestTaskStartSurfacesApplicationStartErrors(t *testing.T) {
 	require.Equal(t, 0, fakeApp.stopCalls)
 }
 
+func TestTaskStartAutoEnrollsWhenTaskMetadataIsMissing(t *testing.T) {
+	taskGUID := "7ad5ae0e-f966-4b63-92d0-f994d50bce40"
+	taskToken := "task-token"
+	deviceGUID := "8e6f919a-f4fa-4bb2-a99b-31d33431c437"
+	notBefore := time.Date(2026, 3, 31, 10, 0, 0, 0, time.UTC)
+	notAfter := time.Date(2026, 3, 31, 10, 15, 0, 0, time.UTC)
+
+	var infoCalls int
+	var signCalls int
+	server := newTaskStartEnrollmentServer(t, taskGUID, taskToken, []string{deviceGUID}, "ssh://operator@localhost:22", notBefore, notAfter, &infoCalls, &signCalls)
+	defer server.Close()
+
+	homeDir := t.TempDir()
+	fakeApp := &fakeTaskStartApp{t: t}
+	restoreTaskStartHooks := installTaskStartHooks(fakeApp)
+	defer restoreTaskStartHooks()
+
+	output := &bytes.Buffer{}
+	command := newTaskStartCmd()
+	command.SetOut(output)
+	command.SetErr(output)
+	command.SetArgs([]string{
+		"--home", homeDir,
+		"--task-guid", taskGUID,
+		"--task-token", taskToken,
+		"--apiUrl", server.URL,
+	})
+
+	require.NoError(t, command.Execute())
+	require.Equal(t, 1, infoCalls)
+	require.Equal(t, 1, signCalls)
+
+	metadata, err := taskcert.LoadMetadata(filepath.Join(homeDir, "tasks", taskGUID, "metadata.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, taskToken, metadata.TaskToken)
+	require.Equal(t, notBefore.Format(time.RFC3339), metadata.NotBefore)
+	require.Equal(t, notAfter.Format(time.RFC3339), metadata.NotAfter)
+
+	stdout := output.String()
+	require.Contains(t, stdout, "No enrolled task certificate was found. Enrolling now...")
+	require.Contains(t, stdout, "Task session started.")
+}
+
+func TestTaskStartPromptsForTaskTokenWhenEnrollmentIsNeeded(t *testing.T) {
+	taskGUID := "7ad5ae0e-f966-4b63-92d0-f994d50bce40"
+	taskToken := "prompted-task-token"
+	deviceGUID := "8e6f919a-f4fa-4bb2-a99b-31d33431c437"
+	notBefore := time.Date(2026, 3, 31, 10, 0, 0, 0, time.UTC)
+	notAfter := time.Date(2026, 3, 31, 10, 15, 0, 0, time.UTC)
+
+	server := newTaskStartEnrollmentServer(t, taskGUID, taskToken, []string{deviceGUID}, "ssh://operator@localhost:22", notBefore, notAfter, nil, nil)
+	defer server.Close()
+
+	homeDir := t.TempDir()
+	fakeApp := &fakeTaskStartApp{t: t}
+	restoreTaskStartHooks := installTaskStartHooks(fakeApp)
+	defer restoreTaskStartHooks()
+
+	promptCalls := 0
+	promptForTaskStartToken = func(requestedTaskGUID string) (string, error) {
+		promptCalls++
+		require.Equal(t, taskGUID, requestedTaskGUID)
+		return taskToken, nil
+	}
+
+	command := newTaskStartCmd()
+	command.SetArgs([]string{
+		"--home", homeDir,
+		"--task-guid", taskGUID,
+		"--apiUrl", server.URL,
+	})
+
+	require.NoError(t, command.Execute())
+	require.Equal(t, 1, promptCalls)
+}
+
+func TestTaskStartReenrollsWhenExistingTaskCertificateHasExpired(t *testing.T) {
+	taskGUID := "7ad5ae0e-f966-4b63-92d0-f994d50bce40"
+	taskToken := "stored-task-token"
+	deviceGUID := "8e6f919a-f4fa-4bb2-a99b-31d33431c437"
+
+	homeDir := t.TempDir()
+	writeTaskStartMetadata(t, homeDir, &taskcert.Metadata{
+		APIURL:       "https://api-staging.portier.dev/",
+		TaskGUID:     taskGUID,
+		TaskToken:    taskToken,
+		DeviceGUIDs:  []string{deviceGUID},
+		Scope:        "ssh://operator@localhost:22",
+		NotBefore:    "2026-03-31T10:00:00Z",
+		NotAfter:     "2026-03-31T10:15:00Z",
+		CustomerGUID: "bd7af1d4-89ab-49b3-a089-f521c6d9678e",
+	})
+
+	refreshedNotBefore := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+	refreshedNotAfter := time.Date(2026, 4, 1, 10, 15, 0, 0, time.UTC)
+	var infoCalls int
+	var signCalls int
+	server := newTaskStartEnrollmentServer(t, taskGUID, taskToken, []string{deviceGUID}, "ssh://operator@localhost:22", refreshedNotBefore, refreshedNotAfter, &infoCalls, &signCalls)
+	defer server.Close()
+
+	fakeApp := &fakeTaskStartApp{t: t}
+	restoreTaskStartHooks := installTaskStartHooks(fakeApp)
+	defer restoreTaskStartHooks()
+	taskStartNow = func() time.Time {
+		return time.Date(2026, 4, 1, 10, 5, 0, 0, time.UTC)
+	}
+
+	output := &bytes.Buffer{}
+	command := newTaskStartCmd()
+	command.SetOut(output)
+	command.SetErr(output)
+	command.SetArgs([]string{
+		"--home", homeDir,
+		"--task-guid", taskGUID,
+		"--apiUrl", server.URL,
+	})
+
+	require.NoError(t, command.Execute())
+	require.Equal(t, 1, infoCalls)
+	require.Equal(t, 1, signCalls)
+
+	metadata, err := taskcert.LoadMetadata(filepath.Join(homeDir, "tasks", taskGUID, "metadata.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, refreshedNotBefore.Format(time.RFC3339), metadata.NotBefore)
+	require.Equal(t, refreshedNotAfter.Format(time.RFC3339), metadata.NotAfter)
+
+	stdout := output.String()
+	require.Contains(t, stdout, "Task certificate is outside its validity window")
+	require.Contains(t, stdout, "Re-enrolling now...")
+}
+
 func installTaskStartHooks(app taskStartApplication) func() {
 	previousFactory := newTaskStartApplication
 	previousWait := waitForTaskStartShutdown
+	previousPrompt := promptForTaskStartToken
+	previousNow := taskStartNow
 
 	newTaskStartApplication = func() taskStartApplication {
 		return app
 	}
 	waitForTaskStartShutdown = func() {}
+	promptForTaskStartToken = func(taskGUID string) (string, error) {
+		return "", fmt.Errorf("unexpected task token prompt for %s", taskGUID)
+	}
+	taskStartNow = func() time.Time {
+		return time.Date(2026, 3, 31, 10, 5, 0, 0, time.UTC)
+	}
 
 	return func() {
 		newTaskStartApplication = previousFactory
 		waitForTaskStartShutdown = previousWait
+		promptForTaskStartToken = previousPrompt
+		taskStartNow = previousNow
 	}
+}
+
+func newTaskStartEnrollmentServer(t *testing.T, taskGUID, expectedTaskToken string, deviceGUIDs []string, scope string, notBefore, notAfter time.Time, infoCalls, signCalls *int) *httptest.Server {
+	t.Helper()
+
+	requiredURISANs := []string{
+		"urn:portier:task:" + taskGUID,
+		"urn:portier:not-before:" + notBefore.Format(time.RFC3339),
+		"urn:portier:not-after:" + notAfter.Format(time.RFC3339),
+	}
+	caCertificate, caPrivateKey, caPEM := newTestCertificateAuthority(t)
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/public/tasks/" + taskGUID + "/client-certificate-info":
+			http.NotFound(w, r)
+		case "/api/tasks/" + taskGUID + "/client-certificate-info":
+			if infoCalls != nil {
+				*infoCalls = *infoCalls + 1
+			}
+
+			var request struct {
+				TaskToken string `json:"task_token"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+			require.Equal(t, expectedTaskToken, request.TaskToken)
+
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"task_guid":         taskGUID,
+				"customer_guid":     "bd7af1d4-89ab-49b3-a089-f521c6d9678e",
+				"device_guids":      deviceGUIDs,
+				"scope":             scope,
+				"not_before":        notBefore.Format(time.RFC3339),
+				"not_after":         notAfter.Format(time.RFC3339),
+				"required_uri_sans": requiredURISANs,
+			})
+		case "/public/tasks/" + taskGUID + "/client-certificate":
+			http.NotFound(w, r)
+		case "/api/tasks/" + taskGUID + "/client-certificate":
+			if signCalls != nil {
+				*signCalls = *signCalls + 1
+			}
+
+			var request struct {
+				TaskToken string `json:"task_token"`
+				CSR       string `json:"csr"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+			require.Equal(t, expectedTaskToken, request.TaskToken)
+
+			csr := parseCSRFromPEM(t, request.CSR)
+			assertCSRContainsURIs(t, csr, requiredURISANs)
+
+			certificatePEM := signTestTaskCertificate(
+				t,
+				caCertificate,
+				caPrivateKey,
+				csr,
+				notBefore,
+				notAfter,
+				"bd7af1d4-89ab-49b3-a089-f521c6d9678e",
+				deviceGUIDs,
+				requiredURISANs,
+			)
+
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"task_guid":         taskGUID,
+				"customer_guid":     "bd7af1d4-89ab-49b3-a089-f521c6d9678e",
+				"device_guids":      deviceGUIDs,
+				"scope":             scope,
+				"certificate":       string(certificatePEM),
+				"certificate_chain": string(caPEM),
+				"not_before":        notBefore.Format(time.RFC3339),
+				"not_after":         notAfter.Format(time.RFC3339),
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
 }
 
 func writeTaskStartMetadata(t *testing.T, homeDir string, metadata *taskcert.Metadata) {

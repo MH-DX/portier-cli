@@ -74,28 +74,47 @@ func (o *taskEnrollOptions) run(cmd *cobra.Command, _ []string) error {
 		outputDir = filepath.Join(o.HomeFolderPath, "tasks", o.TaskGUID)
 	}
 
-	infoResponse, err := portier.GetTaskClientCertificateInfo(o.APIURL, o.TaskGUID, o.TaskToken)
+	storedMetadata, paths, err := enrollTaskCertificate(o.APIURL, o.TaskGUID, o.TaskToken, outputDir)
 	if err != nil {
 		return err
 	}
 
-	notBefore, notAfter, err := validateTaskCertificateInfo(o.TaskGUID, infoResponse)
+	fmt.Fprintf(cmd.OutOrStdout(), "Task certificate enrolled.\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Scope: %s\n", storedMetadata.Scope)
+	fmt.Fprintf(cmd.OutOrStdout(), "Devices: %d\n", len(storedMetadata.DeviceGUIDs))
+	fmt.Fprintf(cmd.OutOrStdout(), "Validity: %s to %s\n", storedMetadata.NotBefore, storedMetadata.NotAfter)
+	fmt.Fprintf(cmd.OutOrStdout(), "Stored in: %s\n", paths.OutputDir)
+	fmt.Fprintf(cmd.OutOrStdout(), "Key: %s\n", paths.PrivateKeyPath)
+	fmt.Fprintf(cmd.OutOrStdout(), "Certificate: %s\n", paths.CertificatePath)
+	fmt.Fprintf(cmd.OutOrStdout(), "Chain: %s\n", paths.CertificateChainPath)
+	fmt.Fprintf(cmd.OutOrStdout(), "Metadata: %s\n", paths.MetadataPath)
+
+	return nil
+}
+
+func enrollTaskCertificate(apiURL, taskGUID, taskToken, outputDir string) (*taskcert.Metadata, *taskcert.StoredPaths, error) {
+	infoResponse, err := portier.GetTaskClientCertificateInfo(apiURL, taskGUID, taskToken)
 	if err != nil {
-		return err
+		return nil, nil, err
+	}
+
+	notBefore, notAfter, err := validateTaskCertificateInfo(taskGUID, infoResponse)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	material, err := taskcert.Generate(infoResponse.TaskGUID, infoResponse.RequiredURISANs)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	signResponse, err := portier.IssueTaskClientCertificate(o.APIURL, o.TaskGUID, o.TaskToken, string(material.CSRPEM))
+	signResponse, err := portier.IssueTaskClientCertificate(apiURL, taskGUID, taskToken, string(material.CSRPEM))
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if err := validateTaskCertificateResponse(infoResponse, signResponse); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if err := taskcert.ValidateIssuedMaterials(
@@ -106,35 +125,27 @@ func (o *taskEnrollOptions) run(cmd *cobra.Command, _ []string) error {
 		notAfter,
 		infoResponse.RequiredURISANs,
 	); err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	paths, err := taskcert.Store(outputDir, material.PrivateKeyPEM, []byte(signResponse.Certificate), []byte(signResponse.CertificateChain), &taskcert.Metadata{
-		APIURL:          o.APIURL,
+	storedMetadata := &taskcert.Metadata{
+		APIURL:          apiURL,
 		TaskGUID:        signResponse.TaskGUID,
-		TaskToken:       o.TaskToken,
+		TaskToken:       taskToken,
 		CustomerGUID:    signResponse.CustomerGUID,
 		DeviceGUIDs:     append([]string(nil), signResponse.DeviceGUIDs...),
 		Scope:           signResponse.Scope,
 		NotBefore:       signResponse.NotBefore,
 		NotAfter:        signResponse.NotAfter,
 		RequiredURISANs: append([]string(nil), infoResponse.RequiredURISANs...),
-	})
-	if err != nil {
-		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Task certificate enrolled.\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "Scope: %s\n", signResponse.Scope)
-	fmt.Fprintf(cmd.OutOrStdout(), "Devices: %d\n", len(signResponse.DeviceGUIDs))
-	fmt.Fprintf(cmd.OutOrStdout(), "Validity: %s to %s\n", signResponse.NotBefore, signResponse.NotAfter)
-	fmt.Fprintf(cmd.OutOrStdout(), "Stored in: %s\n", paths.OutputDir)
-	fmt.Fprintf(cmd.OutOrStdout(), "Key: %s\n", paths.PrivateKeyPath)
-	fmt.Fprintf(cmd.OutOrStdout(), "Certificate: %s\n", paths.CertificatePath)
-	fmt.Fprintf(cmd.OutOrStdout(), "Chain: %s\n", paths.CertificateChainPath)
-	fmt.Fprintf(cmd.OutOrStdout(), "Metadata: %s\n", paths.MetadataPath)
+	paths, err := taskcert.Store(outputDir, material.PrivateKeyPEM, []byte(signResponse.Certificate), []byte(signResponse.CertificateChain), storedMetadata)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return nil
+	return storedMetadata, paths, nil
 }
 
 func validateTaskCertificateInfo(expectedTaskGUID string, response *portier.TaskClientCertificateInfoResponse) (time.Time, time.Time, error) {
