@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -79,6 +81,9 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
+			return err
+		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
 		if !noTLS {
 			cert, key, known, err := resolveTLSPaths(o.HomeFolderPath)
@@ -124,6 +129,9 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 			}
 			return nil
 		}
+		return err
+	}
+	if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
 		return err
 	}
 	return o.handleTLS(cmd, noTLS)
@@ -207,9 +215,37 @@ func (o *registerOptions) takeOverExistingDevice(cmd *cobra.Command, noTLS bool)
 	if err := portier.StoreDeviceCredentials(apiKey.ApiKey, o.HomeFolderPath, o.CredentialsFileName); err != nil {
 		return err
 	}
+	if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
+		return err
+	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Device taken over. GUID: %s\n", guid)
 
 	return o.handleTLS(cmd, noTLS)
+}
+
+func persistRegisteredBaseURL(home string, apiURL string) error {
+	normalizedBaseURL := endpoints.NormalizeBaseURL(apiURL)
+	if normalizedBaseURL == "" {
+		return fmt.Errorf("invalid API URL %q", apiURL)
+	}
+
+	parsedBaseURL, err := url.Parse(normalizedBaseURL)
+	if err != nil {
+		return fmt.Errorf("invalid API URL %q: %w", apiURL, err)
+	}
+
+	configFile := filepath.Join(home, "config.yaml")
+	portierConfig, err := config.LoadConfig(configFile)
+	if err != nil {
+		return err
+	}
+
+	portierConfig.BaseURL = utils.YAMLURL{URL: parsedBaseURL}
+	if strings.TrimSpace(portierConfig.RelayPath) == "" {
+		portierConfig.RelayPath = "/spider"
+	}
+
+	return config.SaveConfig(configFile, portierConfig)
 }
 
 func ensureConfigTLS(home string) error {
