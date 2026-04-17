@@ -29,7 +29,7 @@ func defaultTLSOptions() *tlsTrustOptions {
 		HomeFolderPath:      home,
 		CredentialsFileName: "credentials_device.yaml",
 		KnownHostsFilePath:  fmt.Sprintf("%s/known_hosts", home),
-		ApiURL:              "https://api.portier.dev/api",
+		ApiURL:              "https://api.portier.dev",
 	}
 }
 

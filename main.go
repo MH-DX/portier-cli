@@ -14,24 +14,29 @@ import (
 )
 
 var version = "0.0.1"
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-var memprofile = flag.String("memprofile", "", "write memory profile to this file")
-var logfile = flag.String("logfile", "", "path to log file")
+
+type globalOptions struct {
+	cpuprofile string
+	memprofile string
+	logfile    string
+}
 
 func main() {
-	flag.Parse()
-
-	home, err := utils.Home()
+	options, args, err := parseGlobalFlags(os.Args[1:])
 	if err != nil {
-		log.Fatalf("Failed to get portier home directory: %v", err)
+		log.Fatal(err)
 	}
 
-	if *logfile == "" {
-		*logfile = filepath.Join(home, "portier-cli.log")
+	if options.logfile == "" {
+		home, err := utils.Home()
+		if err != nil {
+			log.Fatalf("Failed to get portier home directory: %v", err)
+		}
+		options.logfile = filepath.Join(home, "portier-cli.log")
 	}
 
 	lj := &lumberjack.Logger{
-		Filename:   *logfile,
+		Filename:   options.logfile,
 		MaxSize:    1, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,    // days
@@ -39,9 +44,9 @@ func main() {
 	}
 	log.SetOutput(io.MultiWriter(os.Stdout, lj))
 
-	if *cpuprofile != "" {
+	if options.cpuprofile != "" {
 		log.Println("Profiling CPU...")
-		f, err := os.Create(*cpuprofile)
+		f, err := os.Create(options.cpuprofile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -49,11 +54,11 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	runErr := cmd.Execute(version)
+	runErr := cmd.ExecuteArgs(version, args)
 
-	if *memprofile != "" {
+	if options.memprofile != "" {
 		log.Println("Profiling memory...")
-		f, err := os.Create(*memprofile)
+		f, err := os.Create(options.memprofile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -65,4 +70,19 @@ func main() {
 	if runErr != nil {
 		os.Exit(1)
 	}
+}
+
+func parseGlobalFlags(args []string) (*globalOptions, []string, error) {
+	options := &globalOptions{}
+
+	flags := flag.NewFlagSet("portier-cli", flag.ContinueOnError)
+	flags.StringVar(&options.cpuprofile, "cpuprofile", "", "write cpu profile to file")
+	flags.StringVar(&options.memprofile, "memprofile", "", "write memory profile to this file")
+	flags.StringVar(&options.logfile, "logfile", "", "path to log file")
+
+	if err := flags.Parse(args); err != nil {
+		return nil, nil, err
+	}
+
+	return options, flags.Args(), nil
 }

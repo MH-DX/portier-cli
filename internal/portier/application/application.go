@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ func (p *PortierApplication) StartServices(portierConfig *config.PortierConfig, 
 	router, uplink, err := p.createRelay()
 	if err != nil {
 		log.Printf("Error creating outbound relay: %v", err)
-		os.Exit(1)
+		return err
 	}
 	p.router = router
 	p.uplink = uplink
@@ -165,18 +164,31 @@ func (p *PortierApplication) handleAccept(context ServiceContext, listener net.L
 		p.router.AddConnection(cID, adapter)
 		adapter.Start()
 
-		// If we have a handshaker, we need to call it now
-		if tlsHandshaker != nil {
-			err := tlsHandshaker()
-			if err != nil {
-				log.Printf("Error in TLS handshake: %v", err)
-				adapter.Close()
-				return err
-			}
-		}
+		p.startTLSHandshake(adapter, tlsHandshaker, context.Service.Options.PeerDeviceID)
 
 		log.Printf("Started connection adapter for service: %s\n", context.Service.Name)
 	}
+}
+
+func (p *PortierApplication) startTLSHandshake(connectionAdapter adapter.ConnectionAdapter, handshaker func() error, peerDeviceID uuid.UUID) {
+	if handshaker == nil {
+		return
+	}
+
+	go func() {
+		if err := handshaker(); err != nil {
+			log.Printf("Error in TLS handshake: %v", err)
+			if strings.Contains(err.Error(), "certificate relies on legacy Common Name field") {
+				log.Printf("Peer device certificate is missing a subject alternative name. Reissue the target device certificate with a SAN for device %s.", peerDeviceID.String())
+			}
+			if closeErr := connectionAdapter.Close(); closeErr != nil {
+				log.Printf("Error closing connection adapter after TLS handshake failure: %v", closeErr)
+			}
+			return
+		}
+
+		log.Printf("TLS handshake completed")
+	}()
 }
 
 func (p *PortierApplication) StopServices() error {
@@ -253,11 +265,16 @@ func (p *PortierApplication) AddService(service config.Service) error {
 }
 
 func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error) {
-	log.Printf("Portier URL: %s\n", p.config.PortierURL.String())
+	relayURL, err := p.config.RelayURL()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Printf("Portier relay URL: %s\n", relayURL)
 
 	uplinkOptions := uplink.Options{
 		APIToken:   p.deviceCredentials.ApiToken,
-		PortierURL: p.config.PortierURL.String(),
+		PortierURL: relayURL,
 	}
 	uplink := uplink.NewWebsocketUplink(uplinkOptions, nil)
 	messageChannel, err := uplink.Connect()
@@ -273,19 +290,14 @@ func (p *PortierApplication) createRelay() (router.Router, uplink.Uplink, error)
 }
 
 func (p *PortierApplication) newInitiationFailureReporter() router.InitiationFailureReporter {
-	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil || p.config.PortierURL.URL == nil {
+	if p.deviceCredentials == nil || p.deviceCredentials.ApiToken == "" || p.config == nil {
+		return nil
+	}
+	if p.config.IsTaskRelay() {
 		return nil
 	}
 
-	baseURL := p.config.PortierURL.URL.String()
-	if p.config.PortierURL.URL.Scheme == "wss" {
-		baseURL = "https://" + p.config.PortierURL.URL.Host
-	} else if p.config.PortierURL.URL.Scheme == "ws" {
-		baseURL = "http://" + p.config.PortierURL.URL.Host
-	} else {
-		baseURL = p.config.PortierURL.URL.Scheme + "://" + p.config.PortierURL.URL.Host
-	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL := p.config.APIBaseURL()
 	apiKey := p.deviceCredentials.ApiToken
 
 	return func(report router.InitiationFailureReport) {

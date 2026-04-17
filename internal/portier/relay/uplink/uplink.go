@@ -2,10 +2,13 @@ package uplink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +57,10 @@ type Uplink interface {
 
 // dialer is the websocket dialer.
 var dialer = websocket.Dialer{}
+
+type websocketErrorResponse struct {
+	Error string `json:"error"`
+}
 
 type Options struct {
 	// PortierURL is the URL of the portier server
@@ -180,11 +187,15 @@ func (u *WebsocketUplink) connectWebsocket() error {
 	}
 
 	// Establish a websocket connection to the portier server
-	connection, _, err := dialer.Dial(u.Options.PortierURL, header)
+	connection, response, err := dialer.Dial(u.Options.PortierURL, header)
 	if err != nil {
+		err = formatConnectError(err, response)
 		u.events <- Event{
 			State: Disconnected,
 			Event: "error connecting to portier server: " + err.Error(),
+		}
+		if response != nil {
+			return err
 		}
 		if u.retries < u.Options.ReconnectRetries || u.Options.ReconnectRetries == 0 {
 			u.retries++
@@ -293,6 +304,46 @@ func (u *WebsocketUplink) connectWebsocket() error {
 
 	u.connection = connection
 	return nil
+}
+
+func formatConnectError(err error, response *http.Response) error {
+	if response == nil {
+		return err
+	}
+
+	defer response.Body.Close()
+
+	message := strings.TrimSpace(response.Status)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr == nil {
+		if decoded := decodeWebsocketError(body); decoded != "" {
+			if message != "" {
+				message = message + ": " + decoded
+			} else {
+				message = decoded
+			}
+		}
+	}
+
+	if message == "" {
+		return err
+	}
+
+	return fmt.Errorf("websocket handshake failed: %s", message)
+}
+
+func decodeWebsocketError(body []byte) string {
+	trimmedBody := strings.TrimSpace(string(body))
+	if trimmedBody == "" {
+		return ""
+	}
+
+	response := websocketErrorResponse{}
+	if err := json.Unmarshal(body, &response); err == nil && strings.TrimSpace(response.Error) != "" {
+		return strings.TrimSpace(response.Error)
+	}
+
+	return trimmedBody
 }
 
 func (u *WebsocketUplink) calculateBackoff() time.Duration {

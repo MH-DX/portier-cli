@@ -11,13 +11,15 @@ import (
 
 	"github.com/google/uuid"
 	api "github.com/mh-dx/portier-cli/internal/portier/api"
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 	"github.com/mh-dx/portier-cli/internal/portier/relay/messages"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"gopkg.in/yaml.v2"
 )
 
 type PortierConfig struct {
-	PortierURL                  utils.YAMLURL         `yaml:"portierUrl"`
+	BaseURL                     utils.YAMLURL         `yaml:"-"`
+	RelayPath                   string                `yaml:"-"`
 	TLSEnabled                  bool                  `yaml:"tlsEnabled"`
 	PTLSConfig                  PTLSConfig            `yaml:"tlsConfig"`
 	Services                    []Service             `yaml:"services"`
@@ -91,6 +93,19 @@ type PTLSConfig struct {
 	KnownHostsFile string `yaml:"knownHostsFile"`
 }
 
+type portierConfigYAML struct {
+	BaseURL                     string                `yaml:"baseUrl,omitempty"`
+	LegacyPortierURL            string                `yaml:"portierUrl,omitempty"`
+	TLSEnabled                  bool                  `yaml:"tlsEnabled"`
+	PTLSConfig                  PTLSConfig            `yaml:"tlsConfig"`
+	Services                    []Service             `yaml:"services"`
+	DefaultResponseInterval     time.Duration         `yaml:"defaultResponseInterval"`
+	DefaultReadTimeout          time.Duration         `yaml:"defaultReadTimeout"`
+	DefaultThroughputLimit      int                   `yaml:"defaultThroughputLimit"`
+	DefaultReadBufferSize       int                   `yaml:"defaultReadBufferSize"`
+	DefaultDatagramConnectionID messages.ConnectionID `yaml:"defaultDatagramConnectionId"`
+}
+
 func defaultPTLSConfig(home string) *PTLSConfig {
 	result := PTLSConfig{
 		CertFile:       filepath.Join(home, "cert.pem"),
@@ -100,6 +115,50 @@ func defaultPTLSConfig(home string) *PTLSConfig {
 	}
 
 	return &result
+}
+
+func (c *PortierConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	raw := portierConfigYAML{}
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	baseURL, relayPath, err := parseConfiguredConnection(raw.BaseURL, raw.LegacyPortierURL)
+	if err != nil {
+		return err
+	}
+
+	parsedBaseURL, err := url.Parse(baseURL)
+	if err != nil {
+		return err
+	}
+
+	c.BaseURL = utils.YAMLURL{URL: parsedBaseURL}
+	c.RelayPath = relayPath
+	c.TLSEnabled = raw.TLSEnabled
+	c.PTLSConfig = raw.PTLSConfig
+	c.Services = raw.Services
+	c.DefaultResponseInterval = raw.DefaultResponseInterval
+	c.DefaultReadTimeout = raw.DefaultReadTimeout
+	c.DefaultThroughputLimit = raw.DefaultThroughputLimit
+	c.DefaultReadBufferSize = raw.DefaultReadBufferSize
+	c.DefaultDatagramConnectionID = raw.DefaultDatagramConnectionID
+
+	return nil
+}
+
+func (c PortierConfig) MarshalYAML() (interface{}, error) {
+	return portierConfigYAML{
+		BaseURL:                     c.APIBaseURL(),
+		TLSEnabled:                  c.TLSEnabled,
+		PTLSConfig:                  c.PTLSConfig,
+		Services:                    c.Services,
+		DefaultResponseInterval:     c.DefaultResponseInterval,
+		DefaultReadTimeout:          c.DefaultReadTimeout,
+		DefaultThroughputLimit:      c.DefaultThroughputLimit,
+		DefaultReadBufferSize:       c.DefaultReadBufferSize,
+		DefaultDatagramConnectionID: c.DefaultDatagramConnectionID,
+	}, nil
 }
 
 // LoadConfig loads the config from the given file path.
@@ -140,28 +199,19 @@ func LoadConfig(filePath string) (*PortierConfig, error) {
 }
 
 func APIBaseURLFromPortierURL(portierURL string) string {
-	parsedURL, err := url.Parse(strings.TrimSpace(portierURL))
-	if err != nil || parsedURL.Host == "" {
+	normalizedBaseURL := endpoints.NormalizeBaseURL(portierURL)
+	if normalizedBaseURL == "" {
 		return "https://api.portier.dev"
 	}
 
-	scheme := parsedURL.Scheme
-	switch scheme {
-	case "wss":
-		scheme = "https"
-	case "ws":
-		scheme = "http"
-	case "https", "http":
-	default:
-		scheme = "https"
-	}
-
-	return normalizeAPIBaseURL((&url.URL{Scheme: scheme, Host: parsedURL.Host}).String())
+	return normalizedBaseURL
 }
 
 func normalizeAPIBaseURL(baseURL string) string {
-	result := strings.TrimSpace(strings.TrimSuffix(baseURL, "/"))
-	result = strings.TrimSuffix(result, "/api")
+	result := endpoints.NormalizeBaseURL(baseURL)
+	if result == "" {
+		return ""
+	}
 	return result
 }
 
@@ -241,13 +291,13 @@ func DefaultPortierConfig() (*PortierConfig, error) {
 	}
 
 	return &PortierConfig{
-		PortierURL: utils.YAMLURL{
+		BaseURL: utils.YAMLURL{
 			URL: &url.URL{
-				Scheme: "wss",
+				Scheme: "https",
 				Host:   "api.portier.dev",
-				Path:   "/spider",
 			},
 		},
+		RelayPath:                   "/spider",
 		Services:                    []Service{},
 		TLSEnabled:                  false,
 		PTLSConfig:                  *defaultPTLSConfig(home),
@@ -257,4 +307,86 @@ func DefaultPortierConfig() (*PortierConfig, error) {
 		DefaultReadBufferSize:       4096,
 		DefaultDatagramConnectionID: messages.ConnectionID("00000000-1111-0000-0000-000000000000"),
 	}, nil
+}
+
+func (c *PortierConfig) APIBaseURL() string {
+	if c == nil {
+		return "https://api.portier.dev"
+	}
+
+	normalizedBaseURL := normalizeAPIBaseURL(c.BaseURL.String())
+	if normalizedBaseURL == "" {
+		return "https://api.portier.dev"
+	}
+
+	return normalizedBaseURL
+}
+
+func (c *PortierConfig) RelayPathOrDefault() string {
+	if c == nil || strings.TrimSpace(c.RelayPath) == "" {
+		return "/spider"
+	}
+
+	return strings.TrimSpace(c.RelayPath)
+}
+
+func (c *PortierConfig) RelayURL() (string, error) {
+	return endpoints.RelayWebsocketURL(c.APIBaseURL(), c.RelayPathOrDefault())
+}
+
+func (c *PortierConfig) IsTaskRelay() bool {
+	relayPath := c.RelayPathOrDefault()
+	return strings.HasPrefix(relayPath, "/task-spider/") || strings.HasPrefix(relayPath, "/api/tasks/")
+}
+
+func parseConfiguredConnection(baseURL, legacyPortierURL string) (string, string, error) {
+	baseURL = strings.TrimSpace(baseURL)
+	legacyPortierURL = strings.TrimSpace(legacyPortierURL)
+
+	if baseURL == "" && legacyPortierURL == "" {
+		return "https://api.portier.dev", "/spider", nil
+	}
+
+	rawURL := baseURL
+	if rawURL == "" {
+		rawURL = legacyPortierURL
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || parsedURL.Host == "" {
+		return "", "", fmt.Errorf("invalid base URL %q", rawURL)
+	}
+
+	normalizedBaseURL := normalizeAPIBaseURL(rawURL)
+	if normalizedBaseURL == "" {
+		return "", "", fmt.Errorf("invalid base URL %q", rawURL)
+	}
+
+	return normalizedBaseURL, extractRelayPath(parsedURL.Path), nil
+}
+
+func extractRelayPath(path string) string {
+	path = strings.TrimRight(strings.TrimSpace(path), "/")
+	switch {
+	case path == "", path == "/", path == "/api", strings.HasSuffix(path, "/api"):
+		return "/spider"
+	case taskRelayPath(path) != "":
+		return taskRelayPath(path)
+	case strings.HasSuffix(path, "/spider"):
+		index := strings.LastIndex(path, "/api/tasks/")
+		if index != -1 {
+			return path[index:]
+		}
+		return "/spider"
+	default:
+		return "/spider"
+	}
+}
+
+func taskRelayPath(path string) string {
+	if index := strings.LastIndex(path, "/task-spider/"); index != -1 {
+		return path[index:]
+	}
+
+	return ""
 }

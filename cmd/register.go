@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	portier "github.com/mh-dx/portier-cli/internal/portier/api"
 	"github.com/mh-dx/portier-cli/internal/portier/config"
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 	"github.com/mh-dx/portier-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +32,7 @@ func defaultRegisterOptions() *registerOptions {
 	}
 
 	return &registerOptions{
-		ApiURL:              "https://api.portier.dev/api",
+		ApiURL:              "https://api.portier.dev",
 		ApiKey:              "",
 		HomeFolderPath:      home,
 		CredentialsFileName: "credentials_device.yaml",
@@ -53,7 +55,7 @@ func newRegisterCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&o.ApiKey, "apiKey", "k", o.ApiKey, "existing API key to register with")
 	cmd.Flags().StringVarP(&o.HomeFolderPath, "home", "H", o.HomeFolderPath, "home folder path")
 	cmd.Flags().StringVarP(&o.CredentialsFileName, "credentials", "c", o.CredentialsFileName, "credentials file name in home folder")
-	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the API (https://api.portier.dev)")
+	cmd.Flags().StringVarP(&o.ApiURL, "apiUrl", "a", o.ApiURL, "base URL of the Portier backend (https://api.portier.dev)")
 	cmd.Flags().Bool("no-tls", false, "Do not generate or check TLS certificates")
 
 	return cmd
@@ -71,12 +73,15 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 		if o.Name != "" {
 			return fmt.Errorf("--name must not be provided when --apiKey is used")
 		}
-		guid, err := portier.WhoAmI(strings.TrimSuffix(o.ApiURL, "/api"), o.ApiKey)
+		guid, err := portier.WhoAmI(o.ApiURL, o.ApiKey)
 		if err != nil {
 			return err
 		}
 		err = portier.StoreDeviceCredentials(o.ApiKey, o.HomeFolderPath, o.CredentialsFileName)
 		if err != nil {
+			return err
+		}
+		if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Existing API key stored. Device GUID: %s\n", guid)
@@ -124,6 +129,9 @@ func (o *registerOptions) run(cmd *cobra.Command, args []string) error {
 			}
 			return nil
 		}
+		return err
+	}
+	if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
 		return err
 	}
 	return o.handleTLS(cmd, noTLS)
@@ -207,9 +215,45 @@ func (o *registerOptions) takeOverExistingDevice(cmd *cobra.Command, noTLS bool)
 	if err := portier.StoreDeviceCredentials(apiKey.ApiKey, o.HomeFolderPath, o.CredentialsFileName); err != nil {
 		return err
 	}
+	if err := persistRegisteredBaseURL(o.HomeFolderPath, o.ApiURL); err != nil {
+		return err
+	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Device taken over. GUID: %s\n", guid)
 
 	return o.handleTLS(cmd, noTLS)
+}
+
+func persistRegisteredBaseURL(home string, apiURL string) error {
+	configFile := filepath.Join(home, "config.yaml")
+	portierConfig, err := config.LoadConfig(configFile)
+	if err != nil {
+		return err
+	}
+
+	if err := applyRegisteredBaseURL(portierConfig, apiURL); err != nil {
+		return err
+	}
+
+	return config.SaveConfig(configFile, portierConfig)
+}
+
+func applyRegisteredBaseURL(portierConfig *config.PortierConfig, apiURL string) error {
+	normalizedBaseURL := endpoints.NormalizeBaseURL(apiURL)
+	if normalizedBaseURL == "" {
+		return fmt.Errorf("invalid API URL %q", apiURL)
+	}
+
+	parsedBaseURL, err := url.Parse(normalizedBaseURL)
+	if err != nil {
+		return fmt.Errorf("invalid API URL %q: %w", apiURL, err)
+	}
+
+	portierConfig.BaseURL = utils.YAMLURL{URL: parsedBaseURL}
+	if strings.TrimSpace(portierConfig.RelayPath) == "" {
+		portierConfig.RelayPath = "/spider"
+	}
+
+	return nil
 }
 
 func ensureConfigTLS(home string) error {

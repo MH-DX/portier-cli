@@ -7,8 +7,9 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 type RegistrationRequest struct {
@@ -43,7 +44,6 @@ type ApiKeyCreation struct {
 
 // Function to register a device
 func RegisterDevice(baseURL, name, accessToken, home string) (Device, error) {
-	baseURL = strings.TrimSuffix(baseURL, "/")
 	regRequest := RegistrationRequest{Name: name}
 
 	// Convert RegistrationRequest to JSON
@@ -53,7 +53,12 @@ func RegisterDevice(baseURL, name, accessToken, home string) (Device, error) {
 	}
 
 	// Make POST request to register the device
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/device", baseURL), bytes.NewBuffer(regJSON))
+	deviceURL, err := endpoints.APIURL(baseURL, "/device")
+	if err != nil {
+		return Device{}, err
+	}
+
+	req, err := http.NewRequest("POST", deviceURL, bytes.NewBuffer(regJSON))
 	if err != nil {
 		return Device{}, err
 	}
@@ -90,7 +95,6 @@ func RegisterDevice(baseURL, name, accessToken, home string) (Device, error) {
 
 // Function to generate API key for a device
 func GenerateApiKey(baseURL, deviceGUID, description, accessToken, home string) (ApiKeyCreation, error) {
-	baseURL = strings.TrimSuffix(baseURL, "/")
 	apiKeyRequest := ApiKeyRequest{
 		DeviceGUID:  deviceGUID,
 		Description: description,
@@ -103,7 +107,12 @@ func GenerateApiKey(baseURL, deviceGUID, description, accessToken, home string) 
 	}
 
 	// Make POST request to generate API key
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/device/%s/apikey", baseURL, deviceGUID), bytes.NewBuffer(apiKeyJSON))
+	apiKeyURL, err := endpoints.APIURL(baseURL, fmt.Sprintf("/device/%s/apikey", deviceGUID))
+	if err != nil {
+		return ApiKeyCreation{}, err
+	}
+
+	req, err := http.NewRequest("POST", apiKeyURL, bytes.NewBuffer(apiKeyJSON))
 	if err != nil {
 		return ApiKeyCreation{}, err
 	}

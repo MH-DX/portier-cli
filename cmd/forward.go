@@ -36,7 +36,7 @@ func defaultForwardOptions() (*forwardOptions, error) {
 	return &forwardOptions{
 		ConfigFile:   filepath.Join(home, "config.yaml"),
 		ApiTokenFile: filepath.Join(home, "credentials_device.yaml"),
-		ApiURL:       "https://api.portier.dev/api",
+		ApiURL:       "https://api.portier.dev",
 	}, nil
 }
 

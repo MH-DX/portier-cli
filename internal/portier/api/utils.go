@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -64,7 +63,7 @@ func LoadDeviceCredentials(home string, filename, apiURL string) (*DeviceCredent
 		return nil, err
 	}
 
-	guid, err := WhoAmI(strings.TrimSuffix(apiURL, "/api"), fc.APIKey)
+	guid, err := WhoAmI(apiURL, fc.APIKey)
 	if err != nil {
 		return nil, err
 	}

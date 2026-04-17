@@ -50,13 +50,10 @@ func newRunCmd() (*cobra.Command, error) {
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE:         o.run,
-		FParseErrWhitelist: cobra.FParseErrWhitelist{
-			UnknownFlags: true,
-		},
 	}
 
-	cmd.Flags().StringVarP(&o.ConfigFile, "config file", "c", o.ConfigFile, "custom config file path")
-	cmd.Flags().StringVarP(&o.ApiTokenFile, "apiToken file", "t", o.ApiTokenFile, "custom apiToken file path")
+	cmd.Flags().StringVarP(&o.ConfigFile, "config", "c", o.ConfigFile, "custom config file path")
+	cmd.Flags().StringVarP(&o.ApiTokenFile, "apiToken", "t", o.ApiTokenFile, "custom apiToken file path")
 
 	return cmd, nil
 }
@@ -77,7 +74,7 @@ func (o *runOptions) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	apiBaseURL := config.APIBaseURLFromPortierURL(portierConfig.PortierURL.String())
+	apiBaseURL := portierConfig.APIBaseURL()
 	deviceCreds, err := config.LoadApiTokenWithBaseURL(o.ApiTokenFile, apiBaseURL)
 	if err != nil {
 		return fmt.Errorf("could not load api token file: %w", err)

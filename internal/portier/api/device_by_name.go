@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/mh-dx/portier-cli/internal/portier/endpoints"
 )
 
 // DeviceByNameResponse represents the response structure of GET /deviceByName/<name>
@@ -14,9 +15,8 @@ type DeviceByNameResponse struct {
 	GUID string `json:"GUID"`
 }
 
-// GetDeviceByName fetches the device GUID for a given device name from the API.
-// The baseURL should include the `/api` suffix. When an API key is used, the
-// function will automatically trim `/api` to access the spider endpoint.
+// GetDeviceByName fetches the device GUID for a given device name from the API
+// using the configured Portier base URL.
 func GetDeviceByName(home, baseURL, name string) (string, error) {
 	accessToken, err := LoadAccessToken(home)
 	useAPIKey := false
@@ -33,12 +33,14 @@ func GetDeviceByName(home, baseURL, name string) (string, error) {
 		apiKey = creds.APIKey
 	}
 
-	baseURL = strings.TrimSuffix(baseURL, "/")
 	var url string
 	if useAPIKey {
-		url = fmt.Sprintf("%s/spider/deviceByName/%s", strings.TrimSuffix(baseURL, "/api"), name)
+		url, err = endpoints.SpiderURL(baseURL, "/deviceByName/"+name)
 	} else {
-		url = fmt.Sprintf("%s/deviceByName/%s", baseURL, name)
+		url, err = endpoints.APIURL(baseURL, "/deviceByName/"+name)
+	}
+	if err != nil {
+		return "", err
 	}
 
 	req, err := http.NewRequest("GET", url, nil)

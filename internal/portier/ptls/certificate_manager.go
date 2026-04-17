@@ -49,6 +49,7 @@ func (p *ptlsCertMan) CreateCertificate(commonName string) (*x509.Certificate, c
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
+		DNSNames:  []string{commonName},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().AddDate(20, 0, 0),
 		KeyUsage:  x509.KeyUsageDigitalSignature,
