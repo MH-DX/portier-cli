@@ -122,6 +122,7 @@ func TestCustomerSetupSuccess(t *testing.T) {
 
 	cfg, err := config.LoadConfig(filepath.Join(homeDir, "config.yaml"))
 	require.NoError(t, err)
+	require.Equal(t, server.URL, cfg.APIBaseURL())
 	require.True(t, cfg.TLSEnabled)
 	require.Equal(t, filepath.Join(homeDir, "cacert.pem"), cfg.PTLSConfig.CAFile)
 	require.Equal(t, filepath.Join(homeDir, "cert.pem"), cfg.PTLSConfig.CertFile)

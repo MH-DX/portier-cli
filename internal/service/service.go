@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kardianos/service"
 	"github.com/mh-dx/portier-cli/internal/portier/application"
@@ -103,7 +104,21 @@ func (sm *ServiceManager) IsRunning() bool {
 
 // Install installs the service
 func (sm *ServiceManager) Install() error {
-	return sm.service.Install()
+	if err := sm.service.Install(); err != nil {
+		if !isAlreadyInstalledError(err) {
+			return err
+		}
+
+		_ = sm.service.Stop()
+		if uninstallErr := sm.service.Uninstall(); uninstallErr != nil {
+			return fmt.Errorf("failed to replace existing service: %w", uninstallErr)
+		}
+		if installErr := sm.service.Install(); installErr != nil {
+			return fmt.Errorf("failed to install replacement service: %w", installErr)
+		}
+	}
+
+	return nil
 }
 
 // Uninstall removes the service
@@ -114,6 +129,15 @@ func (sm *ServiceManager) Uninstall() error {
 // GetService returns the underlying service interface
 func (sm *ServiceManager) GetService() service.Service {
 	return sm.service
+}
+
+func isAlreadyInstalledError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "already exists") ||
+		(strings.Contains(message, "service") && strings.Contains(message, "exists"))
 }
 
 // portierServiceProgram implements the service.Interface

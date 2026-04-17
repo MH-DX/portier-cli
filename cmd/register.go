@@ -224,6 +224,20 @@ func (o *registerOptions) takeOverExistingDevice(cmd *cobra.Command, noTLS bool)
 }
 
 func persistRegisteredBaseURL(home string, apiURL string) error {
+	configFile := filepath.Join(home, "config.yaml")
+	portierConfig, err := config.LoadConfig(configFile)
+	if err != nil {
+		return err
+	}
+
+	if err := applyRegisteredBaseURL(portierConfig, apiURL); err != nil {
+		return err
+	}
+
+	return config.SaveConfig(configFile, portierConfig)
+}
+
+func applyRegisteredBaseURL(portierConfig *config.PortierConfig, apiURL string) error {
 	normalizedBaseURL := endpoints.NormalizeBaseURL(apiURL)
 	if normalizedBaseURL == "" {
 		return fmt.Errorf("invalid API URL %q", apiURL)
@@ -234,18 +248,12 @@ func persistRegisteredBaseURL(home string, apiURL string) error {
 		return fmt.Errorf("invalid API URL %q: %w", apiURL, err)
 	}
 
-	configFile := filepath.Join(home, "config.yaml")
-	portierConfig, err := config.LoadConfig(configFile)
-	if err != nil {
-		return err
-	}
-
 	portierConfig.BaseURL = utils.YAMLURL{URL: parsedBaseURL}
 	if strings.TrimSpace(portierConfig.RelayPath) == "" {
 		portierConfig.RelayPath = "/spider"
 	}
 
-	return config.SaveConfig(configFile, portierConfig)
+	return nil
 }
 
 func ensureConfigTLS(home string) error {

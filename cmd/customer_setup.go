@@ -169,6 +169,9 @@ func (o *customerSetupOptions) run(cmd *cobra.Command, _ []string) error {
 	if cfg.PTLSConfig.KeyFile == "" {
 		cfg.PTLSConfig.KeyFile = filepath.Join(o.HomeFolderPath, "key.pem")
 	}
+	if err := applyRegisteredBaseURL(cfg, o.APIURL); err != nil {
+		return err
+	}
 	if cfg.PTLSConfig.KnownHostsFile == "" {
 		cfg.PTLSConfig.KnownHostsFile = filepath.Join(o.HomeFolderPath, "known_hosts")
 	}
