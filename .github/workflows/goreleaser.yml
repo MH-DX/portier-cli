@@ -1,9 +1,7 @@
 name: goreleaser
 
 on:
-  push:
-    tags:
-      - '*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,6 +9,7 @@ permissions:
 
 jobs:
   goreleaser:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     env:
       DOCKER_CLI_EXPERIMENTAL: "enabled"
